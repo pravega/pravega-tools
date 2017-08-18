@@ -18,6 +18,7 @@ import java.io.InputStream;
  * Perform read from tier-1 log.
  */
 public interface LogReader extends CloseableIterator {
+
     ReadItem getNext();
 
     interface ReadItem {

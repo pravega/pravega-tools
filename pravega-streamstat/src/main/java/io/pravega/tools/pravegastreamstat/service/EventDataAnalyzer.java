@@ -121,6 +121,7 @@ public class EventDataAnalyzer {
                 if (read != length || length == 0) {
                     break;
                 }
+
                 bytesRead += read;
                 events++;
             }

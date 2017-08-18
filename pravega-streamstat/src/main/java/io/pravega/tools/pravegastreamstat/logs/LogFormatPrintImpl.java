@@ -78,8 +78,10 @@ public class LogFormatPrintImpl implements FormatPrinter {
 
                 LogMetadata logMetadata = containerToLogMetadataMap.get(segmentNameToContainerMap.get(segmentName));
                 OperationAnalyzer operationAnalyzer = new OperationAnalyzer(bkClient,
-                        segmentName, logMetadata,
-                        segmentNameToIdMap, this.conf);
+                        segmentName,
+                        logMetadata,
+                        segmentNameToIdMap,
+                        this.conf);
                 PrintHelper.println();
                 PrintHelper.printHead("Data for segment");
                 PrintHelper.print(String.format("%s%n%n", segmentName));

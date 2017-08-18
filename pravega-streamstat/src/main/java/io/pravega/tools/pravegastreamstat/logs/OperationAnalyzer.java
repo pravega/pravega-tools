@@ -54,7 +54,7 @@ public class OperationAnalyzer {
 
     private long totalBytesOfSegment;
     private int totalEventsOfSegment;
-    // txn segment id to event number map.
+    // Txn segment id to event number map.
     private Map<Long, Integer> transactionSegments;
     private long offsetStart;
     private long currentOffset;
@@ -167,21 +167,22 @@ public class OperationAnalyzer {
                 }
 
             }
+
             if (operation instanceof StreamSegmentMapOperation) {
                 if (segmentName.equals(((StreamSegmentMapOperation) operation).getStreamSegmentName())) {
                     segmentNameToIdMap.put(segmentName, operation.getStreamSegmentId());
                     operation.print();
                 }
+
             } else if (operation instanceof TransactionMapOperation) {
                 Long segmentId = segmentNameToIdMap.get(segmentName);
 
                 if (segmentId != null &&
-                        segmentId.equals(
-                                ((TransactionMapOperation) operation)
-                                        .getParentStreamSegmentId())) {
+                        segmentId.equals(((TransactionMapOperation) operation).getParentStreamSegmentId())) {
                     transactionSegments.put(operation.getStreamSegmentId(), 0);
                     operation.print();
                 }
+
             } else {
                 Long segmentId = segmentNameToIdMap.get(segmentName);
 
@@ -190,13 +191,15 @@ public class OperationAnalyzer {
                                 transactionSegments.keySet().contains(operation.getStreamSegmentId()))) {
                     operation.print();
                     processOperation(operation);
-
                 }
+
             }
+
         } else {
             operation.print();
             processOperation(operation);
         }
+
     }
 
     /**
@@ -218,8 +221,10 @@ public class OperationAnalyzer {
             PrintHelper.println();
 
             if (conf.isSimple()) {
-                updateStat(operation.getStreamSegmentOffset(), operation.getStreamSegmentId(),
-                        dataRecord.getLength(), dataRecord.getEvents());
+                updateStat(operation.getStreamSegmentOffset(),
+                        operation.getStreamSegmentId(),
+                        dataRecord.getLength(),
+                        dataRecord.getEvents());
             }
 
         }
@@ -229,8 +234,10 @@ public class OperationAnalyzer {
             int events = transactionSegments.get(transactionSegmentId);
 
             if (conf.isSimple()) {
-                updateStat(operation.getStreamSegmentOffset(), operation.getStreamSegmentId(),
-                        ((MergeTransactionOperation) operation).getLength(), events);
+                updateStat(operation.getStreamSegmentOffset(),
+                        operation.getStreamSegmentId(),
+                        ((MergeTransactionOperation) operation).getLength(),
+                        events);
             }
         }
     }
@@ -279,8 +286,7 @@ public class OperationAnalyzer {
 
         val segmentLength = MetadataCollector.getInstance().getSegmentLength();
         if (!dataContinuity ||
-                currentOffset <
-                        segmentLength.get(segmentName)) {
+                currentOffset < segmentLength.get(segmentName)) {
             PrintHelper.println();
             PrintHelper.println(PrintHelper.Color.RED, "Some log may have not been read, use long polling read to read explicit io.pravega.tools.pravegastreamstat.logs");
             PrintHelper.println();
@@ -293,6 +299,7 @@ public class OperationAnalyzer {
         if (!conf.isLog()) {
             PrintHelper.block();
         }
+
         printLogWithReader(reader);
         PrintHelper.unblock();
 
@@ -308,13 +315,7 @@ public class OperationAnalyzer {
         Stream<InputStream> ss = segments
                 .stream()
                 .map(ByteArraySegment::getReader);
-        return Operation.deserialize(
-                new SequenceInputStream(
-                        Iterators.asEnumeration(
-                                ss.iterator()
-                        )
-                )
-        );
+        return Operation.deserialize(new SequenceInputStream(Iterators.asEnumeration(ss.iterator())));
     }
 
     /**
