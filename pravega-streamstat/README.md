@@ -1,7 +1,27 @@
 # pravega-streamstat
-A Pravega Stream Status Tool
 
-## Usage
+A Pravega Stream Audit Tool
+
+## Pre requisites
+
+1. Java 8
+2. Runing pravega cluster
+
+## Publish Pravega jars to local Maven (optional)
+
+If you have downloaded a nightly build of Pravega, you may need to generate the latest Pravega jar files and publish them to your local Maven repository. For release builds of Pravega, the artifacts will already be in Maven Central and you won't need to run this step.
+
+Note: maven 2 needs to be installed and running on your machine
+
+In the root of Pravega (where Pravega's build.gradle file can be found), run:
+
+`
+$ ./gradlew install
+`
+
+The above command should generate the required jar files into your local maven repo.
+
+## Generate scripts for you to run the program with configurations.
 ```
 ./gradlew installDist
 ```
@@ -17,7 +37,7 @@ bin/StreamStat
 ```
 to run program.
 
-## Instructions
+## Options
 ```
 usage: StreamStat
  -a,--all        Display all of the container logs.
@@ -35,16 +55,36 @@ usage: StreamStat
  -s,--storage    Give the offset to start with.
  -t,--txn        Print information about all the transactions.
  ```
+ 
+ ## Features
 
+For pravega developers and pravega users:
 
-## Features
+Use this tool with a running pravega cluster to inspect the data inside pravega storage. It will display the stream segments and their data's length and offset range in tier-1 and tier-2 by default.
 
-This tool will display the stream segments and their data's length and offset range in tier-1 and tier-2 by default.
+#### Schematic
 
-The default stream is `examples/someStream`
-The two inputs are zookeeper url and hdfs url.
-You can edit the configure file in `conf/config.properties`
-Or copy the pravega cluster configure file to this location.
+The program will run three printers serially, 
+
+* `io.pravega.tools.pravegastreamstat.zookeeper.ZKFormatPrintImpl`
+* `io.pravega.tools.pravegastreamstat.logs.LogFormatPrintImpl`
+* `io.pravega.tools.pravegastreamstat.storage.StorageFormatPrint`
+
+Which will print the data stored in each part. And also use a `MetadataCollector` to collect the metadata stored in each part.
+
+#### Senarios
+
+* When an unxpected read happens, find out what's happening inside the pravega storage.
+* Find out the status of a transaction on a given stream. If it is still active or during the procedure of aborting.
+* Find out if a cluster is still healthy.
+* Inspect the log stored in tier-1, inspect what has happened to a segment.
+
+#### Instruction
+
+The default stream is `examples/someStream`.
+
+Put the pravega's segmentstore configuration file in `conf/config.properties`.
+
 
 | **Options** | **Feature**                                                 | 
 |-------------|-------------------------------------------------------------|
