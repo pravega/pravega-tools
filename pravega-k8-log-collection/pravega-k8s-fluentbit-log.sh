@@ -44,7 +44,7 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
         kubectl -n $namespace exec $podname -- bash -c "rm /tmp/$podname.tar.gz"
         # Untar the contents to provide a better structure of the resulting logs artifact.
         tar -xzvf $output_dir/$podname.tar.gz -C $output_dir
-        mv $output_dir/var/vcap/store/docker/docker/containers/ $output_dir/containers
+        mv $output_dir/var/vcap/store/docker/docker/containers/ $output_dir/$podname
         # Relate the name of the pods being logged with the actual log data.
         kubectl -n $namespace exec $podname -- ls /var/vcap/store/docker/docker/containers/ > $output_dir/container-lognames
         kubectl -n $namespace exec $podname -- ls /var/log/containers/ > $output_dir/pod-lognames
@@ -53,7 +53,7 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
                 log_pod_name=$(echo $podlog | awk -F_ '{print $1}')
                 log_container_name=$(echo $podlog | awk -F- '{print $NF}' |  awk -F. '{print $1}')
                 # This will help to easily locate the logs by pod name.
-                mv $output_dir/containers/$log_container_name  $output_dir/containers/$log_pod_name
+                mv $output_dir/$podname/$log_container_name  $output_dir/$podname/$log_pod_name
 
         done
         # Clean temporal files.
