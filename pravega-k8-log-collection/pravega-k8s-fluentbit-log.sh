@@ -27,11 +27,11 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
     # Collect logs from "Running" pods, if pods are not in "Running" state it will collect describe information.
     if [ "`echo $i | awk '{print $4}'`" == "Running" ]; then
     {
-        podname=$(echo $i |  awk '-F'[/] '{print $2}'| awk '{print $1}')
+        fluentbit_pod=$(echo $i |  awk '-F'[/] '{print $2}'| awk '{print $1}')
         namespace=$(echo $i | awk '{print $1}')
         # Create a tar.gz file with all the logs contained in the fluentbit pod.
         set +e
-        kubectl -n $namespace exec $podname -- bash -c "tar -czf /tmp/$podname.tar.gz /var/vcap/store/docker/docker/containers"
+        kubectl -n $namespace exec $fluentbit_pod -- bash -c "tar -czf /tmp/$fluentbit_pod.tar.gz /var/vcap/store/docker/docker/containers"
         exitcode=$?
         # Some logs may be being written during collection, which makes tar to exit with a non-zero code. Need to handle this case.
         if [ "$exitcode" != "1" ] && [ "$exitcode" != "0" ]; then
@@ -39,29 +39,29 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
         fi
         set -e
         # Download the compressed file from the fluentbit pod.
-        kubectl cp $namespace/$podname:/tmp/$podname.tar.gz $output_dir
+        kubectl cp $namespace/$fluentbit_pod:/tmp/$fluentbit_pod.tar.gz $output_dir
         # Remove temporal compressed file from fluentbit pod.
-        kubectl -n $namespace exec $podname -- bash -c "rm /tmp/$podname.tar.gz"
+        kubectl -n $namespace exec $fluentbit_pod -- bash -c "rm /tmp/$fluentbit_pod.tar.gz"
         # Untar the contents to provide a better structure of the resulting logs artifact.
-        tar -xzvf $output_dir/$podname.tar.gz -C $output_dir
-        mv $output_dir/var/vcap/store/docker/docker/containers/ $output_dir/$podname
+        tar -xzvf $output_dir/$fluentbit_pod.tar.gz -C $output_dir
+        mv $output_dir/var/vcap/store/docker/docker/containers/ $output_dir/$fluentbit_pod
         # Relate the name of the pods being logged with the actual log data.
-        kubectl -n $namespace exec $podname -- ls /var/vcap/store/docker/docker/containers/ > $output_dir/container-lognames
-        kubectl -n $namespace exec $podname -- ls /var/log/containers/ > $output_dir/pod-lognames
+        kubectl -n $namespace exec $fluentbit_pod -- ls /var/vcap/store/docker/docker/containers/ > $output_dir/container-lognames
+        kubectl -n $namespace exec $fluentbit_pod -- ls /var/log/containers/ > $output_dir/pod-lognames
         for podlog in $(cat $output_dir/pod-lognames)
         do
                 log_pod_name=$(echo $podlog | awk -F_ '{print $1}')
                 log_container_name=$(echo $podlog | awk -F- '{print $NF}' |  awk -F. '{print $1}')
                 # This will help to easily locate the logs by pod name.
-                mv $output_dir/$podname/$log_container_name  $output_dir/$podname/$log_pod_name
+                mv $output_dir/$fluentbit_pod/$log_container_name  $output_dir/$fluentbit_pod/$log_pod_name
 
         done
         # Clean temporal files.
-        rm -rf $output_dir/$podname.tar.gz
+        rm -rf $output_dir/$fluentbit_pod.tar.gz
         rm -rf $output_dir/var
     }
     else
-       echo $podname" is not in running state"
+       echo $fluentbit_pod" is not in running state"
     fi
 fi
 done
