@@ -29,6 +29,8 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
     {
         fluentbit_pod=$(echo $i |  awk '-F'[/] '{print $2}'| awk '{print $1}')
         namespace=$(echo $i | awk '{print $1}')
+        # Clean any pre-existing tar file in the fluentbit pod.
+        kubectl -n $namespace exec $fluentbit_pod -- bash -c "rm /tmp/$fluentbit_pod.tar.gz" || true
         # Create a tar.gz file with all the logs contained in the fluentbit pod.
         set +e
         kubectl -n $namespace exec $fluentbit_pod -- bash -c "tar -czf /tmp/$fluentbit_pod.tar.gz /var/vcap/store/docker/docker/containers"
@@ -45,6 +47,14 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
         # Untar the contents to provide a better structure of the resulting logs artifact.
         tar -xzvf $output_dir/$fluentbit_pod.tar.gz -C $output_dir
         mv $output_dir/var/vcap/store/docker/docker/containers/ $output_dir/$fluentbit_pod
+        # Delete useless files from downloaded fluentbit dirs (preserve only .log files and the directory structure).
+        for container_dir in $(find $output_dir/$fluentbit_pod -maxdepth 1 -mindepth 1 -type d)
+        do
+                echo $container_dir
+                mv $container_dir/*.log $container_dir/..
+                rm -rf $container_dir/*
+                mv $container_dir/../*.log $container_dir
+        done
         # Relate the name of the pods being logged with the actual log data.
         kubectl -n $namespace exec $fluentbit_pod -- ls /var/vcap/store/docker/docker/containers/ > $output_dir/container-lognames
         kubectl -n $namespace exec $fluentbit_pod -- ls /var/log/containers/ > $output_dir/pod-lognames
