@@ -62,8 +62,9 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
         do
                 log_pod_name=$(echo $podlog | awk -F_ '{print $1}')
                 log_container_name=$(echo $podlog | awk -F- '{print $NF}' |  awk -F. '{print $1}')
-                # This will help to easily locate the logs by pod name.
-                mv $output_dir/$fluentbit_pod/$log_container_name  $output_dir/$fluentbit_pod/$log_pod_name || true
+                # This will help to easily locate the logs by pod name, but also appended the container prefix (5 chars)
+                # to avoid overwriting logs from restarted pods.
+                mv $output_dir/$fluentbit_pod/$log_container_name  $output_dir/$fluentbit_pod/$log_pod_name'-'$(echo $log_container_name | awk '{print substr($0,0,5)}') || true
 
         done
         # Clean temporal files.
