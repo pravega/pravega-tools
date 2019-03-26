@@ -33,7 +33,7 @@ do
             # Create a tar.gz file with all the logs contained in the fluentbit pod.
             exitcode=0
             kubectl -n $namespace exec $fluentbit_pod -- bash -c "tar -czf /tmp/$fluentbit_pod.tar.gz /var/vcap/store/docker/docker/containers" || exitcode=$?
-            # Some logs may be being written during collection, which makes tar to exit with a non-zero code. Need to handle this case.
+            # Some logs may be being written during collection, which makes tar to exit with exit code 1. Need to handle this case.
             if [ "$exitcode" != "1" ] && [ "$exitcode" != "0" ]; then
                     exit $exitcode
             fi
