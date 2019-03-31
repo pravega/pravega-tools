@@ -9,6 +9,9 @@
 
 
 class Constants(object):
+    """
+    Constant values and assumptions for the Pravega cluster provisioning model.
+    """
     # Minimum Pravega Cluster deployment to preserve data durability (3-way replication). Nothing less than this should
     # be considered for non-testing deployments.
     min_zookeeper_servers = 3
@@ -29,5 +32,3 @@ class Constants(object):
     # Number of segment containers and buckets per Segment Store and Controller, respectively.
     segment_containers_per_segment_store = 8
     stream_buckets_per_controller = 4
-
-

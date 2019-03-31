@@ -12,6 +12,11 @@ from performance.performance_profiles import BareMetalCluster
 
 
 def get_bool_input(msg):
+    """
+    Gets a user input from the console, ensuring that it is either 'yes' or 'no'.
+    :param msg: Message to be prompted to the user.
+    :return: Valid user input.
+    """
     user_input = raw_input(msg + " (yes, no)")
     while user_input != "yes" and user_input != "no":
         user_input = raw_input(msg + " (yes, no)")
@@ -19,6 +24,12 @@ def get_bool_input(msg):
 
 
 def get_int_input(msg, valid_values):
+    """
+    Gets an integer user input from the console that should be contained in the list of valid values.
+    :param msg: Message to be prompted to the user.
+    :param valid_values: List of integer values, one of which is expected to be introduced by the user.
+    :return: Valid integer value introduced by the user.
+    """
     user_input = int(input(msg + "(valid values: " + str(valid_values) + ")"))
     while user_input not in valid_values:
         user_input = int(input(msg + "(valid values: " + str(valid_values) + ")"))
@@ -26,6 +37,10 @@ def get_int_input(msg, valid_values):
 
 
 def get_vm_flavor():
+    """
+    Asks the user for the resources that each VM in the cluster will have.
+    :return: Amount of CPU cores and GBs of RAM per VM.
+    """
     print "Please, introduce the resource information about the VMs used int cluster:"
     vm_cpus = int(input("How many CPU cores has each VM/node?"))
     vm_ram_gb = int(input("How much memory in GB has each VM/node?"))
@@ -33,6 +48,11 @@ def get_vm_flavor():
 
 
 def provision_for_availability():
+    """
+    Gets the number of instances in the cluster for all services to tolerate the number of failures introduced by the
+    user.
+    :return: Number of Zookeeper, Bookkeeper, Segment Store and Controller instances to tolerate the specified failures.
+    """
     failures_to_tolerate = int(input("How many instance/VM failures do you want the cluster to tolerate?"))
     zk_servers = calc_zk_servers_for_availability(failures_to_tolerate)
     bk_servers = calc_bookies_for_availability(failures_to_tolerate)
@@ -42,6 +62,15 @@ def provision_for_availability():
 
 
 def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
+    """
+    Calculates the total amount of CPU and RAM resources based on the number of instances of each type passed by
+    parameter.
+    :param zk_servers: Number of Zookeeper instances.
+    :param bk_servers: Number of Bookkeeper instances.
+    :param ss_servers: Number of Segment Stores.
+    :param cc_servers: Number of Controllers.
+    :return: Amount of CPU cores and RAM in GB required to allocate all the instances passed as input.
+    """
     requested_ram_gb = calc_requested_pravega_ram_gb(zk_servers, bk_servers, ss_servers, cc_servers)
     print "Requested RAM GB: ", requested_ram_gb
     requested_cpus = calc_requested_pravega_cpus(zk_servers, bk_servers, ss_servers, cc_servers)
@@ -52,6 +81,7 @@ def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
 def main():
     print "### Provisioning model for Pravega clusters ###"
 
+    # This sets the performance numbers of the Pravega services on a specific environment (e.g., bare metal, PKS).
     performance_profile = BareMetalCluster()
 
     # First, get the type of VMs/nodes that will be used in the cluster.
