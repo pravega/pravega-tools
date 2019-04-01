@@ -7,8 +7,9 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands;
+package io.pravega.tools.pravegacli.commands.bookkeeper;
 
+import io.pravega.tools.pravegacli.commands.CommandArgs;
 import lombok.Cleanup;
 import lombok.val;
 
@@ -21,7 +22,7 @@ public class BookKeeperEnableCommand extends BookKeeperCommand {
      * Creates a new instance of the BookKeeperEnableCommand class.
      * @param args The arguments for the command.
      */
-    BookKeeperEnableCommand(CommandArgs args) {
+    public BookKeeperEnableCommand(CommandArgs args) {
         super(args);
     }
 
@@ -64,7 +65,7 @@ public class BookKeeperEnableCommand extends BookKeeperCommand {
         outputLogSummary(logId, m2);
     }
 
-    static CommandDescriptor descriptor() {
+    public static CommandDescriptor descriptor() {
         return new CommandDescriptor(BookKeeperCommand.COMPONENT, "enable",
                 "Enables a BookKeeperLog by updating its metadata in ZooKeeper (with the Enabled flag set to 'true').",
                 new ArgDescriptor("log-id", "Id of the log to enable."));

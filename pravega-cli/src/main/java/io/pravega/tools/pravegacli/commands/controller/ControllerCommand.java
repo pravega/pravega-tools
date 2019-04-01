@@ -1,22 +1,25 @@
-package io.pravega.tools.pravegacli.commands;
+/**
+ * Copyright (c) 2017 Dell Inc., or its subsidiaries. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ */
 
-import io.pravega.common.Exceptions;
+package io.pravega.tools.pravegacli.commands.controller;
+
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
-import io.pravega.segmentstore.server.store.ServiceConfig;
-import io.pravega.segmentstore.storage.DurableDataLogException;
-import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
-import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
+import io.pravega.tools.pravegacli.commands.Command;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
-import javax.ws.rs.client.WebTarget;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import org.apache.bookkeeper.client.BKException;
-import org.apache.bookkeeper.client.BookKeeperAdmin;
-import org.apache.curator.framework.CuratorFramework;
 
 public abstract class ControllerCommand extends Command {
+    static final String COMPONENT = "controller";
 
     /**
      * Creates a new instance of the Command class.
@@ -32,17 +35,14 @@ public abstract class ControllerCommand extends Command {
         clientConfig.register(JacksonJsonProvider.class);
         clientConfig.property("sun.net.http.allowRestrictedHeaders", "true");
         Client client = ClientBuilder.newClient(clientConfig);
-
-        return new Context(client, null);
+        return new Context(client);
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
     protected static class Context implements AutoCloseable {
-        private final Client client;
-        private final WebTarget webTarget;
+        final Client client;
 
         @Override
-        @SneakyThrows(BKException.class)
         public void close() {
             this.client.close();
         }

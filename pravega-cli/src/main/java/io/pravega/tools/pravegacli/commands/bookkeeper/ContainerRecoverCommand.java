@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands.container;
+package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import com.google.common.base.Strings;
 import io.pravega.common.Exceptions;
@@ -33,7 +33,7 @@ public class ContainerRecoverCommand extends ContainerCommand {
      *
      * @param args The arguments for the command.
      */
-    ContainerRecoverCommand(CommandArgs args) {
+    public ContainerRecoverCommand(CommandArgs args) {
         super(args);
     }
 
@@ -110,7 +110,7 @@ public class ContainerRecoverCommand extends ContainerCommand {
         }
     }
 
-    static CommandDescriptor descriptor() {
+    public static CommandDescriptor descriptor() {
         return new CommandDescriptor(COMPONENT, "recover",
                 "Executes a local, non-invasive recovery for a SegmentContainer.",
                 new ArgDescriptor("container-id", "Id of the SegmentContainer to recover."));

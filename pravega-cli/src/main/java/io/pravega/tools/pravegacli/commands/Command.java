@@ -13,6 +13,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import io.pravega.common.Exceptions;
 import io.pravega.segmentstore.server.store.ServiceConfig;
+import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCleanupCommand;
+import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDetailsCommand;
+import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDisableCommand;
+import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperEnableCommand;
+import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperListCommand;
+import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
+import io.pravega.tools.pravegacli.commands.bookkeeper.ContainerRecoverCommand;
+import io.pravega.tools.pravegacli.commands.config.ConfigSetCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeScopeCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,7 +64,7 @@ public abstract class Command {
      *
      * @param args The arguments for the command.
      */
-    Command(CommandArgs args) {
+    public Command(CommandArgs args) {
         this.commandArgs = Preconditions.checkNotNull(args, "commandArgs");
     }
 
@@ -142,7 +153,7 @@ public abstract class Command {
     /**
      * Describes an argument.
      */
-    @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
+    @RequiredArgsConstructor
     @Getter
     public static class ArgDescriptor {
         private final String name;
@@ -158,7 +169,7 @@ public abstract class Command {
         private final String name;
         private final String description;
         private final ArgDescriptor[] args;
-        CommandDescriptor(String component, String name, String description, ArgDescriptor... args) {
+        public CommandDescriptor(String component, String name, String description, ArgDescriptor... args) {
             this.component = Exceptions.checkNotNullOrEmpty(component, "component");
             this.name = Exceptions.checkNotNullOrEmpty(name, "name");
             this.description = Exceptions.checkNotNullOrEmpty(description, "description");
@@ -184,6 +195,9 @@ public abstract class Command {
                         .put(BookKeeperEnableCommand::descriptor, BookKeeperEnableCommand::new)
                         .put(BookKeeperDisableCommand::descriptor, BookKeeperDisableCommand::new)
                         .put(ContainerRecoverCommand::descriptor, ContainerRecoverCommand::new)
+                        .put(ControllerListScopesCommand::descriptor, ControllerListScopesCommand::new)
+                        .put(ControllerDescribeScopeCommand::descriptor, ControllerDescribeScopeCommand::new)
+                        .put(ControllerListStreamsInScopeCommand::descriptor, ControllerListStreamsInScopeCommand::new)
                         .build());
 
         /**

@@ -7,11 +7,12 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands;
+package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import io.pravega.common.util.RetriesExhaustedException;
 import io.pravega.common.util.Retry;
 import io.pravega.segmentstore.storage.DataLogWriterNotPrimaryException;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Cleanup;
 import lombok.val;
@@ -30,7 +31,7 @@ public class BookKeeperDisableCommand extends BookKeeperCommand {
      *
      * @param args The arguments for the command.
      */
-    BookKeeperDisableCommand(CommandArgs args) {
+    public BookKeeperDisableCommand(CommandArgs args) {
         super(args);
     }
 
@@ -86,7 +87,7 @@ public class BookKeeperDisableCommand extends BookKeeperCommand {
         outputLogSummary(logId, m2);
     }
 
-    static CommandDescriptor descriptor() {
+    public static CommandDescriptor descriptor() {
         return new CommandDescriptor(BookKeeperCommand.COMPONENT, "disable",
                 "Disables a BookKeeperLog by open-fencing it and updating its metadata in ZooKeeper (with the Enabled flag set to 'false').",
                 new ArgDescriptor("log-id", "Id of the log to disable."));

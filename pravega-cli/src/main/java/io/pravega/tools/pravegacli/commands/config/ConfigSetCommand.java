@@ -7,22 +7,24 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands;
+package io.pravega.tools.pravegacli.commands.config;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import io.pravega.tools.pravegacli.commands.Command;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
 import java.util.Properties;
 
 /**
  * Updates the shared AdminCommandState with new config values.
  */
-class ConfigSetCommand extends Command {
+public class ConfigSetCommand extends Command {
     /**
      * Creates a new instance of the ConfigSetCommand class.
      *
      * @param args The arguments for the command.
      */
-    ConfigSetCommand(CommandArgs args) {
+    public ConfigSetCommand(CommandArgs args) {
         super(args);
     }
 
@@ -41,7 +43,7 @@ class ConfigSetCommand extends Command {
         getCommandArgs().getState().getConfigBuilder().include(newValues);
     }
 
-    static CommandDescriptor descriptor() {
+    public static CommandDescriptor descriptor() {
         return new CommandDescriptor(ConfigCommand.COMPONENT, "set",
                 "Sets one or more config values for use during this session.",
                 new ArgDescriptor("name=value list", "Space-separated name=value pairs."));

@@ -7,9 +7,10 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands;
+package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import io.pravega.segmentstore.storage.impl.bookkeeper.LedgerMetadata;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
 import java.util.stream.Collectors;
 import lombok.Cleanup;
 import lombok.val;
@@ -25,7 +26,7 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
      *
      * @param args The arguments for the command.
      */
-    BookKeeperDetailsCommand(CommandArgs args) {
+    public BookKeeperDetailsCommand(CommandArgs args) {
         super(args);
     }
 
@@ -76,7 +77,7 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
                    .collect(Collectors.joining(","));
     }
 
-    static CommandDescriptor descriptor() {
+    public static CommandDescriptor descriptor() {
         return new CommandDescriptor(BookKeeperCommand.COMPONENT, "details",
                 "Lists metadata details about a BookKeeperLog, including BK Ledger information.",
                 new ArgDescriptor("log-id", "Id of the log to get details for."));

@@ -7,9 +7,11 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands;
+package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import io.pravega.segmentstore.storage.impl.bookkeeper.DebugLogWrapper;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCommand;
 import lombok.Cleanup;
 import lombok.val;
 
@@ -21,7 +23,7 @@ public class BookKeeperListCommand extends BookKeeperCommand {
      * Creates a new instance of the BookKeeperListCommand.
      * @param args The arguments for the command.
      */
-    BookKeeperListCommand(CommandArgs args) {
+    public BookKeeperListCommand(CommandArgs args) {
         super(args);
     }
 
@@ -40,7 +42,7 @@ public class BookKeeperListCommand extends BookKeeperCommand {
         }
     }
 
-    static CommandDescriptor descriptor() {
+    public static CommandDescriptor descriptor() {
         return new CommandDescriptor(BookKeeperCommand.COMPONENT, "list", "Lists all BookKeeper Logs.");
     }
 }

@@ -15,7 +15,7 @@ import com.google.common.base.Strings;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.ConfigListCommand;
+import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;

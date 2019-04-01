@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands.container;
+package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import io.pravega.segmentstore.server.containers.ContainerConfig;
 import io.pravega.segmentstore.server.store.ServiceConfig;
@@ -15,7 +15,6 @@ import io.pravega.segmentstore.storage.DurableDataLogException;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCommand;
 import lombok.val;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.curator.framework.CuratorFramework;

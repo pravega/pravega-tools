@@ -7,10 +7,12 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands;
+package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import io.pravega.common.Exceptions;
 import io.pravega.segmentstore.storage.impl.bookkeeper.DebugLogWrapper;
+import io.pravega.tools.pravegacli.commands.Command;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -30,7 +32,7 @@ public class BookKeeperCleanupCommand extends BookKeeperCommand {
      *
      * @param args The arguments for the command.
      */
-    BookKeeperCleanupCommand(CommandArgs args) {
+    public BookKeeperCleanupCommand(CommandArgs args) {
         super(args);
     }
 
@@ -144,8 +146,8 @@ public class BookKeeperCleanupCommand extends BookKeeperCommand {
         }
     }
 
-    static CommandDescriptor descriptor() {
-        return new CommandDescriptor(BookKeeperCommand.COMPONENT,
+    public static Command.CommandDescriptor descriptor() {
+        return new Command.CommandDescriptor(BookKeeperCommand.COMPONENT,
                 "cleanup",
                 "Removes orphan BookKeeper Ledgers that are not used by any BookKeeperLog.");
     }

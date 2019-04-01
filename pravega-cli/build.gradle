@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2017 Dell Inc., or its subsidiaries. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ */
+
+apply plugin: 'java'
+apply plugin: 'distribution'
+apply plugin: 'idea'
+
+sourceCompatibility = 1.8
+archivesBaseName = 'pravega-cli'
+
+repositories {
+    jcenter()
+    mavenCentral()
+    mavenLocal()
+    maven {
+        url 'https://oss.jfrog.org/artifactory/jfrog-dependencies'
+    }
+}
+
+def withoutLogger = { exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+    exclude group: 'org.slf4j', module: 'slf4j-simple' }
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile group: 'org.projectlombok', name: 'lombok', version: lombokVersion
+    compile group: 'org.apache.bookkeeper', name: 'bookkeeper-common', version: bookKeeperVersion
+    testCompile group: 'org.apache.bookkeeper', name: 'bookkeeper-server', version: bookKeeperVersion, classifier: 'tests'
+    testCompile group: 'org.apache.zookeeper', name: 'zookeeper', version: zookeeperVersion, classifier: 'tests'
+    compile group: 'org.apache.curator', name: 'curator-framework', version: apacheCuratorVersion
+    compile group: 'io.pravega', name: 'pravega-client', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-common', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-controller', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-segmentstore-server', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-segmentstore-storage', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-segmentstore-storage-impl', version: pravegaVersion
+}
+
+tasks
+
+task startPravegaCLI(type: JavaExec){
+    main = "io.pravega.tools.pravegacli.AdminRunner"
+    classpath = sourceSets.main.runtimeClasspath
+}
+
+task scriptPravegaCLI(type: CreateStartScripts) {
+    outputDir = file('build/scripts')
+    mainClassName = 'io.pravega.tools.pravegacli.AdminRunner'
+    applicationName = 'pravega-cli'
+    defaultJvmOpts = ["-Dlogback.configurationFile=file:conf/logback.xml",
+                      "-Dpravega.configurationFile=file:conf/config.properties"]
+    classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
+}
+
+distributions {
+    main {
+        baseName = archivesBaseName
+        contents {
+            into('bin') {
+                from project.scriptPravegaCLI
+            }
+            into('lib') {
+                from(jar)
+                from(project.configurations.runtime)
+            }
+            into('conf') {
+                from(project.file('src/main/resources/logback.xml'))
+                from(project.file('src/main/resources/config.properties'))
+            }
+        }
+    }
+}
+

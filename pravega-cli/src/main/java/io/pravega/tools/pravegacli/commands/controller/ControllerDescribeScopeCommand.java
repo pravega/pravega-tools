@@ -9,13 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.controller;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
-import io.pravega.client.admin.StreamManager;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import java.net.URI;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
@@ -24,28 +18,28 @@ import lombok.val;
 
 import static javax.ws.rs.core.Response.Status.OK;
 
-public class ControllerListScopesCommand extends ControllerCommand {
+public class ControllerDescribeScopeCommand extends ControllerCommand {
 
     /**
      * Creates a new instance of the Command class.
      *
      * @param args The arguments for the command.
      */
-    public ControllerListScopesCommand(CommandArgs args) {
+    public ControllerDescribeScopeCommand(CommandArgs args) {
         super(args);
     }
 
     @Override
     public void execute() throws Exception {
-        ensureArgCount(0);
+        ensureArgCount(1);
 
-        // Execute listScopes REST API call.
+        // Describe a the selected scope via REST API.
         @Cleanup
         val context = createContext();
         Invocation.Builder builder;
         Response response;
         String controllerURI = "http://localhost:9091";
-        String resourceURl = controllerURI + "/v1/scopes";
+        String resourceURl = controllerURI + "/v1/scopes/" + getCommandArgs().getArgs().get(0);
         WebTarget webTarget = context.client.target(resourceURl);
         builder = webTarget.request();
         response = builder.get();
@@ -55,6 +49,7 @@ public class ControllerListScopesCommand extends ControllerCommand {
     }
 
     public static CommandDescriptor descriptor() {
-        return new CommandDescriptor(COMPONENT, "listScopes", "Lists all the existing scopes in the system.");
+        return new CommandDescriptor(COMPONENT, "describe-scope", "Get the details of a given Scope.",
+                new ArgDescriptor("scope-name", "Name of the Scope to get details for."));
     }
 }
