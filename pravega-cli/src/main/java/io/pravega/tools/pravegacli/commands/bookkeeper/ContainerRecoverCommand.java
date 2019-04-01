@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands;
+package io.pravega.tools.pravegacli.commands.container;
 
 import com.google.common.base.Strings;
 import io.pravega.common.Exceptions;
@@ -18,6 +18,7 @@ import io.pravega.segmentstore.server.logs.DebugRecoveryProcessor;
 import io.pravega.segmentstore.server.logs.operations.Operation;
 import io.pravega.segmentstore.server.reading.ReadIndexConfig;
 import io.pravega.segmentstore.storage.DurableDataLog;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
 import java.util.Collection;
 import java.util.List;
 import lombok.Cleanup;

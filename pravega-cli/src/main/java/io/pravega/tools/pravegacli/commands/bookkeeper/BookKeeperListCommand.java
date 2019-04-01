@@ -16,7 +16,7 @@ import lombok.val;
 /**
  * Lists all BookKeeper Logs.
  */
-class BookKeeperListCommand extends BookKeeperCommand {
+public class BookKeeperListCommand extends BookKeeperCommand {
     /**
      * Creates a new instance of the BookKeeperListCommand.
      * @param args The arguments for the command.
