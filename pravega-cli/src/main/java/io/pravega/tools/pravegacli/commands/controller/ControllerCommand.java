@@ -41,7 +41,7 @@ public abstract class ControllerCommand extends Command {
         return new Context(client);
     }
 
-    protected Response executeRESTCall(Context context, String requestURI) {
+    Response executeRESTCall(Context context, String requestURI) {
         Invocation.Builder builder;
         String controllerURI = "http://localhost:9091"; // FIXME: Chnge this by a param in config.
         String resourceURl = controllerURI + requestURI;

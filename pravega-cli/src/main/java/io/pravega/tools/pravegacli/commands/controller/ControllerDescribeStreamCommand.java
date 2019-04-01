@@ -70,24 +70,23 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
 
         // Output the active epoch for this Stream.
         output("Segments in active epoch: ");
-        epochRecord.getSegments().forEach(s -> output(s.toString()));
+        epochRecord.getSegments().forEach(s -> output("> " + s.toString()));
 
         // Output the number of active Transactions for ths Stream.
         output("Active Transactions in Stream: ");
         Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null, ForkJoinPool.commonPool()).join();
-        activeTxn.forEach((txnId, txnRecord) -> output("TxnId: " + txnId + ", TxnRecord: " + txnRecord.toString()));
+        activeTxn.forEach((txnId, txnRecord) -> output("> TxnId: " + txnId + ", TxnRecord: " + txnRecord.toString()));
 
         // Output Truncation point.
-        output("Stream truncation record: ");
         VersionedMetadata<StreamTruncationRecord> truncationRecord = store.getTruncationRecord(scope, stream, null, ForkJoinPool.commonPool()).join();
-        output("Truncation record lower epoch: " + truncationRecord.getObject().getSpanEpochLow() +
+        output("Stream truncation record: lower epoch: " + truncationRecord.getObject().getSpanEpochLow() +
                 ", high epoch: " + truncationRecord.getObject().getSpanEpochHigh() + ", deleted segments: " +
                 truncationRecord.getObject().getDeletedSegments().size() + ", StreamCut: " + truncationRecord.getObject().getStreamCut().toString());
 
         // Output the metadata that describes all the scaling information for this Stream.
         List<ScaleMetadata> scaleMetadata = store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
                 segments.stream().max(Long::compareTo).get(), null, ForkJoinPool.commonPool()).join();
-        scaleMetadata.forEach(s -> output("Scale time: " + s.getTimestamp() + ", splits: " + s.getSplits() +
+        scaleMetadata.forEach(s -> output("> Scale time: " + s.getTimestamp() + ", splits: " + s.getSplits() +
                 ", merges: " + s.getMerges() + ", segments: " + s.getSegments().stream()
                                                                        .map(segment -> String.valueOf(segment.getNumber()))
                                                                        .collect(Collectors.joining("-", "{", "}"))));

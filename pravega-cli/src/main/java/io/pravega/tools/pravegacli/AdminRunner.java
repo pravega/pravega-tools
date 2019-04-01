@@ -16,10 +16,13 @@ import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Properties;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 import lombok.Cleanup;
@@ -56,6 +59,7 @@ public final class AdminRunner {
         System.out.println("Pravega Admin Tools.\n");
         @Cleanup
         AdminCommandState state = new AdminCommandState();
+        loadPropertiesFromFile(state);
 
         // Output loaded config.
         System.out.println("Initial configuration:");
@@ -86,6 +90,17 @@ public final class AdminRunner {
                     break;
             }
         }
+    }
+
+    private static void loadPropertiesFromFile(AdminCommandState state) {
+        Properties pravegaProperties = new Properties();
+        try (InputStream input = new FileInputStream(System.getProperty("pravega.configurationFile"))) {
+            pravegaProperties.load(input);
+        } catch (Exception e) {
+            System.err.println("Exception reading input properties file: " + e.getMessage());
+            pravegaProperties.clear();
+        }
+        state.getConfigBuilder().include(pravegaProperties);
     }
 
     private static void execCommand(Parser.Command pc, AdminCommandState state) {
