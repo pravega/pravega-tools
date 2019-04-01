@@ -21,7 +21,9 @@ import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperListCommand;
 import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.ContainerRecoverCommand;
 import io.pravega.tools.pravegacli.commands.config.ConfigSetCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeReaderGroupCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeScopeCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroupsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import java.io.PrintStream;
@@ -198,6 +200,8 @@ public abstract class Command {
                         .put(ControllerListScopesCommand::descriptor, ControllerListScopesCommand::new)
                         .put(ControllerDescribeScopeCommand::descriptor, ControllerDescribeScopeCommand::new)
                         .put(ControllerListStreamsInScopeCommand::descriptor, ControllerListStreamsInScopeCommand::new)
+                        .put(ControllerListReaderGroupsInScopeCommand::descriptor, ControllerListReaderGroupsInScopeCommand::new)
+                        .put(ControllerDescribeReaderGroupCommand::descriptor, ControllerDescribeReaderGroupCommand::new)
                         .build());
 
         /**

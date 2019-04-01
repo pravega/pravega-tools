@@ -10,8 +10,6 @@
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import javax.ws.rs.client.Invocation;
-import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import lombok.Cleanup;
 import lombok.val;
@@ -32,20 +30,13 @@ public class ControllerListStreamsInScopeCommand extends ControllerCommand {
     @Override
     public void execute() throws Exception {
         ensureArgCount(1);
-
         // Execute listScopes REST API call.
         @Cleanup
         val context = createContext();
-        Invocation.Builder builder;
-        Response response;
-        String controllerURI = "http://localhost:9091";
-        String resourceURl = controllerURI + "/v1/scopes/" + getCommandArgs().getArgs().get(0) + "/streams";
-        WebTarget webTarget = context.client.target(resourceURl);
-        builder = webTarget.request();
-        response = builder.get();
+        Response response = executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0) + "/streams");
         assert OK.getStatusCode() == response.getStatus();
         // Print the response sent by the Controller.
-        System.out.println(response.readEntity(String.class));
+        output(response.readEntity(String.class));
     }
 
     public static CommandDescriptor descriptor() {

@@ -16,30 +16,33 @@ import lombok.val;
 
 import static javax.ws.rs.core.Response.Status.OK;
 
-public class ControllerListScopesCommand extends ControllerCommand {
+public class ControllerDescribeReaderGroupCommand extends ControllerCommand {
 
     /**
      * Creates a new instance of the Command class.
      *
      * @param args The arguments for the command.
      */
-    public ControllerListScopesCommand(CommandArgs args) {
+    public ControllerDescribeReaderGroupCommand(CommandArgs args) {
         super(args);
     }
 
     @Override
     public void execute() throws Exception {
-        ensureArgCount(0);
-        // Execute listScopes REST API call.
+        ensureArgCount(2);
+        // Describe a the selected scope via REST API.
         @Cleanup
         val context = createContext();
-        Response response = executeRESTCall(context, "/v1/scopes/");
+        Response response = executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0) +
+                "/readergroups/" + getCommandArgs().getArgs().get(1));
         assert OK.getStatusCode() == response.getStatus();
         // Print the response sent by the Controller.
         output(response.readEntity(String.class));
     }
 
     public static CommandDescriptor descriptor() {
-        return new CommandDescriptor(COMPONENT, "list-scopes", "Lists all the existing scopes in the system.");
+        return new CommandDescriptor(COMPONENT, "describe-readergroup", "Get the details of a given ReaderGroup in a Scope.",
+                new ArgDescriptor("scope-name", "Name of the Scope where the ReaderGroup is stored."),
+                new ArgDescriptor("readergroup-id", "Id of the ReaderGroup to describe."));
     }
 }

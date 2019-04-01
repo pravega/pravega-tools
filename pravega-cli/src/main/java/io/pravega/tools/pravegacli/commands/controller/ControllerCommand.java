@@ -15,6 +15,9 @@ import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Invocation;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.Response;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +39,15 @@ public abstract class ControllerCommand extends Command {
         clientConfig.property("sun.net.http.allowRestrictedHeaders", "true");
         Client client = ClientBuilder.newClient(clientConfig);
         return new Context(client);
+    }
+
+    protected Response executeRESTCall(Context context, String requestURI) {
+        Invocation.Builder builder;
+        String controllerURI = "http://localhost:9091"; // FIXME: Chnge this by a param in config.
+        String resourceURl = controllerURI + requestURI;
+        WebTarget webTarget = context.client.target(resourceURl);
+        builder = webTarget.request();
+        return builder.get();
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
