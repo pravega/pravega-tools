@@ -23,9 +23,11 @@ import io.pravega.tools.pravegacli.commands.bookkeeper.ContainerRecoverCommand;
 import io.pravega.tools.pravegacli.commands.config.ConfigSetCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeReaderGroupCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeScopeCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeStreamCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroupsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
+import io.pravega.tools.pravegacli.commands.pravegaservice.GetClusterNodesCommand;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -202,6 +204,8 @@ public abstract class Command {
                         .put(ControllerListStreamsInScopeCommand::descriptor, ControllerListStreamsInScopeCommand::new)
                         .put(ControllerListReaderGroupsInScopeCommand::descriptor, ControllerListReaderGroupsInScopeCommand::new)
                         .put(ControllerDescribeReaderGroupCommand::descriptor, ControllerDescribeReaderGroupCommand::new)
+                        .put(ControllerDescribeStreamCommand::descriptor, ControllerDescribeStreamCommand::new)
+                        .put(GetClusterNodesCommand::descriptor, GetClusterNodesCommand::new)
                         .build());
 
         /**

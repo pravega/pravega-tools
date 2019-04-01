@@ -41,6 +41,7 @@ dependencies {
     compile group: 'io.pravega', name: 'pravega-segmentstore-server', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage-impl', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-shared', version: pravegaVersion
 }
 
 tasks
