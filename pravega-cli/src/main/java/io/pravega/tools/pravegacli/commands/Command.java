@@ -27,7 +27,7 @@ import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeStreamC
 import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroupsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
-import io.pravega.tools.pravegacli.commands.pravegaservice.GetClusterNodesCommand;
+import io.pravega.tools.pravegacli.commands.cluster.GetClusterNodesCommand;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
