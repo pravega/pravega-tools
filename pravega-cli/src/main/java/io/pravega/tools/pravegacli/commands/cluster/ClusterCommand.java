@@ -13,7 +13,6 @@ import io.pravega.controller.store.stream.ZKStoreHelper;
 import io.pravega.segmentstore.storage.DurableDataLogException;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import java.util.concurrent.ForkJoinPool;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.apache.curator.framework.CuratorFramework;
@@ -34,7 +33,7 @@ abstract class ClusterCommand extends Command {
      */
     protected Context createContext() {
         CuratorFramework curatorFramework = createZKClient();
-        ZKStoreHelper zkStoreHelper = new ZKStoreHelper(curatorFramework, ForkJoinPool.commonPool());
+        ZKStoreHelper zkStoreHelper = new ZKStoreHelper(curatorFramework, getCommandArgs().getState().getExecutor());
         return new Context(curatorFramework, zkStoreHelper);
     }
 
