@@ -42,6 +42,10 @@ dependencies {
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage-impl', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-shared', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-test-integration', version: pravegaVersion
+    compile group: 'io.netty', name: 'netty-transport', version: nettyVersion
+    compile group: 'io.netty', name: 'netty-handler', version: nettyVersion
+    compile group: 'io.netty', name: 'netty-transport-native-epoll', version: nettyVersion
 }
 
 tasks

@@ -28,7 +28,7 @@ public class ControllerListScopesCommand extends ControllerCommand {
     }
 
     @Override
-    public void execute() throws Exception {
+    public void execute() {
         ensureArgCount(0);
         // Execute listScopes REST API call.
         @Cleanup

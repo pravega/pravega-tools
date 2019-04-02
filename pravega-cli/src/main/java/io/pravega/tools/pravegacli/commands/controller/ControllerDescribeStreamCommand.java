@@ -54,7 +54,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         output("Stream configuration: " + streamConfig.join().toString());
 
         // Output the creation time for this Stream.
-        output("Stream creation time: " + store.getCreationTime(scope, stream, null, executor).join());
+        //output("Stream creation time: " + store.getCreationTime(scope, stream, null, executor).join());
 
         output("Stream state: " + store.getState(scope, stream, true, null,
                 executor).join().toString());
