@@ -92,11 +92,13 @@ def main():
     bookkeeper_servers = Constants.min_bookkeeper_servers
     segment_stores = Constants.min_segment_stores
     controllers = Constants.min_controllers
+    vms = 0
 
     # Provision for data availability.
     if get_bool_input("Do you want to provision redundant instances to tolerate failures?"):
         # Calculate the number of instances of each type to tolerate the given number of failures.
         zookeeper_servers, bookkeeper_servers, segment_stores, controllers = provision_for_availability()
+        vms = calc_min_vms_for_availability(zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
 
     # Provision Pravega data plane for workload (Bookkeeper, Segment Store).
     if get_bool_input("Do you want to right-size the Pravega 'data plane' based on the workload?"):
@@ -141,8 +143,7 @@ def main():
     # Estimate the amount of resources required to allocate all the service instances.
     requested_cpus, requested_ram_gb = get_requested_resources(zookeeper_servers, bookkeeper_servers, segment_stores,
                                                                controllers)
-    vms = max(calc_min_vms_for_availability(zookeeper_servers, bookkeeper_servers, segment_stores, controllers),
-              calc_min_vms_for_resources(vm_ram_gb, vm_cpus, requested_ram_gb, requested_cpus))
+    vms = max(vms, calc_min_vms_for_resources(vm_ram_gb, vm_cpus, requested_ram_gb, requested_cpus))
 
     # Output the cluster estimation result.
     print "--------- Cluster Provisioning ---------"
