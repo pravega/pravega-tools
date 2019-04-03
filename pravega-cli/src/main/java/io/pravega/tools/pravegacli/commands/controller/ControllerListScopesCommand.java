@@ -10,11 +10,8 @@
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import javax.ws.rs.core.Response;
 import lombok.Cleanup;
 import lombok.val;
-
-import static javax.ws.rs.core.Response.Status.OK;
 
 /**
  * Gets all the Scopes from the system.
@@ -35,10 +32,7 @@ public class ControllerListScopesCommand extends ControllerCommand {
         ensureArgCount(0);
         @Cleanup
         val context = createContext();
-        Response response = executeRESTCall(context, "/v1/scopes/");
-        assert OK.getStatusCode() == response.getStatus();
-        // Print the response sent by the Controller.
-        output(response.readEntity(String.class));
+        output(executeRESTCall(context, "/v1/scopes/"));
     }
 
     public static CommandDescriptor descriptor() {

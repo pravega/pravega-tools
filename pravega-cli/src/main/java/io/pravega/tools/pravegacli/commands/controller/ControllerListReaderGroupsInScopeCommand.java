@@ -10,11 +10,8 @@
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import javax.ws.rs.core.Response;
 import lombok.Cleanup;
 import lombok.val;
-
-import static javax.ws.rs.core.Response.Status.OK;
 
 /**
  * List all the ReaderGroups in a given Scope.
@@ -36,10 +33,7 @@ public class ControllerListReaderGroupsInScopeCommand extends ControllerCommand 
         @Cleanup
         val context = createContext();
         String scope = getCommandArgs().getArgs().get(0);
-        Response response = executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups");
-        assert OK.getStatusCode() == response.getStatus();
-        // Print the response sent by the Controller.
-        output(response.readEntity(String.class));
+        output(executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups"));
     }
 
     public static CommandDescriptor descriptor() {

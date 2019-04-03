@@ -47,6 +47,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String stream = getCommandArgs().getArgs().get(1);
+        StringBuilder responseBuilder = new StringBuilder();
 
         @Cleanup
         CuratorFramework zkClient = createZKClient();
@@ -54,49 +55,54 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         StreamMetadataStore store = StreamStoreFactory.createZKStore(zkClient, executor);
         // Output the configuration of this Stream.
         CompletableFuture<StreamConfiguration> streamConfig = store.getConfiguration(scope, stream, null, executor);
-        output("Stream configuration: " + streamConfig.join().toString());
+        responseBuilder.append("Stream configuration: ").append(streamConfig.join().toString()).append("\n");
 
         // Output the state for this Stream.
-        output("Stream state: " + store.getState(scope, stream, true, null,
-                executor).join().toString());
+        responseBuilder.append("Stream state: ").append(store.getState(scope, stream, true, null,
+                executor).join().toString()).append("\n");;
 
         // Output the total number of segments for this Stream.
         Set<Long> segments = store.getAllSegmentIds(scope, stream, null, executor).join();
-        output("Total number of Stream segments: ", segments.size());
+        responseBuilder.append("Total number of Stream segments: ").append(segments.size()).append("\n");
 
         // Check if the Stream is sealed.
-        output("Is Stream sealed? " +  store.isSealed(scope, stream, null, executor).join());
+        responseBuilder.append("Is Stream sealed? ").append(store.isSealed(scope, stream, null, executor).join()).append("\n");
 
         // Output the active epoch for this Stream.
         EpochRecord epochRecord = store.getActiveEpoch(scope, stream, null, true, executor).join();
-        output("Current Stream epoch: " + epochRecord.getEpoch() + ", creation time: " +
-                epochRecord.getCreationTime());
+        responseBuilder.append("Current Stream epoch: ").append(epochRecord.getEpoch()).append(", creation time: ")
+                       .append(epochRecord.getCreationTime()).append("\n");
 
         // Output the active epoch for this Stream.
-        output("Segments in active epoch: ");
-        epochRecord.getSegments().forEach(s -> output("> " + s.toString()));
+        responseBuilder.append("Segments in active epoch: ").append("\n");
+        epochRecord.getSegments().forEach(s -> responseBuilder.append("> ").append(s.toString()).append("\n"));
 
         // Output the number of active Transactions for ths Stream.
-        output("Active Transactions in Stream: ");
+        responseBuilder.append("Active Transactions in Stream: ");
         Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null,
                 getCommandArgs().getState().getExecutor()).join();
-        activeTxn.forEach((txnId, txnRecord) -> output("> TxnId: " + txnId + ", TxnRecord: " +
-                txnRecord.toString()));
+        activeTxn.forEach((txnId, txnRecord) -> responseBuilder.append("> TxnId: ").append(txnId).append(", TxnRecord: ")
+                                                               .append(txnRecord.toString()).append("\n"));
 
         // Output Truncation point.
         VersionedMetadata<StreamTruncationRecord> truncationRecord = store.getTruncationRecord(scope, stream,
                 null, executor).join();
-        output("Stream truncation record: lower epoch: " + truncationRecord.getObject().getSpanEpochLow() +
-                ", high epoch: " + truncationRecord.getObject().getSpanEpochHigh() + ", deleted segments: " +
-                truncationRecord.getObject().getDeletedSegments().size() + ", StreamCut: " + truncationRecord.getObject().getStreamCut().toString());
+        responseBuilder.append("Stream truncation record: lower epoch: ").append(truncationRecord.getObject().getSpanEpochLow())
+                       .append(", high epoch: ").append(truncationRecord.getObject().getSpanEpochHigh()).append(", deleted segments: ")
+                       .append(truncationRecord.getObject().getDeletedSegments().size()).append(", StreamCut: ")
+                       .append(truncationRecord.getObject().getStreamCut().toString()).append("\n");
 
         // Output the metadata that describes all the scaling information for this Stream.
         List<ScaleMetadata> scaleMetadata = store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
                 segments.stream().max(Long::compareTo).get(), null, executor).join();
-        scaleMetadata.forEach(s -> output("> Scale time: " + s.getTimestamp() + ", splits: " + s.getSplits() +
-                ", merges: " + s.getMerges() + ", segments: " + s.getSegments().stream()
-                                                                       .map(segment -> String.valueOf(segment.getNumber()))
-                                                                       .collect(Collectors.joining("-", "{", "}"))));
+        scaleMetadata.forEach(s -> responseBuilder.append("> Scale time: ").append(s.getTimestamp()).append(", splits: ")
+                                                  .append(s.getSplits()).append(", merges: ").append(s.getMerges()).append(", segments: ")
+                                                  .append(s.getSegments().stream()
+                                                                         .map(segment -> String.valueOf(segment.getNumber()))
+                                                                         .collect(Collectors.joining("-", "{", "}")))
+                                                  .append("\n"));
+        this.response = responseBuilder.toString();
+        output(this.response);
     }
 
     public static CommandDescriptor descriptor() {

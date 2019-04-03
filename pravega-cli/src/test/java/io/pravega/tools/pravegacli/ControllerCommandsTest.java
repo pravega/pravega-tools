@@ -11,8 +11,8 @@ package io.pravega.tools.pravegacli;
 
 import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
-import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.controller.ControllerCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeScopeCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroupsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
@@ -51,25 +52,29 @@ public class ControllerCommandsTest {
 
     @Test
     public void testListScopesCommand() throws Exception {
-        Command cmd = new ControllerListScopesCommand(new CommandArgs(Collections.emptyList(), STATE));
+        ControllerCommand cmd = new ControllerListScopesCommand(new CommandArgs(Collections.emptyList(), STATE));
         cmd.execute();
+        Assert.assertNotNull(cmd.getResponse());
     }
 
     @Test
     public void testListStreamsCommand() throws Exception {
-        Command cmd = new ControllerListStreamsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
+        ControllerCommand cmd = new ControllerListStreamsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
         cmd.execute();
+        Assert.assertNotNull(cmd.getResponse());
     }
 
     @Test
     public void testListReaderGroupsCommand() throws Exception {
-        Command cmd = new ControllerListReaderGroupsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
+        ControllerCommand cmd = new ControllerListReaderGroupsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
         cmd.execute();
+        Assert.assertNotNull(cmd.getResponse());
     }
 
     @Test
     public void testDescribeScopeCommand() throws Exception {
-        Command cmd = new ControllerDescribeScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
+        ControllerCommand cmd = new ControllerDescribeScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
         cmd.execute();
+        Assert.assertNotNull(cmd.getResponse());
     }
 }

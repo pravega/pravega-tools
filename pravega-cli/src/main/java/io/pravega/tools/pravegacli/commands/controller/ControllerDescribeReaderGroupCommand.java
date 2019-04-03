@@ -10,11 +10,8 @@
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import javax.ws.rs.core.Response;
 import lombok.Cleanup;
 import lombok.val;
-
-import static javax.ws.rs.core.Response.Status.OK;
 
 /**
  * Provides details of a ReaderGroup in a given Scope.
@@ -31,17 +28,14 @@ public class ControllerDescribeReaderGroupCommand extends ControllerCommand {
     }
 
     @Override
-    public void execute() throws Exception {
+    public void execute() {
         ensureArgCount(2);
         // Describe a the selected scope via REST API.
         @Cleanup
         val context = createContext();
         String scope = getCommandArgs().getArgs().get(0);
         String readerGroup = getCommandArgs().getArgs().get(1);
-        Response response = executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups/" + readerGroup);
-        assert OK.getStatusCode() == response.getStatus();
-        // Print the response sent by the Controller.
-        output(response.readEntity(String.class));
+        output(executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups/" + readerGroup));
     }
 
     public static CommandDescriptor descriptor() {

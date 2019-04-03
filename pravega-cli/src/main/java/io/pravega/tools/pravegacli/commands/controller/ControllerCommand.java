@@ -19,14 +19,22 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+
+import static javax.ws.rs.core.Response.Status.OK;
 
 /**
  * Base for any Controller-related commands.
  */
 public abstract class ControllerCommand extends Command {
-
     static final String COMPONENT = "controller";
+
+    /**
+     * Controller commands expect a response from the Controller that we store for further use if necessary.
+     */
+    @Getter
+    protected String response;
 
     /**
      * Creates a new instance of the Command class.
@@ -57,12 +65,15 @@ public abstract class ControllerCommand extends Command {
      * @param requestURI URI to execute the request against.
      * @return Response for the REST call.
      */
-    Response executeRESTCall(Context context, String requestURI) {
+    String executeRESTCall(Context context, String requestURI) {
         Invocation.Builder builder;
         String resourceURL = getCLIControllerConfig().getControllerRestURI() + requestURI;
         WebTarget webTarget = context.client.target(resourceURL);
         builder = webTarget.request();
-        return builder.get();
+        Response response = builder.get();
+        assert OK.getStatusCode() == response.getStatus();
+        this.response = response.readEntity(String.class);
+        return this.response;
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)

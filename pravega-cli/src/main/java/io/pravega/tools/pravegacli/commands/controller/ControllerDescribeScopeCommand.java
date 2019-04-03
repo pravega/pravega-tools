@@ -10,11 +10,8 @@
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import javax.ws.rs.core.Response;
 import lombok.Cleanup;
 import lombok.val;
-
-import static javax.ws.rs.core.Response.Status.OK;
 
 /**
  * Provide available information of a given Scope.
@@ -36,10 +33,8 @@ public class ControllerDescribeScopeCommand extends ControllerCommand {
         // Describe a the selected scope via REST API.
         @Cleanup
         val context = createContext();
-        Response response = executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0));
-        assert OK.getStatusCode() == response.getStatus();
         // Print the response sent by the Controller.
-        output(response.readEntity(String.class));
+        output(executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0)));
     }
 
     public static CommandDescriptor descriptor() {
