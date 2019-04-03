@@ -16,6 +16,9 @@ import lombok.val;
 
 import static javax.ws.rs.core.Response.Status.OK;
 
+/**
+ * Gets all the Scopes from the system.
+ */
 public class ControllerListScopesCommand extends ControllerCommand {
 
     /**
@@ -30,7 +33,6 @@ public class ControllerListScopesCommand extends ControllerCommand {
     @Override
     public void execute() {
         ensureArgCount(0);
-        // Execute listScopes REST API call.
         @Cleanup
         val context = createContext();
         Response response = executeRESTCall(context, "/v1/scopes/");

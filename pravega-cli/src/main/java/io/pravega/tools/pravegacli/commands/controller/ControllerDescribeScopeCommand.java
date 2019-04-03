@@ -16,6 +16,9 @@ import lombok.val;
 
 import static javax.ws.rs.core.Response.Status.OK;
 
+/**
+ * Provide available information of a given Scope.
+ */
 public class ControllerDescribeScopeCommand extends ControllerCommand {
 
     /**
@@ -28,7 +31,7 @@ public class ControllerDescribeScopeCommand extends ControllerCommand {
     }
 
     @Override
-    public void execute() throws Exception {
+    public void execute() {
         ensureArgCount(1);
         // Describe a the selected scope via REST API.
         @Cleanup

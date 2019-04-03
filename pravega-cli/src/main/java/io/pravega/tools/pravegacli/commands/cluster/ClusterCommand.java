@@ -9,42 +9,17 @@
  */
 package io.pravega.tools.pravegacli.commands.cluster;
 
-import io.pravega.controller.store.stream.ZKStoreHelper;
-import io.pravega.segmentstore.storage.DurableDataLogException;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import org.apache.curator.framework.CuratorFramework;
 
-abstract class ClusterCommand extends Command {
+/**
+ * Base for any Cluster-related commands.
+ */
+public abstract class ClusterCommand extends Command {
+
     protected static final String COMPONENT = "cluster";
 
     ClusterCommand(CommandArgs args) {
         super(args);
-    }
-
-
-    /**
-     * Creates a new Context to be used by the BookKeeper command.
-     *
-     * @return A new Context.
-     * @throws DurableDataLogException If the BookKeeperLogFactory could not be initialized.
-     */
-    protected Context createContext() {
-        CuratorFramework curatorFramework = createZKClient();
-        ZKStoreHelper zkStoreHelper = new ZKStoreHelper(curatorFramework, getCommandArgs().getState().getExecutor());
-        return new Context(curatorFramework, zkStoreHelper);
-    }
-
-    @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
-    protected static class Context implements AutoCloseable {
-        final CuratorFramework zkClient;
-        final ZKStoreHelper zkStoreHelper;
-
-        @Override
-        public void close() {
-            this.zkClient.close();
-        }
     }
 }

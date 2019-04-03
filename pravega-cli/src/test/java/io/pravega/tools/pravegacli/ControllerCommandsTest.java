@@ -13,23 +13,35 @@ import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeScopeCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroupsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
-import io.pravega.tools.pravegacli.commands.utils.ConfigUtils;
+import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import java.util.Collections;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 public class ControllerCommandsTest {
     // Setup utility.
     private static final SetupUtils SETUP_UTILS = new SetupUtils();
     private static AdminCommandState STATE;
 
+    @Rule
+    public final Timeout globalTimeout = new Timeout(60, TimeUnit.SECONDS);
+
     @BeforeClass
     public static void setup() throws Exception {
         SETUP_UTILS.startAllServices();
         STATE = new AdminCommandState();
-        ConfigUtils.loadPropertiesFromFile(STATE);
+        Properties pravegaProperties = new Properties();
+        System.err.println(SETUP_UTILS.getControllerRestUri().toString());
+        pravegaProperties.setProperty("cli.controllerRestUri", SETUP_UTILS.getControllerRestUri().toString());
+        STATE.getConfigBuilder().include(pravegaProperties);
     }
 
     @AfterClass
@@ -40,6 +52,24 @@ public class ControllerCommandsTest {
     @Test
     public void testListScopesCommand() throws Exception {
         Command cmd = new ControllerListScopesCommand(new CommandArgs(Collections.emptyList(), STATE));
+        cmd.execute();
+    }
+
+    @Test
+    public void testListStreamsCommand() throws Exception {
+        Command cmd = new ControllerListStreamsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
+        cmd.execute();
+    }
+
+    @Test
+    public void testListReaderGroupsCommand() throws Exception {
+        Command cmd = new ControllerListReaderGroupsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
+        cmd.execute();
+    }
+
+    @Test
+    public void testDescribeScopeCommand() throws Exception {
+        Command cmd = new ControllerDescribeScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
         cmd.execute();
     }
 }

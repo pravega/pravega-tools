@@ -21,7 +21,11 @@ import javax.ws.rs.core.Response;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * Base for any Controller-related commands.
+ */
 public abstract class ControllerCommand extends Command {
+
     static final String COMPONENT = "controller";
 
     /**
@@ -33,6 +37,11 @@ public abstract class ControllerCommand extends Command {
         super(args);
     }
 
+    /**
+     * Creates a context for child classes consisting of a REST client to execute calls against the Controller.
+     *
+     * @return REST client.
+     */
     protected ControllerCommand.Context createContext() {
         org.glassfish.jersey.client.ClientConfig clientConfig = new org.glassfish.jersey.client.ClientConfig();
         clientConfig.register(JacksonJsonProvider.class);
@@ -41,11 +50,17 @@ public abstract class ControllerCommand extends Command {
         return new Context(client);
     }
 
+    /**
+     * Generic method to execute execute a request against the Controller and get the response.
+     *
+     * @param context Controller command context.
+     * @param requestURI URI to execute the request against.
+     * @return Response for the REST call.
+     */
     Response executeRESTCall(Context context, String requestURI) {
         Invocation.Builder builder;
-        String controllerURI = "http://localhost:9091"; // FIXME: Chnge this by a param in config.
-        String resourceURl = controllerURI + requestURI;
-        WebTarget webTarget = context.client.target(resourceURl);
+        String resourceURL = getCLIControllerConfig().getControllerRestURI() + requestURI;
+        WebTarget webTarget = context.client.target(resourceURL);
         builder = webTarget.request();
         return builder.get();
     }

@@ -28,6 +28,9 @@ import java.util.stream.Collectors;
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
 
+/**
+ * Gets a description of different characteristics related to a Stream (e.g., configuration, state, active txn).
+ */
 public class ControllerDescribeStreamCommand extends ControllerCommand {
 
     /**
@@ -40,7 +43,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
     }
 
     @Override
-    public void execute() throws Exception {
+    public void execute() {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String stream = getCommandArgs().getArgs().get(1);
@@ -53,9 +56,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         CompletableFuture<StreamConfiguration> streamConfig = store.getConfiguration(scope, stream, null, executor);
         output("Stream configuration: " + streamConfig.join().toString());
 
-        // Output the creation time for this Stream.
-        //output("Stream creation time: " + store.getCreationTime(scope, stream, null, executor).join());
-
+        // Output the state for this Stream.
         output("Stream state: " + store.getState(scope, stream, true, null,
                 executor).join().toString());
 

@@ -16,6 +16,9 @@ import lombok.val;
 
 import static javax.ws.rs.core.Response.Status.OK;
 
+/**
+ * List all the ReaderGroups in a given Scope.
+ */
 public class ControllerListReaderGroupsInScopeCommand extends ControllerCommand {
 
     /**
@@ -28,12 +31,12 @@ public class ControllerListReaderGroupsInScopeCommand extends ControllerCommand 
     }
 
     @Override
-    public void execute() throws Exception {
+    public void execute() {
         ensureArgCount(1);
-        // Execute listScopes REST API call.
         @Cleanup
         val context = createContext();
-        Response response = executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0) + "/readergroups");
+        String scope = getCommandArgs().getArgs().get(0);
+        Response response = executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups");
         assert OK.getStatusCode() == response.getStatus();
         // Print the response sent by the Controller.
         output(response.readEntity(String.class));

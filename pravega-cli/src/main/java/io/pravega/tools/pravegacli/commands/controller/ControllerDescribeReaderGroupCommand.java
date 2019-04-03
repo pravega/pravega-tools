@@ -16,6 +16,9 @@ import lombok.val;
 
 import static javax.ws.rs.core.Response.Status.OK;
 
+/**
+ * Provides details of a ReaderGroup in a given Scope.
+ */
 public class ControllerDescribeReaderGroupCommand extends ControllerCommand {
 
     /**
@@ -33,8 +36,9 @@ public class ControllerDescribeReaderGroupCommand extends ControllerCommand {
         // Describe a the selected scope via REST API.
         @Cleanup
         val context = createContext();
-        Response response = executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0) +
-                "/readergroups/" + getCommandArgs().getArgs().get(1));
+        String scope = getCommandArgs().getArgs().get(0);
+        String readerGroup = getCommandArgs().getArgs().get(1);
+        Response response = executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups/" + readerGroup);
         assert OK.getStatusCode() == response.getStatus();
         // Print the response sent by the Controller.
         output(response.readEntity(String.class));

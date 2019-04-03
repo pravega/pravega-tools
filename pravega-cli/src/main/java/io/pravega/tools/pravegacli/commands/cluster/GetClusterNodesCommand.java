@@ -13,6 +13,9 @@ import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.ZKHelper;
 import lombok.Cleanup;
 
+/**
+ * Outputs all the Controller, Segment Store and Bookkeeper instances in the system.
+ */
 public class GetClusterNodesCommand extends ClusterCommand {
 
     public GetClusterNodesCommand(CommandArgs args) {
@@ -25,7 +28,7 @@ public class GetClusterNodesCommand extends ClusterCommand {
 
         try {
             @Cleanup
-            ZKHelper zkStoreHelper = ZKHelper.create("localhost:2181");
+            ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL());
             output("Cluster name: " + zkStoreHelper.getClusterName());
             output("Controller instances in the cluster:");
             zkStoreHelper.getControllers().forEach(c -> output("> " + c));

@@ -28,6 +28,7 @@ import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroup
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.cluster.GetClusterNodesCommand;
+import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -91,6 +92,13 @@ public abstract class Command {
      */
     protected ServiceConfig getServiceConfig() {
         return getCommandArgs().getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
+    }
+
+    /**
+     * Creates a new instance of the CLIControllerConfig class from the shared AdminCommandState passed in via the Constructor.
+     */
+    protected CLIControllerConfig getCLIControllerConfig() {
+        return getCommandArgs().getState().getConfigBuilder().build().getConfig(CLIControllerConfig::builder);
     }
 
     /**

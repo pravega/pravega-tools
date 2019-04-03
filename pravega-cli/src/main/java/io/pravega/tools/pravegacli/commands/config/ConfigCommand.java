@@ -16,6 +16,7 @@ import io.pravega.tools.pravegacli.commands.CommandArgs;
  * Base for all Config-related commands.
  */
 abstract class ConfigCommand extends Command {
+
     static final String COMPONENT = "config";
 
     ConfigCommand(CommandArgs args) {
