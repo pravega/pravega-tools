@@ -59,8 +59,8 @@ task scriptPravegaCLI(type: CreateStartScripts) {
     outputDir = file('build/scripts')
     mainClassName = 'io.pravega.tools.pravegacli.AdminRunner'
     applicationName = 'pravega-cli'
-    defaultJvmOpts = ["-Dlogback.configurationFile=file:conf/logback.xml",
-                      "-Dpravega.configurationFile=file:conf/config.properties"]
+    defaultJvmOpts = ["-Dlogback.configurationFile=conf/logback.xml",
+                      "-Dpravega.configurationFile=conf/config.properties"]
     classpath = files(jar.archivePath) + sourceSets.main.runtimeClasspath
 }
 

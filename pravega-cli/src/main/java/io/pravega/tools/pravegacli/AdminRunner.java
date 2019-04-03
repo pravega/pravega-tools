@@ -28,7 +28,7 @@ import lombok.val;
 import org.slf4j.LoggerFactory;
 
 /**
- * Main entry point for the Admin tools.
+ * Main entry point for the Pravega CLI.
  */
 public final class AdminRunner {
     private static final String CMD_HELP = "help";
@@ -63,7 +63,7 @@ public final class AdminRunner {
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
         context.getLoggerList().get(0).setLevel(Level.ERROR);
 
-        System.out.println("Pravega Admin Tools.\n");
+        System.out.println("Pravega CLI.\n");
         @Cleanup
         AdminCommandState state = new AdminCommandState();
         ConfigUtils.loadProperties(state);
