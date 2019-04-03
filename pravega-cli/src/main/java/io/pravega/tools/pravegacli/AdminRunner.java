@@ -41,11 +41,20 @@ public final class AdminRunner {
      * <p>
      * pravegaservice.containerCount={number of containers}
      * pravegaservice.zkURL={host:port for ZooKeeper}
+     * cli.controllerRestUri={host:port for a Controller REST API endpoint}
      * bookkeeper.bkLedgerPath={path in ZooKeeper where BookKeeper stores Ledger metadata}
      * bookkeeper.zkMetadataPath={path in ZooKeeper where Pravega stores BookKeeperLog metadata}
      * <p>
-     * Then invoke this program with:
+     * This program can be executed in two modes. First, the "interactive mode", in which you may want to point to a
+     * config file that contains the previous mandatory configuration parameters:
      * -Dpravega.configurationFile=config.properties
+     *
+     * If you don't want to use a config file, you still can load configuration properties dynamically using the command
+     * "config set property=value".
+     *
+     * Second, this program can be executed in "batch mode" to execute a single command. To this end, you need to pass
+     * as program argument the command to execute and as properties the configuration parameters (-D flag):
+     * ./pravega-cli controller list-scopes -Dpravegaservice.containerCount={value} -Dpravegaservice.zkURL={value} ...
      *
      * @param args Arguments.
      * @throws Exception If one occurred.
@@ -57,13 +66,23 @@ public final class AdminRunner {
         System.out.println("Pravega Admin Tools.\n");
         @Cleanup
         AdminCommandState state = new AdminCommandState();
-        ConfigUtils.loadPropertiesFromFile(state);
+        ConfigUtils.loadProperties(state);
 
         // Output loaded config.
         System.out.println("Initial configuration:");
         val initialConfigCmd = new ConfigListCommand(new CommandArgs(Collections.emptyList(), state));
         initialConfigCmd.execute();
 
+        if (args == null || args.length == 0) {
+            interactiveMode(state);
+        } else {
+            String commandLine = Arrays.stream(args).collect(Collectors.joining(" ", "", ""));
+            processCommand(commandLine, state);
+        }
+        System.exit(0);
+    }
+
+    private static void interactiveMode(AdminCommandState state) {
         // Continuously accept new commands as long as the user entered one.
         System.out.println(String.format("%nType \"%s\" for list of commands, or \"%s\" to exit.", CMD_HELP, CMD_EXIT));
         @Cleanup
@@ -71,22 +90,26 @@ public final class AdminRunner {
         while (true) {
             System.out.print(System.lineSeparator() + "> ");
             String line = input.nextLine();
-            if (Strings.isNullOrEmpty(line.trim())) {
-                continue;
-            }
+            processCommand(line, state);
+        }
+    }
 
-            Parser.Command pc = Parser.parse(line);
-            switch (pc.getComponent()) {
-                case CMD_HELP:
-                    printHelp(null);
-                    break;
-                case CMD_EXIT:
-                    System.exit(0);
-                    break;
-                default:
-                    execCommand(pc, state);
-                    break;
-            }
+    private static void processCommand(String line, AdminCommandState state) {
+        if (Strings.isNullOrEmpty(line.trim())) {
+            return;
+        }
+
+        Parser.Command pc = Parser.parse(line);
+        switch (pc.getComponent()) {
+            case CMD_HELP:
+                printHelp(null);
+                break;
+            case CMD_EXIT:
+                System.exit(0);
+                break;
+            default:
+                execCommand(pc, state);
+                break;
         }
     }
 

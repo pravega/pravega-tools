@@ -40,7 +40,6 @@ public class ControllerCommandsTest {
         SETUP_UTILS.startAllServices();
         STATE = new AdminCommandState();
         Properties pravegaProperties = new Properties();
-        System.err.println(SETUP_UTILS.getControllerRestUri().toString());
         pravegaProperties.setProperty("cli.controllerRestUri", SETUP_UTILS.getControllerRestUri().toString());
         STATE.getConfigBuilder().include(pravegaProperties);
     }
