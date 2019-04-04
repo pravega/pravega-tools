@@ -18,17 +18,33 @@ import lombok.Getter;
 public final class CLIControllerConfig {
 
     public static final Property<String> CONTROLLER_REST_URI = Property.named("controllerRestUri", "http://localhost:9091");
+    public static final Property<String> CONTROLLER_USER_NAME = Property.named("userName", "");
+    public static final Property<String> CONTROLLER_PASSWORD = Property.named("password", "");
 
     public static final String COMPONENT_CODE = "cli";
 
     /**
-     * The Controller REST URI.
+     * The Controller REST URI. Recall to set "http" or "https" depending on the TLS configuration of the Controller.
      */
     @Getter
     private final String controllerRestURI;
 
+    /**
+     * User name if authentication is configured in the Controller.
+     */
+    @Getter
+    private final String userName;
+
+    /**
+     * Password if authentication is configured in the Controller.
+     */
+    @Getter
+    private final String password;
+
     private CLIControllerConfig(TypedProperties properties) throws ConfigurationException {
         this.controllerRestURI = properties.get(CONTROLLER_REST_URI);
+        this.userName = properties.get(CONTROLLER_USER_NAME);
+        this.password = properties.get(CONTROLLER_PASSWORD);
     }
 
     /**

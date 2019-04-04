@@ -7,7 +7,6 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
@@ -21,8 +20,11 @@ import javax.ws.rs.core.Response;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.glassfish.jersey.client.ClientConfig;
+import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 
 import static javax.ws.rs.core.Response.Status.OK;
+import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 /**
  * Base for any Controller-related commands.
@@ -51,10 +53,16 @@ public abstract class ControllerCommand extends Command {
      * @return REST client.
      */
     protected ControllerCommand.Context createContext() {
-        org.glassfish.jersey.client.ClientConfig clientConfig = new org.glassfish.jersey.client.ClientConfig();
+        ClientConfig clientConfig = new ClientConfig();
         clientConfig.register(JacksonJsonProvider.class);
         clientConfig.property("sun.net.http.allowRestrictedHeaders", "true");
         Client client = ClientBuilder.newClient(clientConfig);
+        // If authorization parameters are configured, set them in the client.
+        if (getCLIControllerConfig().getUserName() != null && !getCLIControllerConfig().getUserName().equals("")) {
+            HttpAuthenticationFeature auth = HttpAuthenticationFeature.basic(getCLIControllerConfig().getUserName(),
+                    getCLIControllerConfig().getPassword());
+            client = client.register(auth);
+        }
         return new Context(client);
     }
 
@@ -71,9 +79,19 @@ public abstract class ControllerCommand extends Command {
         WebTarget webTarget = context.client.target(resourceURL);
         builder = webTarget.request();
         Response response = builder.get();
-        assert OK.getStatusCode() == response.getStatus();
+        printResponseInfo(response);
         this.response = response.readEntity(String.class);
         return this.response;
+    }
+
+    private void printResponseInfo(Response response) {
+        if (OK.getStatusCode() == response.getStatus()) {
+            output("Successful REST request.");
+        } else if (UNAUTHORIZED.getStatusCode() == response.getStatus()) {
+            output("Unauthorized REST request. You may need to set the user/password correctly.");
+        } else {
+            output("The REST request was not successful: " + response.getStatus());
+        }
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
