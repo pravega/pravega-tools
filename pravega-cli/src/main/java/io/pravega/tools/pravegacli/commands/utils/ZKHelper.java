@@ -11,14 +11,12 @@
 package io.pravega.tools.pravegacli.commands.utils;
 
 import io.pravega.common.cluster.Host;
-import java.util.HashMap;
-import java.util.HashSet;
+import io.pravega.common.cluster.HostContainerMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import org.apache.commons.lang.SerializationUtils;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
@@ -31,17 +29,10 @@ public class ZKHelper implements AutoCloseable {
     // region constants
 
     private static final String BASE_NAMESPACE = "pravega";
-
     public static final String BK_PATH = "/bookkeeper/ledgers/available";
-
     private static final String CONTROLLER_PATH = "/cluster/controllers";
     private static final String SEGMENTSTORE_PATH = "/cluster/hosts";
     private static final String HOST_MAP_PATH = "/cluster/segmentContainerHostMapping";
-    private static final String STREAM_PATH = "/store/%s/%s";
-    private static final String SEGMENT_PATH = STREAM_PATH + "/segment";
-    private static final String LOG_METADATA_BASE = "/segmentstore/containers";
-    private static final int DEFAULT_DEPTH = 2;
-    private static final int DIVISOR = 10;
     private static final String SEPARATOR = "/";
 
     // endregion
@@ -103,22 +94,7 @@ public class ZKHelper implements AutoCloseable {
      * @return A map from segment store host to containers it holds.
      */
     public Map<Host, Set<Integer>> getCurrentHostMap() {
-        Map tmp = (Map) SerializationUtils.deserialize(getData(HOST_MAP_PATH));
-        Map<Host, Set<Integer>> ret = new HashMap<>();
-        for (Object key:
-                tmp.keySet()) {
-            if (key instanceof Host && tmp.get(key) instanceof Set) {
-                Set<Integer> tmpSet = new HashSet<>();
-                for (Object i:
-                        (Set) tmp.get(key)) {
-                    if (i instanceof Integer) {
-                        tmpSet.add((Integer) i);
-                    }
-                }
-                ret.put((Host) key, tmpSet);
-            }
-        }
-        return ret;
+        return HostContainerMap.fromBytes(getData(HOST_MAP_PATH)).getHostContainerMap();
     }
 
     /**
@@ -134,16 +110,6 @@ public class ZKHelper implements AutoCloseable {
                                  .findAny();
 
     }
-
-    /**
-     * Get the log address as LogMetadata of a container.
-     * @param containerId The id of the target container.
-     * @return The LogMetadata instance store the log address of the given container.
-     */
-    /*LogMetadata getLogMetadata(Integer containerId) {
-        byte[] data = getData(LOG_METADATA_BASE + getHierarchyPathFromId(containerId));
-        return LogMetadata.deserializeLogMetadata(data, containerId);
-    }*/
 
     /**
      * Create a new instance of the ZKHelper class.
@@ -165,7 +131,7 @@ public class ZKHelper implements AutoCloseable {
         try {
             ret = zkClient.getChildren().forPath(path);
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("An error occurred executing getChild against Zookeeper: " + e.getMessage());
         }
         return ret;
     }
@@ -180,7 +146,7 @@ public class ZKHelper implements AutoCloseable {
         try {
             ret = zkClient.getData().forPath(path);
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("An error occurred executing getData against Zookeeper: " + e.getMessage());
         }
         return ret;
     }
@@ -194,7 +160,7 @@ public class ZKHelper implements AutoCloseable {
         try {
             clusterNames = zkClient.getChildren().forPath("/");
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("An error occurred executing getClusterNameFromZK against Zookeeper: " + e.getMessage());
         }
 
         if (clusterNames == null || clusterNames.size() != 1) {
@@ -202,23 +168,6 @@ public class ZKHelper implements AutoCloseable {
         }
 
         return clusterNames.get(0);
-    }
-
-    /**
-     * Get the container's hierarchy path from container id.
-     * @param nodeId The container id to get.
-     * @return The patch for the container's metadata.
-     */
-    private String getHierarchyPathFromId(Integer nodeId) {
-        StringBuilder pathBuilder = new StringBuilder();
-        int value = nodeId;
-        for (int i = 0; i < DEFAULT_DEPTH; i++) {
-            int r = value % DIVISOR;
-            value = value / DIVISOR;
-            pathBuilder.append(SEPARATOR).append(r);
-        }
-
-        return pathBuilder.append(SEPARATOR).append(nodeId).toString();
     }
 
     /**

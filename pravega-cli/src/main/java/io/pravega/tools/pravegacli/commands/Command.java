@@ -18,6 +18,8 @@ import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDetailsCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDisableCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperEnableCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperListCommand;
+import io.pravega.tools.pravegacli.commands.cluster.GetSegmentStoreByContainerCommand;
+import io.pravega.tools.pravegacli.commands.cluster.ListContainersCommand;
 import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.ContainerRecoverCommand;
 import io.pravega.tools.pravegacli.commands.config.ConfigSetCommand;
@@ -214,6 +216,8 @@ public abstract class Command {
                         .put(ControllerDescribeReaderGroupCommand::descriptor, ControllerDescribeReaderGroupCommand::new)
                         .put(ControllerDescribeStreamCommand::descriptor, ControllerDescribeStreamCommand::new)
                         .put(GetClusterNodesCommand::descriptor, GetClusterNodesCommand::new)
+                        .put(ListContainersCommand::descriptor, ListContainersCommand::new)
+                        .put(GetSegmentStoreByContainerCommand::descriptor, GetSegmentStoreByContainerCommand::new)
                         .build());
 
         /**
