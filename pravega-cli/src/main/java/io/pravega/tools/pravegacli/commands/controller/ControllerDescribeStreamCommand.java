@@ -79,7 +79,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
             epochRecord.getSegments().forEach(s -> responseBuilder.append("> ").append(s.toString()).append("\n"));
 
             // Output the number of active Transactions for ths Stream.
-            responseBuilder.append("Active Transactions in Stream: ");
+            responseBuilder.append("Active Transactions in Stream: ").append("\n");
             Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null,
                     getCommandArgs().getState().getExecutor()).join();
             activeTxn.forEach((txnId, txnRecord) -> responseBuilder.append("> TxnId: ").append(txnId).append(", TxnRecord: ")
