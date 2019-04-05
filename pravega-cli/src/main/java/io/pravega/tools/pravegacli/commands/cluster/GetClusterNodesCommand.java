@@ -28,8 +28,8 @@ public class GetClusterNodesCommand extends ClusterCommand {
 
         try {
             @Cleanup
-            ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL());
-            output("Cluster name: " + zkStoreHelper.getClusterName());
+            ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL(), getServiceConfig().getClusterName());
+            output("Cluster name: " + getServiceConfig().getClusterName());
             output("Controller instances in the cluster:");
             zkStoreHelper.getControllers().forEach(c -> output("> " + c));
             output("Segment Store instances in the cluster:");

@@ -40,7 +40,6 @@ public class ZKHelper implements AutoCloseable {
     // region instance variables
 
     private CuratorFramework zkClient;
-    private String clusterName;
 
     // endregion
 
@@ -51,19 +50,11 @@ public class ZKHelper implements AutoCloseable {
      * @param zkURL The address of this helper instance connect to.
      * @throws ZKConnectionFailedException If cannot connect to the given address.
      */
-    private ZKHelper(String zkURL) throws ZKConnectionFailedException {
-        createZKClient(zkURL);
+    private ZKHelper(String zkURL, String clusterName) throws ZKConnectionFailedException {
+        createZKClient(zkURL, clusterName);
     }
 
     // endregion
-
-    /**
-     * Get the cluster name.
-     * @return The name of the cluster.
-     */
-    public String getClusterName() {
-        return clusterName;
-    }
 
     /**
      * Get the list of controllers in the cluster.
@@ -117,8 +108,8 @@ public class ZKHelper implements AutoCloseable {
      * @throws ZKConnectionFailedException If cannot connect to the given address.
      * @return The new ZKHelper instance.
      */
-    public static ZKHelper create(String zkURL) throws ZKConnectionFailedException {
-        return new ZKHelper(zkURL);
+    public static ZKHelper create(String zkURL, String clusterName) throws ZKConnectionFailedException {
+        return new ZKHelper(zkURL, clusterName);
     }
 
     /**
@@ -152,43 +143,11 @@ public class ZKHelper implements AutoCloseable {
     }
 
     /**
-     * Try to get the cluster name from zookeeper.
-     * @return The name of the cluster.
-     */
-    private String getClusterNameFromZK() {
-        List<String> clusterNames = null;
-        try {
-            clusterNames = zkClient.getChildren().forPath("/");
-        } catch (Exception e) {
-            System.err.println("An error occurred executing getClusterNameFromZK against Zookeeper: " + e.getMessage());
-        }
-
-        if (clusterNames == null || clusterNames.size() != 1) {
-            return null;
-        }
-
-        return clusterNames.get(0);
-    }
-
-    /**
      * Create a curator framework's zookeeper client with given address.
      * @param zkURL The zookeeper address to connect.
      * @throws ZKConnectionFailedException If cannot connect to the zookeeper with given address.
      */
-    private void createZKClient(String zkURL) throws ZKConnectionFailedException {
-        zkClient = CuratorFrameworkFactory
-                .builder()
-                .connectString(zkURL)
-                .namespace(BASE_NAMESPACE)
-                .retryPolicy(new ExponentialBackoffRetry(2000, 2))
-                .build();
-
-        startZKClient();
-
-        clusterName = getClusterNameFromZK();
-
-        zkClient.close();
-
+    private void createZKClient(String zkURL, String clusterName) throws ZKConnectionFailedException {
         zkClient = CuratorFrameworkFactory
                 .builder()
                 .connectString(zkURL)

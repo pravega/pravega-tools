@@ -27,7 +27,7 @@ public class ListContainersCommand extends ClusterCommand {
         ensureArgCount(0);
         try {
             @Cleanup
-            ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL());
+            ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL(), getServiceConfig().getClusterName());
             output("Segment Store to Container map:");
             zkStoreHelper.getCurrentHostMap().forEach((host, containers) ->
                     output(">" + host + " -> " + containers + "\n"));

@@ -49,60 +49,64 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         final String stream = getCommandArgs().getArgs().get(1);
         StringBuilder responseBuilder = new StringBuilder();
 
-        @Cleanup
-        CuratorFramework zkClient = createZKClient();
-        Executor executor = getCommandArgs().getState().getExecutor();
-        StreamMetadataStore store = StreamStoreFactory.createZKStore(zkClient, executor);
-        // Output the configuration of this Stream.
-        CompletableFuture<StreamConfiguration> streamConfig = store.getConfiguration(scope, stream, null, executor);
-        responseBuilder.append("Stream configuration: ").append(streamConfig.join().toString()).append("\n");
+        try {
+            @Cleanup
+            CuratorFramework zkClient = createZKClient();
+            Executor executor = getCommandArgs().getState().getExecutor();
+            StreamMetadataStore store = StreamStoreFactory.createZKStore(zkClient, executor);
+            // Output the configuration of this Stream.
+            CompletableFuture<StreamConfiguration> streamConfig = store.getConfiguration(scope, stream, null, executor);
+            responseBuilder.append("Stream configuration: ").append(streamConfig.join().toString()).append("\n");
 
-        // Output the state for this Stream.
-        responseBuilder.append("Stream state: ").append(store.getState(scope, stream, true, null,
-                executor).join().toString()).append("\n");;
+            // Output the state for this Stream.
+            responseBuilder.append("Stream state: ").append(store.getState(scope, stream, true, null,
+                    executor).join().toString()).append("\n");
 
-        // Output the total number of segments for this Stream.
-        Set<Long> segments = store.getAllSegmentIds(scope, stream, null, executor).join();
-        responseBuilder.append("Total number of Stream segments: ").append(segments.size()).append("\n");
+            // Output the total number of segments for this Stream.
+            Set<Long> segments = store.getAllSegmentIds(scope, stream, null, executor).join();
+            responseBuilder.append("Total number of Stream segments: ").append(segments.size()).append("\n");
 
-        // Check if the Stream is sealed.
-        responseBuilder.append("Is Stream sealed? ").append(store.isSealed(scope, stream, null, executor).join()).append("\n");
+            // Check if the Stream is sealed.
+            responseBuilder.append("Is Stream sealed? ").append(store.isSealed(scope, stream, null, executor).join()).append("\n");
 
-        // Output the active epoch for this Stream.
-        EpochRecord epochRecord = store.getActiveEpoch(scope, stream, null, true, executor).join();
-        responseBuilder.append("Current Stream epoch: ").append(epochRecord.getEpoch()).append(", creation time: ")
-                       .append(epochRecord.getCreationTime()).append("\n");
+            // Output the active epoch for this Stream.
+            EpochRecord epochRecord = store.getActiveEpoch(scope, stream, null, true, executor).join();
+            responseBuilder.append("Current Stream epoch: ").append(epochRecord.getEpoch()).append(", creation time: ")
+                           .append(epochRecord.getCreationTime()).append("\n");
 
-        // Output the active epoch for this Stream.
-        responseBuilder.append("Segments in active epoch: ").append("\n");
-        epochRecord.getSegments().forEach(s -> responseBuilder.append("> ").append(s.toString()).append("\n"));
+            // Output the active epoch for this Stream.
+            responseBuilder.append("Segments in active epoch: ").append("\n");
+            epochRecord.getSegments().forEach(s -> responseBuilder.append("> ").append(s.toString()).append("\n"));
 
-        // Output the number of active Transactions for ths Stream.
-        responseBuilder.append("Active Transactions in Stream: ");
-        Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null,
-                getCommandArgs().getState().getExecutor()).join();
-        activeTxn.forEach((txnId, txnRecord) -> responseBuilder.append("> TxnId: ").append(txnId).append(", TxnRecord: ")
-                                                               .append(txnRecord.toString()).append("\n"));
+            // Output the number of active Transactions for ths Stream.
+            responseBuilder.append("Active Transactions in Stream: ");
+            Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null,
+                    getCommandArgs().getState().getExecutor()).join();
+            activeTxn.forEach((txnId, txnRecord) -> responseBuilder.append("> TxnId: ").append(txnId).append(", TxnRecord: ")
+                                                                   .append(txnRecord.toString()).append("\n"));
 
-        // Output Truncation point.
-        VersionedMetadata<StreamTruncationRecord> truncationRecord = store.getTruncationRecord(scope, stream,
-                null, executor).join();
-        responseBuilder.append("Stream truncation record: lower epoch: ").append(truncationRecord.getObject().getSpanEpochLow())
-                       .append(", high epoch: ").append(truncationRecord.getObject().getSpanEpochHigh()).append(", deleted segments: ")
-                       .append(truncationRecord.getObject().getDeletedSegments().size()).append(", StreamCut: ")
-                       .append(truncationRecord.getObject().getStreamCut().toString()).append("\n");
+            // Output Truncation point.
+            VersionedMetadata<StreamTruncationRecord> truncationRecord = store.getTruncationRecord(scope, stream,
+                    null, executor).join();
+            responseBuilder.append("Stream truncation record: lower epoch: ").append(truncationRecord.getObject().getSpanEpochLow())
+                           .append(", high epoch: ").append(truncationRecord.getObject().getSpanEpochHigh()).append(", deleted segments: ")
+                           .append(truncationRecord.getObject().getDeletedSegments().size()).append(", StreamCut: ")
+                           .append(truncationRecord.getObject().getStreamCut().toString()).append("\n");
 
-        // Output the metadata that describes all the scaling information for this Stream.
-        List<ScaleMetadata> scaleMetadata = store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
-                segments.stream().max(Long::compareTo).get(), null, executor).join();
-        scaleMetadata.forEach(s -> responseBuilder.append("> Scale time: ").append(s.getTimestamp()).append(", splits: ")
-                                                  .append(s.getSplits()).append(", merges: ").append(s.getMerges()).append(", segments: ")
-                                                  .append(s.getSegments().stream()
-                                                                         .map(segment -> String.valueOf(segment.getNumber()))
-                                                                         .collect(Collectors.joining("-", "{", "}")))
-                                                  .append("\n"));
-        this.response = responseBuilder.toString();
-        output(this.response);
+            // Output the metadata that describes all the scaling information for this Stream.
+            List<ScaleMetadata> scaleMetadata = store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
+                    segments.stream().max(Long::compareTo).get(), null, executor).join();
+            scaleMetadata.forEach(s -> responseBuilder.append("> Scale time: ").append(s.getTimestamp()).append(", splits: ")
+                                                      .append(s.getSplits()).append(", merges: ").append(s.getMerges()).append(", segments: ")
+                                                      .append(s.getSegments().stream()
+                                                               .map(segment -> String.valueOf(segment.getNumber()))
+                                                               .collect(Collectors.joining("-", "{", "}")))
+                                                      .append("\n"));
+            this.response = responseBuilder.toString();
+            output(this.response);
+        } catch (Exception e) {
+            System.err.println("Exception accessing the metadata store: " + e.getMessage());
+        }
     }
 
     public static CommandDescriptor descriptor() {
