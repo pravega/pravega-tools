@@ -58,7 +58,6 @@ You will se an output related to the default configuration parameters available 
 Pravega CLI.
    
 Initial configuration:
-       bookkeeper.zkMetadataPath=/segmentstore/containers
        pravegaservice.zkURL=localhost:2181
        bookkeeper.bkLedgerPath=/pravega/pravega-cluster/bookkeeper/ledgers
        pravegaservice.containerCount=4
@@ -102,7 +101,6 @@ You can also execute the Pravega CLI in "batch mode" by passing a command direct
 Pravega CLI.
 
 Initial configuration:
-        bookkeeper.zkMetadataPath=/segmentstore/containers
         pravegaservice.zkURL=localhost:2181
         bookkeeper.bkLedgerPath=/pravega/pravega-cluster/bookkeeper/ledgers
         pravegaservice.containerCount=4

@@ -32,7 +32,7 @@ public class ListContainersCommand extends ClusterCommand {
             zkStoreHelper.getCurrentHostMap().forEach((host, containers) ->
                     output(">" + host + " -> " + containers + "\n"));
         } catch (Exception e) {
-            System.err.println("Exception accessing to Zookeeper cluster metadata.");
+            System.err.println("Exception accessing to Zookeeper cluster metadata: " + e.getMessage());
         }
     }
 

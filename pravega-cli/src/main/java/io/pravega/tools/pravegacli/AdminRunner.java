@@ -43,7 +43,6 @@ public final class AdminRunner {
      * pravegaservice.zkURL={host:port for ZooKeeper}
      * cli.controllerRestUri={host:port for a Controller REST API endpoint}
      * bookkeeper.bkLedgerPath={path in ZooKeeper where BookKeeper stores Ledger metadata}
-     * bookkeeper.zkMetadataPath={path in ZooKeeper where Pravega stores BookKeeperLog metadata}
      * <p>
      * This program can be executed in two modes. First, the "interactive mode", in which you may want to point to a
      * config file that contains the previous mandatory configuration parameters:
