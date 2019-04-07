@@ -54,6 +54,7 @@ public class ControllerCommandsTest {
         ControllerCommand cmd = new ControllerListScopesCommand(new CommandArgs(Collections.emptyList(), STATE));
         cmd.execute();
         Assert.assertNotNull(cmd.getResponse());
+        Assert.assertTrue(cmd.getResponse().contains("_system"));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class ControllerCommandsTest {
         ControllerCommand cmd = new ControllerListReaderGroupsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
         cmd.execute();
         Assert.assertNotNull(cmd.getResponse());
+        Assert.assertTrue(cmd.getResponse().contains("commitStreamReaders"));
     }
 
     @Test
@@ -75,5 +77,6 @@ public class ControllerCommandsTest {
         ControllerCommand cmd = new ControllerDescribeScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
         cmd.execute();
         Assert.assertNotNull(cmd.getResponse());
+        Assert.assertTrue(cmd.getResponse().contains("_system"));
     }
 }
