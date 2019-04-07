@@ -29,7 +29,7 @@ public class ZKHelper implements AutoCloseable {
     // region constants
 
     private static final String BASE_NAMESPACE = "pravega";
-    public static final String BK_PATH = "/bookkeeper/ledgers/available";
+    private static final String BK_PATH = "/bookkeeper/ledgers/available";
     private static final String CONTROLLER_PATH = "/cluster/controllers";
     private static final String SEGMENTSTORE_PATH = "/cluster/hosts";
     private static final String HOST_MAP_PATH = "/cluster/segmentContainerHostMapping";
