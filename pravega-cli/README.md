@@ -33,7 +33,7 @@ Build the Pravega CLI tool:
 Unzip the result distribution artifact:
 
 ```
-cd pravega-cli\build\distributions\
+cd pravega-cli/build/distributions/
 tar -xvf pravega-cli.tar
 ```
 
@@ -50,7 +50,7 @@ of deploying Pravega in the project's [documentation](http://pravega.io/docs/lat
 
 You can run the Pravega CLI as follows:
 ```
-bash bin\pravega-cli
+./bin/pravega-cli
 ```
 You will se an output related to the default configuration parameters available at `conf/config.properties`
 (you may want to change this file according to your setting):
@@ -75,6 +75,8 @@ All available commands:
         bk enable <log-id>: Enables a BookKeeperLog by updating its metadata in ZooKeeper (with the Enabled flag set to 'true').
         bk list : Lists all BookKeeper Logs.
         cluster list-instances : Lists all nodes in the Pravega cluster (Controllers, Segment Stores).
+        cluster list-containers: Lists all the containers in the Pravega cluster and the Segment Stores responsible for them.
+        cluster get-host-by-container: Get the Segment Store host responsible for a given container id.
         config list : Lists all configuration set during this session.
         config set <name=value list>: Sets one or more config values for use during this session.
         container recover <container-id>: Executes a local, non-invasive recovery for a SegmentContainer.
@@ -96,7 +98,7 @@ And execute any of them:
 
 You can also execute the Pravega CLI in "batch mode" by passing a command directly as a parameter:
 ```
-bash bin\pravega-cli controller list-scopes
+./bin/pravega-cli controller list-scopes
 Pravega CLI.
 
 Initial configuration:

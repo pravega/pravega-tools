@@ -1,19 +1,10 @@
-# pravega-tools
+# Pravega Tools
 
-Tooling for Pravega
+Tooling for Pravega cluster administration.
 
 ## Getting Started
 
-### Build Pravega
-
-Optional: This step is required only if you want to use a different version of Pravega than is published to maven central.
-
-Install the Pravega client libraries to your local Maven repository:
-
-```
-$ git clone https://github.com/pravega/pravega.git
-$./gradlew install
-```
+Next, we show how to build the Pravega admin tools.
 
 ### Build the tools
 
@@ -27,7 +18,7 @@ BUILD SUCCESSFUL
 
 ### Distributing
 
-Use the gradle wrapper to generat the distribution.
+Use the gradle wrapper to generate the distribution.
 
 ```
 $ ./gradlew installDist
