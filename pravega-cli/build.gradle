@@ -37,7 +37,6 @@ dependencies {
     compile group: 'org.apache.curator', name: 'curator-framework', version: apacheCuratorVersion
     compile group: 'io.pravega', name: 'pravega-client', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-common', version: pravegaVersion
-    compile group: 'io.pravega', name: 'pravega-common', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-controller', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-segmentstore-server', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage', version: pravegaVersion
