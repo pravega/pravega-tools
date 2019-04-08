@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import io.pravega.common.Exceptions;
@@ -45,6 +46,7 @@ import lombok.AccessLevel;
 import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.val;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
@@ -59,8 +61,10 @@ public abstract class Command {
     @Getter(AccessLevel.PROTECTED)
     private final CommandArgs commandArgs;
 
-    @Getter(AccessLevel.PROTECTED)
-    private final PrintStream out = System.out;
+    @VisibleForTesting
+    @Getter(AccessLevel.PUBLIC)
+    @Setter(AccessLevel.PUBLIC)
+    private PrintStream out = System.out;
 
     //endregion
 

@@ -7,17 +7,41 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
+sudo: required
+
 language: java
 jdk:
  - oraclejdk8
+
 env:
   global:
     - GRADLE_OPTS="-Xms128m"
 
-sudo: required
+stages:
+  - check
+  - test
+  - build
 
-services:
-  - docker
+jobs:
+  include:
+    - stage: check
+      name: Run Pravega CLI code analyzers
+      before_script:
+        - cd pravega-cli
+      script:
+        - ./gradlew check
+    - stage: test
+      name: Run Pravega CLI tests
+      before_script:
+        - cd pravega-cli
+      script:
+        - ./gradlew test
+    - stage: dist
+      name: Build Pravega CLI
+      before_script:
+        - cd pravega-cli
+      script:
+        - ./gradlew build
 
 cache:
   directories:

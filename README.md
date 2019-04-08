@@ -1,11 +1,11 @@
-# Pravega Tools
+# Pravega Tools [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) [![Build Status](https://travis-ci.org/pravega/pravega-tools.svg?branch=master)](https://travis-ci.org/pravega/pravega-tools)
 
 Tooling for Pravega cluster administration.
 
 ## The Repository
 
 This repository is intended to provide a suite of useful management tools for administrators of Pravega clusters.
-The tools provided in this repository are not expected to be used by regular users, but for administrators in 
+The tools provided in this repository are not expected to be used by regular users, but for administrators in
 charge of the correct operation, deployment and troubleshooting of a Pravega cluster.
 
 At the moment, this repository provides the following tools:

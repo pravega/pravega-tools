@@ -105,6 +105,7 @@ public class ZKHelper implements AutoCloseable {
     /**
      * Create a new instance of the ZKHelper class.
      * @param zkURL The address of this helper instance connect to.
+     * @param clusterName The name of the Zookeeper cluster.
      * @throws ZKConnectionFailedException If cannot connect to the given address.
      * @return The new ZKHelper instance.
      */
@@ -145,6 +146,7 @@ public class ZKHelper implements AutoCloseable {
     /**
      * Create a curator framework's zookeeper client with given address.
      * @param zkURL The zookeeper address to connect.
+     * @param clusterName The name of the Zookeeper cluster.
      * @throws ZKConnectionFailedException If cannot connect to the zookeeper with given address.
      */
     private void createZKClient(String zkURL, String clusterName) throws ZKConnectionFailedException {

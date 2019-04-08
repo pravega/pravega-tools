@@ -102,8 +102,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                                                                .map(segment -> String.valueOf(segment.getNumber()))
                                                                .collect(Collectors.joining("-", "{", "}")))
                                                       .append("\n"));
-            this.response = responseBuilder.toString();
-            output(this.response);
+            output(responseBuilder.toString());
         } catch (Exception e) {
             System.err.println("Exception accessing the metadata store: " + e.getMessage());
         }
