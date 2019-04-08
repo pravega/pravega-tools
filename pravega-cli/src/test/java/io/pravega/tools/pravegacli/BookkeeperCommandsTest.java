@@ -12,6 +12,9 @@ package io.pravega.tools.pravegacli;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.bookkeeper.client.BookKeeper;
+import org.apache.bookkeeper.client.LedgerHandle;
+import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.bookkeeper.test.BookKeeperClusterTestCase;
 import org.junit.Assert;
 import org.junit.Before;
@@ -25,7 +28,7 @@ public class BookkeeperCommandsTest extends BookKeeperClusterTestCase {
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
 
     public BookkeeperCommandsTest() {
-        super(5);
+        super(3);
     }
 
     @Before
@@ -51,7 +54,11 @@ public class BookkeeperCommandsTest extends BookKeeperClusterTestCase {
 
     @Test
     public void testBookKeeperDetailsCommand() throws Exception {
-        String commandResult = TestUtils.executeCommand("bk details ", STATE.get());
+        ClientConfiguration conf = new ClientConfiguration().setMetadataServiceUri(zkUtil.getZooKeeperConnectString()).setZkTimeout(30000);
+        BookKeeper bookkeeper = new BookKeeper(conf);
+        LedgerHandle lh = bookkeeper.createLedger(3, 3, 2, BookKeeper.DigestType.MAC, "hello".getBytes());
+        String commandResult = TestUtils.executeCommand("bk details 0", STATE.get());
         Assert.assertTrue(commandResult.contains("Ledger"));
+        lh.close();
     }
 }
