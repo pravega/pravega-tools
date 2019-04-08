@@ -18,19 +18,30 @@ env:
     - GRADLE_OPTS="-Xms128m"
 
 stages:
+  - check
   - test
   - build
 
 jobs:
   include:
+    - stage: check
+      name: Run Pravega CLI code analyzers
+      before_script:
+        - cd pravega-cli
+      script:
+        - ./gradlew check
     - stage: test
       name: Run Pravega CLI tests
+      before_script:
+        - cd pravega-cli
       script:
-        - ./pravega-cli/gradlew -p pravega-cli test
+        - ./gradlew test
     - stage: dist
       name: Build Pravega CLI
+      before_script:
+        - cd pravega-cli
       script:
-        - ./pravega-cli/gradlew -p pravega-cli build
+        - ./gradlew build
 
 cache:
   directories:
