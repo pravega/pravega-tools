@@ -11,7 +11,6 @@ package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import io.pravega.segmentstore.storage.impl.bookkeeper.DebugLogWrapper;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCommand;
 import lombok.Cleanup;
 import lombok.val;
 

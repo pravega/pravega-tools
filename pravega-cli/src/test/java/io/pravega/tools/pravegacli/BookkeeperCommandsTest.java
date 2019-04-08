@@ -11,6 +11,7 @@ package io.pravega.tools.pravegacli;
 
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.bookkeeper.test.BookKeeperClusterTestCase;
 import org.junit.Assert;
 import org.junit.Before;
@@ -21,7 +22,7 @@ import org.junit.Test;
  */
 public class BookkeeperCommandsTest extends BookKeeperClusterTestCase {
 
-    private static AdminCommandState STATE;
+    private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
 
     public BookkeeperCommandsTest() {
         super(5);
@@ -33,24 +34,24 @@ public class BookkeeperCommandsTest extends BookKeeperClusterTestCase {
         baseClientConf.setLedgerManagerFactoryClassName("org.apache.bookkeeper.meta.FlatLedgerManagerFactory");
         super.setUp();
 
-        STATE = new AdminCommandState();
+        STATE.set(new AdminCommandState());
         Properties bkProperties = new Properties();
         bkProperties.setProperty("pravegaservice.containerCount", "4");
         bkProperties.setProperty("pravegaservice.zkURL", zkUtil.getZooKeeperConnectString());
         bkProperties.setProperty("bookkeeper.bkLedgerPath", "/ledgers");
-        STATE.getConfigBuilder().include(bkProperties);
+        STATE.get().getConfigBuilder().include(bkProperties);
     }
 
 
     @Test
     public void testBookKeeperListCommand() throws Exception {
-        String commandResult = TestUtils.executeCommand("bk list", STATE);
+        String commandResult = TestUtils.executeCommand("bk list", STATE.get());
         Assert.assertTrue(commandResult.contains("Log 0"));
     }
 
     @Test
     public void testBookKeeperDetailsCommand() throws Exception {
-        String commandResult = TestUtils.executeCommand("bk details ", STATE);
+        String commandResult = TestUtils.executeCommand("bk details ", STATE.get());
         Assert.assertTrue(commandResult.contains("Ledger"));
     }
 }
