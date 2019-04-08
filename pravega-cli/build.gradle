@@ -25,6 +25,31 @@ repositories {
     }
 }
 
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+
+    dependencies {
+        classpath group: 'gradle.plugin.com.github.spotbugs', name: 'spotbugs-gradle-plugin', version: spotbugsPluginVersion
+        classpath "org.nosphere.apache:creadur-rat-gradle:0.4.0"
+    }
+}
+
+// Plugin configurations
+apply from: "$rootDir/gradle/application.gradle"
+apply from: "$rootDir/gradle/checkstyle.gradle"
+apply from: "$rootDir/gradle/eclipse.gradle"
+apply from: "$rootDir/gradle/spotbugs.gradle"
+apply from: "$rootDir/gradle/idea.gradle"
+apply from: "$rootDir/gradle/jacoco.gradle"
+apply from: "$rootDir/gradle/java.gradle"
+apply from: "$rootDir/gradle/maven.gradle"
+apply from: "$rootDir/gradle/rat.gradle"
+
+
 def withoutLogger = { exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     exclude group: 'org.slf4j', module: 'slf4j-simple' }
 

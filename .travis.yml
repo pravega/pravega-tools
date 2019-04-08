@@ -19,18 +19,18 @@ env:
 
 stages:
   - test
-  - dist
+  - build
 
 jobs:
   include:
     - stage: test
-      name:
+      name: Run Pravega CLI tests
       script:
-        - pravega-cli/gradlew test
+        - ./pravega-cli/gradlew -p pravega-cli test
     - stage: dist
-      name:
+      name: Build Pravega CLI
       script:
-        - pravega-cli/gradlew distTar
+        - ./pravega-cli/gradlew -p pravega-cli build
 
 cache:
   directories:
