@@ -33,12 +33,6 @@ public abstract class ControllerCommand extends Command {
     static final String COMPONENT = "controller";
 
     /**
-     * Controller commands expect a response from the Controller that we store for further use if necessary.
-     */
-    @Getter
-    protected String response;
-
-    /**
      * Creates a new instance of the Command class.
      *
      * @param args The arguments for the command.
