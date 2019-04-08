@@ -7,17 +7,30 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
+sudo: required
+
 language: java
 jdk:
  - oraclejdk8
+
 env:
   global:
     - GRADLE_OPTS="-Xms128m"
 
-sudo: required
+stages:
+  - test
+  - dist
 
-services:
-  - docker
+jobs:
+  include:
+    - stage: test
+      name:
+      script:
+        - pravega-cli/gradlew test
+    - stage: dist
+      name:
+      script:
+        - pravega-cli/gradlew distTar
 
 cache:
   directories:
