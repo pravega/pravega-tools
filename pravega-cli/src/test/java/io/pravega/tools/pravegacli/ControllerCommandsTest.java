@@ -11,13 +11,6 @@ package io.pravega.tools.pravegacli;
 
 import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
-import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.controller.ControllerCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeScopeCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroupsInScopeCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
-import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.junit.AfterClass;
@@ -27,6 +20,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
+/**
+ * Validate basic controller commands.
+ */
 public class ControllerCommandsTest {
     // Setup utility.
     private static final SetupUtils SETUP_UTILS = new SetupUtils();
@@ -41,6 +37,8 @@ public class ControllerCommandsTest {
         STATE = new AdminCommandState();
         Properties pravegaProperties = new Properties();
         pravegaProperties.setProperty("cli.controllerRestUri", SETUP_UTILS.getControllerRestUri().toString());
+        pravegaProperties.setProperty("pravegaservice.zkURL", "localhost:2181");
+        pravegaProperties.setProperty("pravegaservice.containerCount", "4");
         STATE.getConfigBuilder().include(pravegaProperties);
     }
 
@@ -51,32 +49,27 @@ public class ControllerCommandsTest {
 
     @Test
     public void testListScopesCommand() throws Exception {
-        ControllerCommand cmd = new ControllerListScopesCommand(new CommandArgs(Collections.emptyList(), STATE));
-        cmd.execute();
-        Assert.assertNotNull(cmd.getResponse());
-        Assert.assertTrue(cmd.getResponse().contains("_system"));
+        String commandResult = TestUtils.executeCommand("controller list-scopes", STATE);
+        Assert.assertTrue(commandResult.contains("_system"));
     }
 
     @Test
     public void testListStreamsCommand() throws Exception {
-        ControllerCommand cmd = new ControllerListStreamsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
-        cmd.execute();
-        Assert.assertNotNull(cmd.getResponse());
+        String testStream = "testStream";
+        SETUP_UTILS.createTestStream(testStream, 1);
+        String commandResult = TestUtils.executeCommand("controller list-streams " + SETUP_UTILS.getScope(), STATE);
+        Assert.assertTrue(commandResult.contains(testStream));
     }
 
     @Test
     public void testListReaderGroupsCommand() throws Exception {
-        ControllerCommand cmd = new ControllerListReaderGroupsInScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
-        cmd.execute();
-        Assert.assertNotNull(cmd.getResponse());
-        Assert.assertTrue(cmd.getResponse().contains("commitStreamReaders"));
+        String commandResult = TestUtils.executeCommand("controller list-readergroups _system", STATE);
+        Assert.assertTrue(commandResult.contains("commitStreamReaders"));
     }
 
     @Test
     public void testDescribeScopeCommand() throws Exception {
-        ControllerCommand cmd = new ControllerDescribeScopeCommand(new CommandArgs(Collections.singletonList("_system"), STATE));
-        cmd.execute();
-        Assert.assertNotNull(cmd.getResponse());
-        Assert.assertTrue(cmd.getResponse().contains("_system"));
+        String commandResult = TestUtils.executeCommand("controller describe-scope _system", STATE);
+        Assert.assertTrue(commandResult.contains("_system"));
     }
 }

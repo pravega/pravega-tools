@@ -10,18 +10,15 @@
 package io.pravega.tools.pravegacli;
 
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
-import io.pravega.tools.pravegacli.commands.Command;
-import io.pravega.tools.pravegacli.commands.CommandArgs;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Properties;
-import lombok.Cleanup;
 import org.apache.bookkeeper.test.BookKeeperClusterTestCase;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+/**
+ * Test basic functionality of Bookkeeper commands.
+ */
 public class BookkeeperCommandsTest extends BookKeeperClusterTestCase {
 
     private static AdminCommandState STATE;
@@ -47,16 +44,13 @@ public class BookkeeperCommandsTest extends BookKeeperClusterTestCase {
 
     @Test
     public void testBookKeeperListCommand() throws Exception {
-        Parser.Command pc = Parser.parse("bk list");
-        CommandArgs args = new CommandArgs(pc.getArgs(), STATE);
-        Command cmd = Command.Factory.get(pc.getComponent(), pc.getName(), args);
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (PrintStream ps = new PrintStream(baos, true, "UTF-8")) {
-            cmd.setOut(ps);
-            cmd.execute();
-        }
+        String commandResult = TestUtils.executeCommand("bk list", STATE);
+        Assert.assertTrue(commandResult.contains("Log 0"));
+    }
 
-        String data = new String(baos.toByteArray(), StandardCharsets.UTF_8);
-        Assert.assertTrue(data.contains("Log 0"));
+    @Test
+    public void testBookKeeperDetailsCommand() throws Exception {
+        String commandResult = TestUtils.executeCommand("bk details ", STATE);
+        Assert.assertTrue(commandResult.contains("Ledger"));
     }
 }
