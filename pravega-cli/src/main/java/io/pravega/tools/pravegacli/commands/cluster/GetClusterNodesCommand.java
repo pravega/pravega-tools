@@ -23,7 +23,7 @@ public class GetClusterNodesCommand extends ClusterCommand {
     }
 
     @Override
-    public void execute() throws Exception {
+    public void execute() {
         ensureArgCount(0);
 
         try {

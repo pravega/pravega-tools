@@ -68,14 +68,6 @@ public abstract class Command {
 
     //endregion
 
-
-    /**
-     * Controller commands expect a response from the Controller that we store for further use if necessary.
-     */
-    @Getter
-    protected String response;
-
-
     //region Constructor
 
     /**

@@ -18,7 +18,6 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import lombok.AccessLevel;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
@@ -74,8 +73,7 @@ public abstract class ControllerCommand extends Command {
         builder = webTarget.request();
         Response response = builder.get();
         printResponseInfo(response);
-        this.response = response.readEntity(String.class);
-        return this.response;
+        return response.readEntity(String.class);
     }
 
     private void printResponseInfo(Response response) {
