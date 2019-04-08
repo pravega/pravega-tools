@@ -1,38 +1,20 @@
-# pravega-tools
+# Pravega Tools
 
-Tooling for Pravega
+Tooling for Pravega cluster administration.
 
-## Getting Started
+## The Repository
 
-### Build Pravega
+This repository is intended to provide a suite of useful management tools for administrators of Pravega clusters.
+The tools provided in this repository are not expected to be used by regular users, but for administrators in 
+charge of the correct operation, deployment and troubleshooting of a Pravega cluster.
 
-Optional: This step is required only if you want to use a different version of Pravega than is published to maven central.
+At the moment, this repository provides the following tools:
 
-Install the Pravega client libraries to your local Maven repository:
+- Pravega CLI (administration): Command Line Interface for administrators to inspect, troubleshoot and repair
+Pravega clusters.
 
-```
-$ git clone https://github.com/pravega/pravega.git
-$./gradlew install
-```
+- Pravega log collection scripts: Set of scripts to easily collect logs from all instances in a Pravega cluster.
+We provide two scripts: one that collects the logs from the pods themselves, and another one that assumes the
+existence of a logging service (i.e., FluentBit) to collect the logs from.
 
-### Build the tools
-
-Use the built-in gradle wrapper to build the tools.
-
-```
-$ ./gradlew build
-...
-BUILD SUCCESSFUL
-```
-
-### Distributing
-
-Use the gradle wrapper to generat the distribution.
-
-```
-$ ./gradlew installDist
-...
-
-cd build/install/pravega-stream-stat-tool
-bin/StreamStat
-```
+For detailed documentation of each tool, we refer to their respective README files.
