@@ -21,7 +21,7 @@ Checkout the source code:
 
 ```
 git clone https://github.com/pravega/pravega-tools
-cd pravega-tools
+cd pravega-tools/pravega-cli
 ```
 
 Build the Pravega CLI tool:
@@ -33,7 +33,7 @@ Build the Pravega CLI tool:
 Unzip the result distribution artifact:
 
 ```
-cd pravega-cli/build/distributions/
+cd build/distributions/
 tar -xvf pravega-cli.tar
 ```
 
