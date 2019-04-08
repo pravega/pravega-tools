@@ -34,7 +34,7 @@ buildscript {
 
     dependencies {
         classpath group: 'gradle.plugin.com.github.spotbugs', name: 'spotbugs-gradle-plugin', version: spotbugsPluginVersion
-        classpath "org.nosphere.apache:creadur-rat-gradle:0.4.0"
+        classpath "gradle.plugin.org.nosphere.apache:creadur-rat-gradle:0.3.0"
     }
 }
 
