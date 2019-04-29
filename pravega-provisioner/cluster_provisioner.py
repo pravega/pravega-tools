@@ -6,7 +6,7 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-
+from model.constants import Constants
 from model.provisioning_logic import *
 from performance.performance_profiles import BareMetalCluster
 
@@ -17,9 +17,9 @@ def get_bool_input(msg):
     :param msg: Message to be prompted to the user.
     :return: Valid user input.
     """
-    user_input = raw_input(msg + " (yes, no)")
+    user_input = input(msg + " (yes, no)")
     while user_input != "yes" and user_input != "no":
-        user_input = raw_input(msg + " (yes, no)")
+        user_input = input(msg + " (yes, no)")
     return user_input == "yes"
 
 
@@ -41,7 +41,7 @@ def get_vm_flavor():
     Asks the user for the resources that each VM in the cluster will have.
     :return: Amount of CPU cores and GBs of RAM per VM.
     """
-    print "Please, introduce the resource information about the VMs used int cluster:"
+    print("Please, introduce the resource information about the VMs used int cluster:")
     vm_cpus = int(input("How many CPU cores has each VM/node?"))
     vm_ram_gb = int(input("How much memory in GB has each VM/node?"))
     return vm_cpus, vm_ram_gb
@@ -72,14 +72,14 @@ def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
     :return: Amount of CPU cores and RAM in GB required to allocate all the instances passed as input.
     """
     requested_ram_gb = calc_requested_pravega_ram_gb(zk_servers, bk_servers, ss_servers, cc_servers)
-    print "Requested RAM GB: ", requested_ram_gb
+    print("Requested RAM GB: ", requested_ram_gb)
     requested_cpus = calc_requested_pravega_cpus(zk_servers, bk_servers, ss_servers, cc_servers)
-    print "Requested CPUs: ", requested_cpus
+    print("Requested CPUs: ", requested_cpus)
     return requested_cpus, requested_ram_gb
 
 
 def main():
-    print "### Provisioning model for Pravega clusters ###"
+    print("### Provisioning model for Pravega clusters ###")
 
     # This sets the performance numbers of the Pravega services on a specific environment (e.g., bare metal, PKS).
     performance_profile = BareMetalCluster()
@@ -146,15 +146,15 @@ def main():
     vms = max(vms, calc_min_vms_for_resources(vm_ram_gb, vm_cpus, requested_ram_gb, requested_cpus))
 
     # Output the cluster estimation result.
-    print "--------- Cluster Provisioning ---------"
-    print "Minimum number of VMs required: ", vms
-    print "Minimum number of Zookeeper servers required: ", zookeeper_servers
-    print "Minimum number of Bookkeeper servers required: ", bookkeeper_servers
-    print "Minimum number of Segment Stores servers required: ", segment_stores
-    print "Minimum number of Controller servers required: ", controllers
-    print "--------- Cluster Config Params ---------"
-    print "Number of Segment Containers in config: ", Constants.segment_containers_per_segment_store * segment_stores
-    print "Number of Stream Buckets in config: ", Constants.stream_buckets_per_controller * controllers
+    print("--------- Cluster Provisioning ---------")
+    print("Minimum number of VMs required: ", vms)
+    print("Minimum number of Zookeeper servers required: ", zookeeper_servers)
+    print("Minimum number of Bookkeeper servers required: ", bookkeeper_servers)
+    print("Minimum number of Segment Stores servers required: ", segment_stores)
+    print("Minimum number of Controller servers required: ", controllers)
+    print("--------- Cluster Config Params ---------")
+    print("Number of Segment Containers in config: ", Constants.segment_containers_per_segment_store * segment_stores)
+    print("Number of Stream Buckets in config: ", Constants.stream_buckets_per_controller * controllers)
 
 
 if __name__ == '__main__':

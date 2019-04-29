@@ -6,8 +6,7 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-
-from constants import Constants
+from model.constants import Constants
 
 
 def calc_zk_servers_for_availability(failures_to_tolerate):
@@ -115,7 +114,7 @@ def calc_bookies_for_workload(write_events_per_second, event_size, performance_p
         if event_size == es:
             bookie_saturation_point_for_event_size = events_sec
             break
-    return write_events_per_second / bookie_saturation_point_for_event_size + 1
+    return int(write_events_per_second / bookie_saturation_point_for_event_size + 1)
 
 
 def calc_segmentstores_for_latency(write_events_per_second, event_size, expected_max_latency, performance_profile):
@@ -134,7 +133,7 @@ def calc_segmentstores_for_latency(write_events_per_second, event_size, expected
             for (throughput, latency) in sorted(throughput_vs_latency, reverse=True):
                 # Once we reach the desired max latency value, calculate the number of instances.
                 if latency < expected_max_latency:
-                    return write_events_per_second / throughput + 1
+                    return int(write_events_per_second / throughput + 1)
     raise Exception("Could not meet expected latency for Segment Store operations.")
 
 
@@ -148,7 +147,7 @@ def calc_controllers_for_workload(num_streams, heavy_operations_per_second, ligh
     :param performance_profile:  Class containing the performance of the Controller in the target environment.
     :return: Number of Controller instances to absorb the target metadata workload.
     """
-    return max(num_streams / performance_profile.max_streams_per_controller + 1,
+    return int(max(num_streams / performance_profile.max_streams_per_controller + 1,
                heavy_operations_per_second / performance_profile.controller_max_heavy_operations_per_second + 1,
-               light_operations_per_second / performance_profile.controller_max_light_operations_per_second + 1)
+               light_operations_per_second / performance_profile.controller_max_light_operations_per_second + 1))
 
