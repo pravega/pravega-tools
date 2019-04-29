@@ -6,7 +6,7 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-from model.constants import Constants
+
 from model.provisioning_logic import *
 from performance.performance_profiles import BareMetalCluster
 
@@ -123,16 +123,21 @@ def main():
             scales_per_second = int((int(input("How many scales are typically expected in a Stream per hour?")) / 3600.0) * num_streams)
 
         # Second, we characterize the behavior of Clients.
-        num_clients = int(input("How many Clients are expected to work with Pravega? (e.g., readers, writers)"))
-        metadata_ops_per_second = performance_profile.client_default_metadata_ops_per_second * num_clients
+        num_writers = int(input("How many Writers are expected to write data to Pravega?"))
+        num_readers = int(input("How many Readers are expected to read data from Pravega?"))
+        metadata_ops_per_second = performance_profile.writer_default_metadata_ops_per_second * num_writers + \
+            performance_profile.reader_default_metadata_ops_per_second * num_readers
         transaction_operations_per_second = 0
-        if get_bool_input("Are the clients executing metadata operations? (e.g., REST, list streams, get Stream info)"):
-            metadata_ops_per_second += int((int(input("For a single client, how many metadata operations per hour are expected?")) / 3600.0) * num_clients)
-        if get_bool_input("Are clients working with Transactions?"):
-            # At least, a transaction involves a create and a commit operation, so we multiply by 2.
-            transaction_operations_per_second = int((int(input("For a single client, how many Transactions per hour are expected?")) / 3600.0) * num_clients * 2)
-            # Transactions also involve more metadata operations (e.g., Transaction pings).
-            metadata_ops_per_second *= 2
+        if get_bool_input("Are there clients executing other types of metadata operations? (e.g., REST, list streams, get Stream info)"):
+            num_clients_extra_metadata_ops = int(input("How many clients are executing extra metadata operations?"))
+            metadata_ops_per_second += int((int(input("For a single client, how many extra metadata operations per hour are expected?")) / 3600.0) * num_clients_extra_metadata_ops)
+        if get_bool_input("Are writers working with Transactions?"):
+            transactions_per_hour = int(input("For a single writer, how many Transactions per hour are expected?"))
+            # At least, a transaction involves a create and a commit/abort operation, so we multiply by 2.
+            transaction_operations_per_second = int((transactions_per_hour / 3600.0) * num_writers * 2)
+            # Transactions also involve metadata operations related to keep-alives (e.g., Transaction pings). We assume
+            # a pessimistic scenario in which all the transactions are open in parallel.
+            metadata_ops_per_second += num_writers * transactions_per_hour * (1.0 / performance_profile.transaction_ping_period_in_seconds)
 
         # In the Controller, we distinguish between light (e.g., getSegments, createScope) and heavy (createStream,
         # commitTransaction) operations, as they exhibit very different performance and complexity.

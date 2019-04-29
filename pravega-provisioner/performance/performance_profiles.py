@@ -50,6 +50,10 @@ class BareMetalCluster(object):
     max_streams_per_controller = 10000
     '''
     Estimate of the number of automatic metadata operation that a client (writer/reader) may perform while writing or
-    reading data from Pravega (getNextSegments, getEndpoint, pingTransaction, getDelegateToken, etc.).
+    reading data from Pravega (getNextSegments, getEndpoint, pingTransaction, getDelegateToken, etc.). Note that, at the
+    moment, writers execute many more metadata operations (getURI()) against the Controller than readers.
     '''
-    client_default_metadata_ops_per_second = 5
+    writer_default_metadata_ops_per_second = 20
+    reader_default_metadata_ops_per_second = 1
+    '''Transaction ping period in seconds'''
+    transaction_ping_period_in_seconds = 30
