@@ -94,6 +94,11 @@ def main():
     controllers = Constants.min_controllers
     vms = 0
 
+    # Initialize values for calculation of scaling policy.
+    event_size = 0
+    write_events_per_second = 0
+    num_streams = 0
+
     # Provision for data availability.
     if get_bool_input("Do you want to provision redundant instances to tolerate failures?"):
         # Calculate the number of instances of each type to tolerate the given number of failures.
@@ -150,6 +155,28 @@ def main():
                                                                controllers)
     vms = max(vms, calc_min_vms_for_resources(vm_ram_gb, vm_cpus, requested_ram_gb, requested_cpus))
 
+    # Calculate the number of containers and buckets.
+    num_containers = Constants.segment_containers_per_segment_store * segment_stores
+    num_buckets = Constants.stream_buckets_per_controller * controllers
+
+    # Estimate an appropriate value for the Scaling Policy of Stream in this environment. At this point, we assume that
+    # the user has some workload requirements (e.g., latency, load), and the number of Segment Stores (and therefore, of
+    # containers) is derived to meet that goal. Then, we just calculate a trigger rate for Streams that tries to exploit
+    # the parallelism of the cluster (i.e., one segment per container).
+    stream_scaling_suggested_value = 0
+    if num_streams != 0 and write_events_per_second != 0:
+        # First, we calculate for a single stream, the rate in events per second to spread across all the Segment
+        # Containers. The goal is to achieve good load balancing.
+        stream_scaling_suggested_value = (write_events_per_second / num_streams) / num_containers
+        # On the one hand, we need to make sure that for a single Stream, the rate is not too low, as it would induce a
+        # too high metadata overhead in the cluster without improving load balancing significantly.
+        stream_scaling_suggested_value = min(stream_scaling_suggested_value,
+                                             performance_profile.segment_scaling_max_events[event_size])
+        # On the other hand, we also need to set some upper limit to the scaling trigger, as otherwise a single Segment
+        # Store may get saturated.
+        stream_scaling_suggested_value = max(stream_scaling_suggested_value,
+                                             performance_profile.segment_scaling_min_events[event_size])
+
     # Output the cluster estimation result.
     print("--------- Cluster Provisioning ---------")
     print("Minimum number of VMs required: ", vms)
@@ -158,8 +185,12 @@ def main():
     print("Minimum number of Segment Stores servers required: ", segment_stores)
     print("Minimum number of Controller servers required: ", controllers)
     print("--------- Cluster Config Params ---------")
-    print("Number of Segment Containers in config: ", Constants.segment_containers_per_segment_store * segment_stores)
-    print("Number of Stream Buckets in config: ", Constants.stream_buckets_per_controller * controllers)
+    print("Number of Segment Containers in config: ", num_containers)
+    print("Number of Stream Buckets in config: ", num_buckets)
+    # Only print suggested scaling policy if we have provided some information about workload.
+    if stream_scaling_suggested_value != 0:
+        print("--------- Stream Scaling Policy ---------")
+        print("Suggested Stream Scaling Policy trigger (events/second): ", int(stream_scaling_suggested_value))
 
 
 if __name__ == '__main__':

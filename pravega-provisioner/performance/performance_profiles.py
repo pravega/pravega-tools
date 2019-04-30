@@ -36,6 +36,15 @@ class BareMetalCluster(object):
                                              (7500, 101), (10000, 141), (12500, 166), (15000, 263)]),
                                     (250000, [(10, 32), (50, 23), (100, 28), (200, 21), (300, 79), (400, 81), (500, 95),
                                               (600, 97), (700, 121), (800, 152), (900, 162), (1000, 252)])]
+    '''
+    To suggest scaling policies for Streams, we also apply some bounds on the max and min number of events per second
+    per segment. That is, a too low number of events per second may lead to an unnecessary high number of parallel
+    segments that would induce high metadata overhead without any benefit in terms of load balancing. On the other hand,
+    a too high value may lead to poor load balancing and to saturate Segment Store instances. Based on the previous
+    benchmarks, we select some reasonable min/max values to bound the calculation of the scaling policy for a Stream. 
+    '''
+    segment_scaling_min_events = {100: 250, 1000: 25, 10000: 25, 250000: 5}
+    segment_scaling_max_events = {100: 10000, 1000: 5000, 10000: 5000, 250000: 250}
 
     '''
     In the Controller, We distinguish between light operations (e.g., create/delete scopes, getSegments, getEndpoint)
@@ -50,10 +59,10 @@ class BareMetalCluster(object):
     max_streams_per_controller = 10000
     '''
     Estimate of the number of automatic metadata operation that a client (writer/reader) may perform while writing or
-    reading data from Pravega (getNextSegments, getEndpoint, pingTransaction, getDelegateToken, etc.). Note that, at the
-    moment, writers execute many more metadata operations (getURI()) against the Controller than readers.
+    reading data from Pravega (getNextSegments, getEndpoint, pingTransaction, getDelegateToken, etc.). In general, these
+    operations have been measured to be < 1 per second (occur upon disconnections, change in segments, etc.).
     '''
-    writer_default_metadata_ops_per_second = 20
+    writer_default_metadata_ops_per_second = 1
     reader_default_metadata_ops_per_second = 1
     '''Transaction ping period in seconds'''
     transaction_ping_period_in_seconds = 30
