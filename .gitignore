@@ -1,6 +1,7 @@
 *.iml
 *.iws
 *.ipr
+*.pyc
 /out
 .project
 build
