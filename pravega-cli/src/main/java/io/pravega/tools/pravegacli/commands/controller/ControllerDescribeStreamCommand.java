@@ -9,7 +9,17 @@
  */
 package io.pravega.tools.pravegacli.commands.controller;
 
+import io.pravega.client.ClientConfig;
+import io.pravega.client.netty.impl.ConnectionFactory;
+import io.pravega.client.netty.impl.ConnectionFactoryImpl;
 import io.pravega.client.stream.StreamConfiguration;
+import io.pravega.controller.server.SegmentHelper;
+import io.pravega.controller.server.rpc.auth.AuthHelper;
+import io.pravega.controller.store.client.StoreClientFactory;
+import io.pravega.controller.store.host.HostControllerStore;
+import io.pravega.controller.store.host.HostMonitorConfig;
+import io.pravega.controller.store.host.HostStoreFactory;
+import io.pravega.controller.store.host.impl.HostMonitorConfigImpl;
 import io.pravega.controller.store.stream.ScaleMetadata;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StreamStoreFactory;
@@ -17,13 +27,16 @@ import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.ActiveTxnRecord;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
+import io.pravega.controller.util.Config;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
@@ -52,8 +65,19 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         try {
             @Cleanup
             CuratorFramework zkClient = createZKClient();
-            Executor executor = getCommandArgs().getState().getExecutor();
-            StreamMetadataStore store = StreamStoreFactory.createZKStore(zkClient, executor);
+            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
+
+            // The Pravega Controller service may store metadata either at Zookeeper or the Segment Store service
+            // (tables). We need to instantiate the correct type of metadata store object based on the cluster at hand.
+            StreamMetadataStore store;
+            SegmentHelper segmentHelper = null;
+            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
+                store = StreamStoreFactory.createZKStore(zkClient, executor);
+            } else {
+                segmentHelper = instantiateSegmentHelper(zkClient);
+                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, AuthHelper.getDisabledAuthHelper(), zkClient, executor);
+            }
+
             // Output the configuration of this Stream.
             CompletableFuture<StreamConfiguration> streamConfig = store.getConfiguration(scope, stream, null, executor);
             responseBuilder.append("Stream configuration: ").append(streamConfig.join().toString()).append("\n");
@@ -103,6 +127,12 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                                                                .collect(Collectors.joining("-", "{", "}")))
                                                       .append("\n"));
             output(responseBuilder.toString());
+
+            // Cleanup resources.
+            if (segmentHelper != null) {
+                segmentHelper.close();
+                store.close();
+            }
         } catch (Exception e) {
             System.err.println("Exception accessing the metadata store: " + e.getMessage());
         }
@@ -112,5 +142,20 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         return new CommandDescriptor(COMPONENT, "describe-stream", "Get the details of a given Stream.",
                 new ArgDescriptor("scope-name", "Name of the Scope where the Stream belongs to."),
                 new ArgDescriptor("stream-name", "Name of the Stream to describe."));
+    }
+
+    private SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
+        HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
+                                                                   .hostMonitorEnabled(true)
+                                                                   .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
+                                                                   .containerCount(getServiceConfig().getContainerCount())
+                                                                   .build();
+        HostControllerStore hostStore = HostStoreFactory.createStore(hostMonitorConfig, StoreClientFactory.createZKStoreClient(zkClient));
+        ClientConfig clientConfig = ClientConfig.builder()
+                                                .controllerURI(URI.create((getCLIControllerConfig().getControllerGrpcURI())))
+                                                .validateHostName(false)
+                                                .build();
+        ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
+        return new SegmentHelper(connectionFactory, hostStore);
     }
 }
