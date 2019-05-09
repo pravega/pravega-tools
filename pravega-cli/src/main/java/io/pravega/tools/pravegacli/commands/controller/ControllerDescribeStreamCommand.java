@@ -13,6 +13,7 @@ import io.pravega.client.ClientConfig;
 import io.pravega.client.netty.impl.ConnectionFactory;
 import io.pravega.client.netty.impl.ConnectionFactoryImpl;
 import io.pravega.client.stream.StreamConfiguration;
+import io.pravega.client.stream.impl.DefaultCredentials;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.AuthHelper;
 import io.pravega.controller.store.client.StoreClientFactory;
@@ -75,7 +76,8 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                 store = StreamStoreFactory.createZKStore(zkClient, executor);
             } else {
                 segmentHelper = instantiateSegmentHelper(zkClient);
-                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, AuthHelper.getDisabledAuthHelper(), zkClient, executor);
+                AuthHelper authHelper = new AuthHelper(getCLIControllerConfig().isAuthEnabled(), getCLIControllerConfig().getTokenSigningKey());
+                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
             // Output the configuration of this Stream.
@@ -153,7 +155,9 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         HostControllerStore hostStore = HostStoreFactory.createStore(hostMonitorConfig, StoreClientFactory.createZKStoreClient(zkClient));
         ClientConfig clientConfig = ClientConfig.builder()
                                                 .controllerURI(URI.create((getCLIControllerConfig().getControllerGrpcURI())))
-                                                .validateHostName(false)
+                                                .validateHostName(getCLIControllerConfig().isAuthEnabled())
+                                                .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
+                                                .trustStore(getCLIControllerConfig().getTrustStore())
                                                 .build();
         ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
         return new SegmentHelper(connectionFactory, hostStore);

@@ -51,7 +51,7 @@ public abstract class ControllerCommand extends Command {
         clientConfig.property("sun.net.http.allowRestrictedHeaders", "true");
         Client client = ClientBuilder.newClient(clientConfig);
         // If authorization parameters are configured, set them in the client.
-        if (getCLIControllerConfig().getUserName() != null && !getCLIControllerConfig().getUserName().equals("")) {
+        if (getCLIControllerConfig().isAuthEnabled()) {
             HttpAuthenticationFeature auth = HttpAuthenticationFeature.basic(getCLIControllerConfig().getUserName(),
                     getCLIControllerConfig().getPassword());
             client = client.register(auth);

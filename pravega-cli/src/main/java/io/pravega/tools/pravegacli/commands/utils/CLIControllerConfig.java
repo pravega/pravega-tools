@@ -26,8 +26,11 @@ public final class CLIControllerConfig {
 
     private static final Property<String> CONTROLLER_REST_URI = Property.named("controllerRestUri", "http://localhost:9091");
     private static final Property<String> CONTROLLER_GRPC_URI = Property.named("controllerGrpcUri", "tcp://localhost:9090");
+    private static final Property<Boolean> AUTH_ENABLED = Property.named("authEnabled", false);
     private static final Property<String> CONTROLLER_USER_NAME = Property.named("userName", "");
     private static final Property<String> CONTROLLER_PASSWORD = Property.named("password", "");
+    private static final Property<String> TOKEN_SIGNING_KEY = Property.named("tokenSigningKey", "");
+    private static final Property<String> TRUST_STORE = Property.named("trustStore", "");
     private static final Property<String> METADATA_BACKEND = Property.named("metadataBackend", MetadataBackends.SEGMENTSTORE.name());
 
     private static final String COMPONENT_CODE = "cli";
@@ -45,6 +48,12 @@ public final class CLIControllerConfig {
     private final String controllerGrpcURI;
 
     /**
+     * Defines whether or not to use authentication in Controller requests.
+     */
+    @Getter
+    private final boolean authEnabled;
+
+    /**
      * User name if authentication is configured in the Controller.
      */
     @Getter
@@ -57,6 +66,18 @@ public final class CLIControllerConfig {
     private final String password;
 
     /**
+     * Key that is shared between Segment Store and Controller and is used for signing the delegation token.
+     */
+    @Getter
+    private final String tokenSigningKey;
+
+    /**
+     * Key that is shared between Segment Store and Controller and is used for signing the delegation token.
+     */
+    @Getter
+    private final String trustStore;
+
+    /**
      * Controller metadata backend. At the moment, its values can only be "segmentstore" or "zookeeper".
      */
     @Getter
@@ -65,8 +86,11 @@ public final class CLIControllerConfig {
     private CLIControllerConfig(TypedProperties properties) throws ConfigurationException {
         this.controllerRestURI = properties.get(CONTROLLER_REST_URI);
         this.controllerGrpcURI = properties.get(CONTROLLER_GRPC_URI);
+        this.authEnabled = properties.getBoolean(AUTH_ENABLED);
         this.userName = properties.get(CONTROLLER_USER_NAME);
         this.password = properties.get(CONTROLLER_PASSWORD);
+        this.tokenSigningKey = properties.get(TOKEN_SIGNING_KEY);
+        this.trustStore = properties.get(TRUST_STORE);
         this.metadataBackend = properties.get(METADATA_BACKEND);
     }
 
