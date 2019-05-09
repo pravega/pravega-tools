@@ -29,6 +29,8 @@ public final class CLIControllerConfig {
     private static final Property<Boolean> AUTH_ENABLED = Property.named("authEnabled", false);
     private static final Property<String> CONTROLLER_USER_NAME = Property.named("userName", "");
     private static final Property<String> CONTROLLER_PASSWORD = Property.named("password", "");
+    private static final Property<String> TOKEN_SIGNING_KEY = Property.named("tokenSigningKey", "");
+    private static final Property<String> TRUST_STORE = Property.named("trustStore", "");
     private static final Property<String> METADATA_BACKEND = Property.named("metadataBackend", MetadataBackends.SEGMENTSTORE.name());
 
     private static final String COMPONENT_CODE = "cli";
@@ -64,6 +66,18 @@ public final class CLIControllerConfig {
     private final String password;
 
     /**
+     * Key that is shared between Segment Store and Controller and is used for signing the delegation token.
+     */
+    @Getter
+    private final String tokenSigningKey;
+
+    /**
+     * Key that is shared between Segment Store and Controller and is used for signing the delegation token.
+     */
+    @Getter
+    private final String trustStore;
+
+    /**
      * Controller metadata backend. At the moment, its values can only be "segmentstore" or "zookeeper".
      */
     @Getter
@@ -75,6 +89,8 @@ public final class CLIControllerConfig {
         this.authEnabled = properties.getBoolean(AUTH_ENABLED);
         this.userName = properties.get(CONTROLLER_USER_NAME);
         this.password = properties.get(CONTROLLER_PASSWORD);
+        this.tokenSigningKey = properties.get(TOKEN_SIGNING_KEY);
+        this.trustStore = properties.get(TRUST_STORE);
         this.metadataBackend = properties.get(METADATA_BACKEND);
     }
 
