@@ -76,7 +76,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                 store = StreamStoreFactory.createZKStore(zkClient, executor);
             } else {
                 segmentHelper = instantiateSegmentHelper(zkClient);
-                AuthHelper authHelper = new AuthHelper(getCLIControllerConfig().isAuthEnabled(), getCLIControllerConfig().getTokenSigningKey());
+                AuthHelper authHelper = AuthHelper.getDisabledAuthHelper();
                 store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
@@ -157,7 +157,6 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                                                 .controllerURI(URI.create((getCLIControllerConfig().getControllerGrpcURI())))
                                                 .validateHostName(getCLIControllerConfig().isAuthEnabled())
                                                 .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
-                                                .trustStore(getCLIControllerConfig().getTrustStore())
                                                 .build();
         ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
         return new SegmentHelper(connectionFactory, hostStore);
