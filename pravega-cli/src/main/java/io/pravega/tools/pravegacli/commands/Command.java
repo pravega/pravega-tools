@@ -12,6 +12,10 @@ package io.pravega.tools.pravegacli.commands;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import io.pravega.common.Exceptions;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCleanupCommand;
@@ -51,6 +55,7 @@ import lombok.val;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.json.simple.JSONObject;
 
 /**
  * Base class for any command to execute from the Admin tool.
@@ -64,7 +69,9 @@ public abstract class Command {
     @VisibleForTesting
     @Getter(AccessLevel.PUBLIC)
     @Setter(AccessLevel.PUBLIC)
-    private PrintStream out = System.out;
+    private final PrintStream out = System.out;
+
+    private final JSONObject commandJSONOutput = new JSONObject();
 
     //endregion
 
@@ -125,6 +132,20 @@ public abstract class Command {
 
     protected void output(String messageTemplate, Object... args) {
         this.out.println(String.format(messageTemplate, args));
+    }
+
+    protected void writeToJSONOutput(String key, String value) {
+        this.commandJSONOutput.put(key, value);
+    }
+
+    protected void prettyJSONOutput() {
+        JsonElement je = new JsonParser().parse(commandJSONOutput.toJSONString());
+        output(new GsonBuilder().setPrettyPrinting().create().toJson(je));
+    }
+
+    protected void prettyJSONOutput(String stringJSON) {
+        JsonElement je = new JsonParser().parse(stringJSON);
+        output(new GsonBuilder().setPrettyPrinting().create().toJson(je));
     }
 
     protected boolean confirmContinue() {

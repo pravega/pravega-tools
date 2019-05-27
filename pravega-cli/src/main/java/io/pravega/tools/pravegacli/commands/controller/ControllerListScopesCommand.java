@@ -32,7 +32,7 @@ public class ControllerListScopesCommand extends ControllerCommand {
         ensureArgCount(0);
         @Cleanup
         val context = createContext();
-        output(executeRESTCall(context, "/v1/scopes/"));
+        prettyJSONOutput(executeRESTCall(context, "/v1/scopes/"));
     }
 
     public static CommandDescriptor descriptor() {
