@@ -15,10 +15,6 @@ import lombok.Cleanup;
 import lombok.Data;
 import lombok.val;
 import org.apache.bookkeeper.client.LedgerHandle;
-import org.apache.bookkeeper.net.BookieSocketAddress;
-
-import java.util.ArrayList;
-import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
@@ -63,7 +59,7 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
                 val bkLm = context.bkAdmin.getLedgerMetadata(lh);
                 prettyJSONOutput("ledger details", new LedgerDetails(lm.getLedgerId(), lm.getSequence(), String.valueOf(lm.getStatus()),
                         lh.getLastAddConfirmed(), lh.getLength(), lh.getNumBookies(), lh.getNumFragments(),
-                        bkLm.getEnsembleSize(), bkLm.getWriteQuorumSize(), bkLm.getAckQuorumSize(), bkLm.getEnsembles()));
+                        bkLm.getEnsembleSize(), bkLm.getWriteQuorumSize(), bkLm.getAckQuorumSize(), getEnsembleDescription(bkLm)));
             } catch (Exception ex) {
                 output("\tLedger %d: Seq = %d, Status = %s. BK: %s",
                         lm.getLedgerId(), lm.getSequence(), lm.getStatus(), ex.getMessage());
@@ -77,7 +73,7 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
 
     private String getEnsembleDescription(org.apache.bookkeeper.client.LedgerMetadata bkLm) {
         return bkLm.getEnsembles().entrySet().stream()
-                   .map(e -> String.format("%d:[%s]", e.getKey(), e.getValue().stream().map(Object::toString).collect(Collectors.joining(","))))
+                   .map(e -> String.format("%d: [%s]", e.getKey(), e.getValue().stream().map(Object::toString).collect(Collectors.joining(","))))
                    .collect(Collectors.joining(","));
     }
 
@@ -99,6 +95,6 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
         private final int ensembleSize;
         private final int writeQuorumSize;
         private final int ackQuorumSize;
-        private final TreeMap<Long, ArrayList<BookieSocketAddress>> ensembles;
+        private final String ensembles;
     }
 }
