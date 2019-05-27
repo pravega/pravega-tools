@@ -61,6 +61,7 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
                         lh.getLastAddConfirmed(), lh.getLength(), lh.getNumBookies(), lh.getNumFragments(),
                         bkLm.getEnsembleSize(), bkLm.getWriteQuorumSize(), bkLm.getAckQuorumSize(), getEnsembleDescription(bkLm)));
             } catch (Exception ex) {
+                System.err.println("Exception executing BK details command: " + ex.getMessage());
                 output("\tLedger %d: Seq = %d, Status = %s. BK: %s",
                         lm.getLedgerId(), lm.getSequence(), lm.getStatus(), ex.getMessage());
             } finally {
