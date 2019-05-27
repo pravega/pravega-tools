@@ -21,24 +21,19 @@ import io.pravega.controller.store.host.HostControllerStore;
 import io.pravega.controller.store.host.HostMonitorConfig;
 import io.pravega.controller.store.host.HostStoreFactory;
 import io.pravega.controller.store.host.impl.HostMonitorConfigImpl;
-import io.pravega.controller.store.stream.ScaleMetadata;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StreamStoreFactory;
-import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.ActiveTxnRecord;
-import io.pravega.controller.store.stream.records.EpochRecord;
-import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.controller.util.Config;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.net.URI;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
+
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
 
@@ -61,7 +56,6 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String stream = getCommandArgs().getArgs().get(1);
-        StringBuilder responseBuilder = new StringBuilder();
 
         try {
             @Cleanup
@@ -82,53 +76,33 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
 
             // Output the configuration of this Stream.
             CompletableFuture<StreamConfiguration> streamConfig = store.getConfiguration(scope, stream, null, executor);
-            responseBuilder.append("Stream configuration: ").append(streamConfig.join().toString()).append("\n");
+            prettyJSONOutput("stream config", streamConfig.join());
 
             // Output the state for this Stream.
-            responseBuilder.append("Stream state: ").append(store.getState(scope, stream, true, null,
-                    executor).join().toString()).append("\n");
+            prettyJSONOutput("stream state", store.getState(scope, stream, true, null, executor).join());
 
             // Output the total number of segments for this Stream.
             Set<Long> segments = store.getAllSegmentIds(scope, stream, null, executor).join();
-            responseBuilder.append("Total number of Stream segments: ").append(segments.size()).append("\n");
+            prettyJSONOutput("segment count", segments.size());
 
             // Check if the Stream is sealed.
-            responseBuilder.append("Is Stream sealed? ").append(store.isSealed(scope, stream, null, executor).join()).append("\n");
+            prettyJSONOutput("is sealed", store.isSealed(scope, stream, null, executor).join());
 
             // Output the active epoch for this Stream.
-            EpochRecord epochRecord = store.getActiveEpoch(scope, stream, null, true, executor).join();
-            responseBuilder.append("Current Stream epoch: ").append(epochRecord.getEpoch()).append(", creation time: ")
-                           .append(epochRecord.getCreationTime()).append("\n");
-
-            // Output the active epoch for this Stream.
-            responseBuilder.append("Segments in active epoch: ").append("\n");
-            epochRecord.getSegments().forEach(s -> responseBuilder.append("> ").append(s.toString()).append("\n"));
+            prettyJSONOutput("active epoch", store.getActiveEpoch(scope, stream, null, true, executor).join());
 
             // Output the number of active Transactions for ths Stream.
-            responseBuilder.append("Active Transactions in Stream: ").append("\n");
-            Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null,
-                    getCommandArgs().getState().getExecutor()).join();
-            activeTxn.forEach((txnId, txnRecord) -> responseBuilder.append("> TxnId: ").append(txnId).append(", TxnRecord: ")
-                                                                   .append(txnRecord.toString()).append("\n"));
+            Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null, getCommandArgs().getState().getExecutor()).join();
+            if (!activeTxn.isEmpty()) {
+                prettyJSONOutput("active transactions", activeTxn);
+            }
 
             // Output Truncation point.
-            VersionedMetadata<StreamTruncationRecord> truncationRecord = store.getTruncationRecord(scope, stream,
-                    null, executor).join();
-            responseBuilder.append("Stream truncation record: lower epoch: ").append(truncationRecord.getObject().getSpanEpochLow())
-                           .append(", high epoch: ").append(truncationRecord.getObject().getSpanEpochHigh()).append(", deleted segments: ")
-                           .append(truncationRecord.getObject().getDeletedSegments().size()).append(", StreamCut: ")
-                           .append(truncationRecord.getObject().getStreamCut().toString()).append("\n");
+            prettyJSONOutput("truncation record", store.getTruncationRecord(scope, stream, null, executor).join().getObject());
 
             // Output the metadata that describes all the scaling information for this Stream.
-            List<ScaleMetadata> scaleMetadata = store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
-                    segments.stream().max(Long::compareTo).get(), null, executor).join();
-            scaleMetadata.forEach(s -> responseBuilder.append("> Scale time: ").append(s.getTimestamp()).append(", splits: ")
-                                                      .append(s.getSplits()).append(", merges: ").append(s.getMerges()).append(", segments: ")
-                                                      .append(s.getSegments().stream()
-                                                               .map(segment -> String.valueOf(segment.getNumber()))
-                                                               .collect(Collectors.joining("-", "{", "}")))
-                                                      .append("\n"));
-            output(responseBuilder.toString());
+            prettyJSONOutput("scaling info", store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
+                    segments.stream().max(Long::compareTo).get(), null, executor).join());
 
             // Cleanup resources.
             if (segmentHelper != null) {

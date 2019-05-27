@@ -9,10 +9,11 @@
  */
 package io.pravega.tools.pravegacli.commands;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
@@ -69,9 +70,7 @@ public abstract class Command {
     @VisibleForTesting
     @Getter(AccessLevel.PUBLIC)
     @Setter(AccessLevel.PUBLIC)
-    private final PrintStream out = System.out;
-
-    private final JSONObject commandJSONOutput = new JSONObject();
+    private PrintStream out = System.out;
 
     //endregion
 
@@ -134,18 +133,14 @@ public abstract class Command {
         this.out.println(String.format(messageTemplate, args));
     }
 
-    protected void writeToJSONOutput(String key, String value) {
-        this.commandJSONOutput.put(key, value);
+    protected void prettyJSONOutput(String jsonString) {
+        JsonElement je = new JsonParser().parse(jsonString);
+        output(new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(je));
     }
 
-    protected void prettyJSONOutput() {
-        JsonElement je = new JsonParser().parse(commandJSONOutput.toJSONString());
-        output(new GsonBuilder().setPrettyPrinting().create().toJson(je));
-    }
-
-    protected void prettyJSONOutput(String stringJSON) {
-        JsonElement je = new JsonParser().parse(stringJSON);
-        output(new GsonBuilder().setPrettyPrinting().create().toJson(je));
+    protected void prettyJSONOutput(String key, Object value) {
+        JsonElement je = new JsonParser().parse(objectToJSON(new Tuple(key, value)));
+        output(new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(je));
     }
 
     protected boolean confirmContinue() {
@@ -326,5 +321,21 @@ public abstract class Command {
         private interface CommandCreator extends Function<CommandArgs, Command> {
         }
     }
+
+    @Data
+    private static class Tuple {
+        private final String key;
+        private final Object value;
+    }
+
+    private String objectToJSON(Object object) {
+        try {
+            return new ObjectMapper().writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            System.err.println("Exception parsing object: " + e.getMessage());
+        }
+        return "";
+    }
+
     //endregion
 }
