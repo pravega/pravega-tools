@@ -17,10 +17,7 @@ import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
 import io.pravega.segmentstore.storage.impl.bookkeeper.ReadOnlyLogMetadata;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.val;
+import lombok.*;
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.curator.framework.CuratorFramework;
@@ -45,12 +42,8 @@ abstract class BookKeeperCommand extends Command {
         if (m == null) {
             prettyJSONOutput("log (no metadata)", logId);
         } else {
-            prettyJSONOutput("log", logId);
-            prettyJSONOutput("epoch", m.getEpoch());
-            prettyJSONOutput("version", m.getUpdateVersion());
-            prettyJSONOutput("enabled", m.isEnabled());
-            prettyJSONOutput("ledgers", m.getLedgers().size());
-            prettyJSONOutput("truncation", m.getTruncationAddress());
+            prettyJSONOutput("log summary", new LogSummary(logId, m.getEpoch(), m.getUpdateVersion(), m.isEnabled(),
+                    m.getLedgers().size(), String.valueOf(m.getTruncationAddress())));
         }
     }
 
@@ -96,5 +89,16 @@ abstract class BookKeeperCommand extends Command {
             // method and it's a good idea to invoke it.
             Exceptions.handleInterrupted(this.bkAdmin::close);
         }
+    }
+
+    @Data
+    @AllArgsConstructor
+    private static class LogSummary {
+        private int logId;
+        private long epoch;
+        private int version;
+        private boolean enabled;
+        private int ledgers;
+        private String truncation;
     }
 }
