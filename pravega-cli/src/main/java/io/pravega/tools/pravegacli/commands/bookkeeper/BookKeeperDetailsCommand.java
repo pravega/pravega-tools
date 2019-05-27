@@ -11,10 +11,15 @@ package io.pravega.tools.pravegacli.commands.bookkeeper;
 
 import io.pravega.segmentstore.storage.impl.bookkeeper.LedgerMetadata;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import java.util.stream.Collectors;
 import lombok.Cleanup;
+import lombok.Data;
 import lombok.val;
 import org.apache.bookkeeper.client.LedgerHandle;
+import org.apache.bookkeeper.net.BookieSocketAddress;
+
+import java.util.ArrayList;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /**
  * Fetches details about a BookKeeperLog.
@@ -56,9 +61,9 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
             try {
                 lh = log.openLedgerNoFencing(lm);
                 val bkLm = context.bkAdmin.getLedgerMetadata(lh);
-                prettyJSONOutput("ledger metadata", lm);
-                prettyJSONOutput("ledger handle", lh);
-                prettyJSONOutput("ensemble", bkLm);
+                prettyJSONOutput("ledger details", new LedgerDetails(lm.getLedgerId(), lm.getSequence(), String.valueOf(lm.getStatus()),
+                        lh.getLastAddConfirmed(), lh.getLength(), lh.getNumBookies(), lh.getNumFragments(),
+                        bkLm.getEnsembleSize(), bkLm.getWriteQuorumSize(), bkLm.getAckQuorumSize(), bkLm.getEnsembles()));
             } catch (Exception ex) {
                 output("\tLedger %d: Seq = %d, Status = %s. BK: %s",
                         lm.getLedgerId(), lm.getSequence(), lm.getStatus(), ex.getMessage());
@@ -80,5 +85,20 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
         return new CommandDescriptor(BookKeeperCommand.COMPONENT, "details",
                 "Lists metadata details about a BookKeeperLog, including BK Ledger information.",
                 new ArgDescriptor("log-id", "Id of the log to get details for."));
+    }
+
+    @Data
+    private static class LedgerDetails {
+        private final long ledger;
+        private final int seq;
+        private final String status;
+        private final long lac;
+        private final long length;
+        private final long numBookies;
+        private final long numFragments;
+        private final int ensembleSize;
+        private final int writeQuorumSize;
+        private final int ackQuorumSize;
+        private final TreeMap<Long, ArrayList<BookieSocketAddress>> ensembles;
     }
 }

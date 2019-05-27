@@ -41,7 +41,7 @@ abstract class BookKeeperCommand extends Command {
      * @param logId The Log Id.
      * @param m     The Log Metadata for the given Log Id.
      */
-    protected void outputLogSummary(int logId, ReadOnlyLogMetadata m) {
+    void outputLogSummary(int logId, ReadOnlyLogMetadata m) {
         if (m == null) {
             output("Log %d: No metadata.", logId);
         } else {
