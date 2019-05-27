@@ -32,7 +32,7 @@ public class GetSegmentStoreByContainerCommand extends ClusterCommand {
             @Cleanup
             ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL(), getServiceConfig().getClusterName());
             Optional<Host> host = zkStoreHelper.getHostForContainer(getIntArg(0));
-            output("Owner Segment Store: " + (host.isPresent() ? host.get() : "not found"));
+            prettyJSONOutput("owner segment store", host.get());
         } catch (Exception e) {
             System.err.println("Exception accessing to Zookeeper cluster metadata.");
         }

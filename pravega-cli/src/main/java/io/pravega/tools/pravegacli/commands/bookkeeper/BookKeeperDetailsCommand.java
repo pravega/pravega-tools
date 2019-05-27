@@ -56,10 +56,9 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
             try {
                 lh = log.openLedgerNoFencing(lm);
                 val bkLm = context.bkAdmin.getLedgerMetadata(lh);
-                output("\tLedger %d: Seq=%d, Status=%s, LAC=%d, Length=%d, Bookies=%d, Frags=%d, E/W/A=%d/%d/%d, Ensembles=%s.",
-                        lm.getLedgerId(), lm.getSequence(), lm.getStatus(),
-                        lh.getLastAddConfirmed(), lh.getLength(), lh.getNumBookies(), lh.getNumFragments(),
-                        bkLm.getEnsembleSize(), bkLm.getWriteQuorumSize(), bkLm.getAckQuorumSize(), getEnsembleDescription(bkLm));
+                prettyJSONOutput("ledger metadata", lm);
+                prettyJSONOutput("ledger handle", lh);
+                prettyJSONOutput("ensemble", bkLm);
             } catch (Exception ex) {
                 output("\tLedger %d: Seq = %d, Status = %s. BK: %s",
                         lm.getLedgerId(), lm.getSequence(), lm.getStatus(), ex.getMessage());

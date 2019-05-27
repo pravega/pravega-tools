@@ -56,7 +56,6 @@ import lombok.val;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
-import org.json.simple.JSONObject;
 
 /**
  * Base class for any command to execute from the Admin tool.
