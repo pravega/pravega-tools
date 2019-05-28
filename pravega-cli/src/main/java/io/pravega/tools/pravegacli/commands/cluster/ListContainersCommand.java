@@ -28,9 +28,7 @@ public class ListContainersCommand extends ClusterCommand {
         try {
             @Cleanup
             ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL(), getServiceConfig().getClusterName());
-            output("Segment Store to Container map:");
-            zkStoreHelper.getCurrentHostMap().forEach((host, containers) ->
-                    output(">" + host + " -> " + containers + "\n"));
+            prettyJSONOutput("segment_store_container_map", zkStoreHelper.getCurrentHostMap());
         } catch (Exception e) {
             System.err.println("Exception accessing to Zookeeper cluster metadata: " + e.getMessage());
         }

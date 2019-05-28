@@ -29,13 +29,10 @@ public class GetClusterNodesCommand extends ClusterCommand {
         try {
             @Cleanup
             ZKHelper zkStoreHelper = ZKHelper.create(getServiceConfig().getZkURL(), getServiceConfig().getClusterName());
-            output("Cluster name: " + getServiceConfig().getClusterName());
-            output("Controller instances in the cluster:");
-            zkStoreHelper.getControllers().forEach(c -> output("> " + c));
-            output("Segment Store instances in the cluster:");
-            zkStoreHelper.getSegmentStores().forEach(ss -> output("> " + ss));
-            output("Bookies in the cluster:");
-            zkStoreHelper.getBookies().forEach(b -> output("> " + b));
+            prettyJSONOutput("cluster_name", getServiceConfig().getClusterName());
+            prettyJSONOutput("controllers", zkStoreHelper.getControllers());
+            prettyJSONOutput("segment_stores", zkStoreHelper.getSegmentStores());
+            prettyJSONOutput("bookies", zkStoreHelper.getBookies());
         } catch (Exception e) {
             System.err.println("Exception accessing to Zookeeper cluster metadata.");
         }

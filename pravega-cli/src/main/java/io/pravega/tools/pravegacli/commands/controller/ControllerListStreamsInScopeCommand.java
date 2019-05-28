@@ -33,7 +33,7 @@ public class ControllerListStreamsInScopeCommand extends ControllerCommand {
         @Cleanup
         val context = createContext();
         String scope = getCommandArgs().getArgs().get(0);
-        output(executeRESTCall(context, "/v1/scopes/" + scope + "/streams"));
+        prettyJSONOutput(executeRESTCall(context, "/v1/scopes/" + scope + "/streams"));
     }
 
     public static CommandDescriptor descriptor() {

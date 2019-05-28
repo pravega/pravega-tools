@@ -17,10 +17,7 @@ import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
 import io.pravega.segmentstore.storage.impl.bookkeeper.ReadOnlyLogMetadata;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.val;
+import lombok.*;
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.curator.framework.CuratorFramework;
@@ -41,12 +38,12 @@ abstract class BookKeeperCommand extends Command {
      * @param logId The Log Id.
      * @param m     The Log Metadata for the given Log Id.
      */
-    protected void outputLogSummary(int logId, ReadOnlyLogMetadata m) {
+    void outputLogSummary(int logId, ReadOnlyLogMetadata m) {
         if (m == null) {
-            output("Log %d: No metadata.", logId);
+            prettyJSONOutput("log_no_metadata)", logId);
         } else {
-            output("Log %d: Epoch=%d, Version=%d, Enabled=%s, Ledgers=%d, Truncation={%s}", logId,
-                    m.getEpoch(), m.getUpdateVersion(), m.isEnabled(), m.getLedgers().size(), m.getTruncationAddress());
+            prettyJSONOutput("log_summary", new LogSummary(logId, m.getEpoch(), m.getUpdateVersion(), m.isEnabled(),
+                    m.getLedgers().size(), String.valueOf(m.getTruncationAddress())));
         }
     }
 
@@ -92,5 +89,16 @@ abstract class BookKeeperCommand extends Command {
             // method and it's a good idea to invoke it.
             Exceptions.handleInterrupted(this.bkAdmin::close);
         }
+    }
+
+    @Data
+    @AllArgsConstructor
+    private static class LogSummary {
+        private int logId;
+        private long epoch;
+        private int version;
+        private boolean enabled;
+        private int ledgers;
+        private String truncation;
     }
 }

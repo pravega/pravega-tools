@@ -9,9 +9,14 @@
  */
 package io.pravega.tools.pravegacli.commands;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import io.pravega.common.Exceptions;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCleanupCommand;
@@ -125,6 +130,16 @@ public abstract class Command {
 
     protected void output(String messageTemplate, Object... args) {
         this.out.println(String.format(messageTemplate, args));
+    }
+
+    protected void prettyJSONOutput(String jsonString) {
+        JsonElement je = new JsonParser().parse(jsonString);
+        output(new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(je));
+    }
+
+    protected void prettyJSONOutput(String key, Object value) {
+        JsonElement je = new JsonParser().parse(objectToJSON(new Tuple(key, value)));
+        output(new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(je));
     }
 
     protected boolean confirmContinue() {
@@ -305,5 +320,21 @@ public abstract class Command {
         private interface CommandCreator extends Function<CommandArgs, Command> {
         }
     }
+
+    @Data
+    private static class Tuple {
+        private final String key;
+        private final Object value;
+    }
+
+    private String objectToJSON(Object object) {
+        try {
+            return new ObjectMapper().writeValueAsString(object);
+        } catch (JsonProcessingException e) {
+            System.err.println("Exception parsing object: " + e.getMessage());
+        }
+        return "";
+    }
+
     //endregion
 }

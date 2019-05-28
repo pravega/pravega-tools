@@ -34,7 +34,7 @@ public class ControllerDescribeScopeCommand extends ControllerCommand {
         @Cleanup
         val context = createContext();
         // Print the response sent by the Controller.
-        output(executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0)));
+        prettyJSONOutput(executeRESTCall(context, "/v1/scopes/" + getCommandArgs().getArgs().get(0)));
     }
 
     public static CommandDescriptor descriptor() {
