@@ -40,9 +40,9 @@ abstract class BookKeeperCommand extends Command {
      */
     void outputLogSummary(int logId, ReadOnlyLogMetadata m) {
         if (m == null) {
-            prettyJSONOutput("log (no metadata)", logId);
+            prettyJSONOutput("log_no_metadata)", logId);
         } else {
-            prettyJSONOutput("log summary", new LogSummary(logId, m.getEpoch(), m.getUpdateVersion(), m.isEnabled(),
+            prettyJSONOutput("log_summary", new LogSummary(logId, m.getEpoch(), m.getUpdateVersion(), m.isEnabled(),
                     m.getLedgers().size(), String.valueOf(m.getTruncationAddress())));
         }
     }

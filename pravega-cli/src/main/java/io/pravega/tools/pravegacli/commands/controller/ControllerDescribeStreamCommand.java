@@ -76,32 +76,32 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
 
             // Output the configuration of this Stream.
             CompletableFuture<StreamConfiguration> streamConfig = store.getConfiguration(scope, stream, null, executor);
-            prettyJSONOutput("stream config", streamConfig.join());
+            prettyJSONOutput("stream_config", streamConfig.join());
 
             // Output the state for this Stream.
-            prettyJSONOutput("stream state", store.getState(scope, stream, true, null, executor).join());
+            prettyJSONOutput("stream_state", store.getState(scope, stream, true, null, executor).join());
 
             // Output the total number of segments for this Stream.
             Set<Long> segments = store.getAllSegmentIds(scope, stream, null, executor).join();
-            prettyJSONOutput("segment count", segments.size());
+            prettyJSONOutput("segment_count", segments.size());
 
             // Check if the Stream is sealed.
-            prettyJSONOutput("is sealed", store.isSealed(scope, stream, null, executor).join());
+            prettyJSONOutput("is_sealed", store.isSealed(scope, stream, null, executor).join());
 
             // Output the active epoch for this Stream.
-            prettyJSONOutput("active epoch", store.getActiveEpoch(scope, stream, null, true, executor).join());
+            prettyJSONOutput("active_epoch", store.getActiveEpoch(scope, stream, null, true, executor).join());
 
             // Output the number of active Transactions for ths Stream.
             Map<UUID, ActiveTxnRecord> activeTxn = store.getActiveTxns(scope, stream, null, getCommandArgs().getState().getExecutor()).join();
             if (!activeTxn.isEmpty()) {
-                prettyJSONOutput("active transactions", activeTxn);
+                prettyJSONOutput("active_transactions", activeTxn);
             }
 
             // Output Truncation point.
-            prettyJSONOutput("truncation record", store.getTruncationRecord(scope, stream, null, executor).join().getObject());
+            prettyJSONOutput("truncation_record", store.getTruncationRecord(scope, stream, null, executor).join().getObject());
 
             // Output the metadata that describes all the scaling information for this Stream.
-            prettyJSONOutput("scaling info", store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
+            prettyJSONOutput("scaling_info", store.getScaleMetadata(scope, stream, segments.stream().min(Long::compareTo).get(),
                     segments.stream().max(Long::compareTo).get(), null, executor).join());
 
             // Cleanup resources.

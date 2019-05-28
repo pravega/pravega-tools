@@ -46,13 +46,13 @@ public class BookkeeperCommandsTest extends BookKeeperClusterTestCase {
     public void testBookKeeperListCommand() throws Exception {
         String commandResult = TestUtils.executeCommand("bk list", STATE.get());
         System.err.println(commandResult);
-        Assert.assertTrue(commandResult.contains("log (no metadata)"));
+        Assert.assertTrue(commandResult.contains("log_no_metadata"));
     }
 
     @Test
     public void testBookKeeperDetailsCommand() throws Exception {
         String commandResult = TestUtils.executeCommand("bk details 0", STATE.get());
         System.err.println(commandResult);
-        Assert.assertTrue(commandResult.contains("log (no metadata)"));
+        Assert.assertTrue(commandResult.contains("log_no_metadata"));
     }
 }
