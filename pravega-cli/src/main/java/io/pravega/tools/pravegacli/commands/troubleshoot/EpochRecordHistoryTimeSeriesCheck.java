@@ -9,31 +9,19 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
-import io.pravega.client.ClientConfig;
-import io.pravega.client.netty.impl.ConnectionFactory;
-import io.pravega.client.netty.impl.ConnectionFactoryImpl;
-import io.pravega.client.stream.impl.DefaultCredentials;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.AuthHelper;
-import io.pravega.controller.store.client.StoreClientFactory;
-import io.pravega.controller.store.host.HostControllerStore;
-import io.pravega.controller.store.host.HostMonitorConfig;
-import io.pravega.controller.store.host.HostStoreFactory;
-import io.pravega.controller.store.host.impl.HostMonitorConfigImpl;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.records.EpochRecord;
-import io.pravega.controller.util.Config;
-import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
 
-import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
 
-public class EpochRecordHistoryTimeSeriesCheck extends Command {
+public class EpochRecordHistoryTimeSeriesCheck extends TroubleshootCommand {
 
     protected StreamMetadataStore store;
 
@@ -76,22 +64,6 @@ public class EpochRecordHistoryTimeSeriesCheck extends Command {
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
-    }
-
-    private SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
-        HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
-                .hostMonitorEnabled(true)
-                .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
-                .containerCount(getServiceConfig().getContainerCount())
-                .build();
-        HostControllerStore hostStore = HostStoreFactory.createStore(hostMonitorConfig, StoreClientFactory.createZKStoreClient(zkClient));
-        ClientConfig clientConfig = ClientConfig.builder()
-                .controllerURI(URI.create((getCLIControllerConfig().getControllerGrpcURI())))
-                .validateHostName(getCLIControllerConfig().isAuthEnabled())
-                .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
-                .build();
-        ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
-        return new SegmentHelper(connectionFactory, hostStore);
     }
 
 }

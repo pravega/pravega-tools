@@ -12,6 +12,7 @@ package io.pravega.tools.pravegacli.commands.utils;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.EpochTransitionRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
+import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 
 public class OutputUtils {
 
@@ -61,12 +62,29 @@ public class OutputUtils {
 
         responseBuilder.append("Stream epoch: ").append(record.getEpoch()).append(", creation time: ")
                 .append(record.getScaleTime()).append("\n");
-
         responseBuilder.append("Segments created: ").append("\n");
         record.getSegmentsCreated().forEach(segment -> responseBuilder.append("> ").append(segment.toString()).append("\n"));
-
         responseBuilder.append("Segments sealed: ").append("\n");
         record.getSegmentsSealed().forEach(segment -> responseBuilder.append("> ").append(segment.toString()).append("\n"));
+
+        return responseBuilder.toString();
+    }
+
+    public static String outputTruncation(StreamTruncationRecord record) {
+        StringBuilder responseBuilder = new StringBuilder();
+
+        if (record == null) {
+            return responseBuilder.toString();
+        }
+
+        responseBuilder.append("Stream Cut: ").append(record.getStreamCut()).append("\n");
+        responseBuilder.append("Span: ").append(record.getSpan()).append("\n");
+        responseBuilder.append("Deleted Segments: ").append(record.getDeletedSegments()).append("\n");
+        responseBuilder.append("Segments to delete: ").append(record.getToDelete()).append("\n");
+        responseBuilder.append("Size till stream cut: ").append(record.getSizeTill()).append("\n");
+        responseBuilder.append("Updating: ").append(record.isUpdating()).append("\n");
+        responseBuilder.append("Span epoch low: ").append(record.getSpanEpochLow()).append("\n");
+        responseBuilder.append("Span epoch high: ").append(record.getSpanEpochHigh()).append("\n");
 
         return responseBuilder.toString();
     }
