@@ -15,23 +15,21 @@ import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
 import io.pravega.controller.store.stream.VersionedMetadata;
-import io.pravega.controller.store.stream.records.StreamTruncationRecord;
+import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
 
-import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
 
-import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTruncation;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputConfiguration;
 
-public class TruncateCheck extends TroubleshootCommand {
+public class UpdateCheck extends TroubleshootCommand {
 
     protected ExtendedStreamMetadataStore store;
 
-    public TruncateCheck(CommandArgs args) { super(args); }
+    public UpdateCheck(CommandArgs args) { super(args); }
 
     @Override
     public void execute() {
@@ -58,58 +56,21 @@ public class TruncateCheck extends TroubleshootCommand {
                 store = StreamStoreFactoryExtended.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
-            StreamTruncationRecord truncationRecord;
+            StreamConfigurationRecord configurationRecord;
 
             try {
-                truncationRecord = store.getTruncationRecord(scope, streamName, null, executor)
+                configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
                         .thenApply(VersionedMetadata::getObject).join();
 
             } catch (StoreException.DataNotFoundException e) {
-                responseBuilder.append("StreamTruncationRecord is corrupted or unavailable").append("\n");
+                responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
                 output(responseBuilder.toString());
                 return false;
             }
 
-            // If the StreamTruncationRecord is EMPTY then there's no need to check further
-            if (truncationRecord.equals(StreamTruncationRecord.EMPTY)) {
-                output("No error involving truncating.");
-                return true;
-            }
+            responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
+            responseBuilder.append(outputConfiguration(configurationRecord));
 
-            boolean isConsistent = true;
-
-            // Need to check internal consistency
-            // Updating and segments to delete check
-            if (!truncationRecord.isUpdating()) {
-                if (!truncationRecord.getToDelete().isEmpty()) {
-                    responseBuilder.append("Inconsistency in the StreamTruncationRecord in regards to updating and segments to delete").append("\n");
-                    isConsistent = false;
-                }
-            }
-
-            // Correct segments deletion check
-            Long streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
-            Set<Long> allDelete = truncationRecord.getToDelete();
-            allDelete.addAll(truncationRecord.getDeletedSegments());
-
-            List<Long> badSegments = allDelete.stream()
-                    .filter(segment -> segment >= streamCutMaxSegment)
-                    .collect(Collectors.toList());
-
-            if (!badSegments.isEmpty()) {
-                responseBuilder.append("Inconsistency in the StreamTruncationRecord in regards to segments deletion, " +
-                        "segments ahead of stream cut being deleted").append("\n");
-                isConsistent = false;
-            }
-
-            // Based on consistency, return all records or none
-            if (!isConsistent) {
-                responseBuilder.append(outputTruncation(truncationRecord));
-                output(responseBuilder.toString());
-                return false;
-            }
-
-            output("Consistent with respect to truncating");
             return true;
 
         } catch (Exception e) {

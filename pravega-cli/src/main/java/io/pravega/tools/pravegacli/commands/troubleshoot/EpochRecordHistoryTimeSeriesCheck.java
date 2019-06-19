@@ -9,11 +9,15 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
+import com.google.common.collect.ImmutableList;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.AuthHelper;
-import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.StreamStoreFactory;
+import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
+import io.pravega.controller.store.stream.StoreException;
+import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
 import io.pravega.controller.store.stream.records.EpochRecord;
+import io.pravega.controller.store.stream.records.HistoryTimeSeries;
+import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.Cleanup;
@@ -21,9 +25,13 @@ import org.apache.curator.framework.CuratorFramework;
 
 import java.util.concurrent.ScheduledExecutorService;
 
+import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputEpoch;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHistoryRecord;
+
 public class EpochRecordHistoryTimeSeriesCheck extends TroubleshootCommand {
 
-    protected StreamMetadataStore store;
+    protected ExtendedStreamMetadataStore store;
 
     public EpochRecordHistoryTimeSeriesCheck(CommandArgs args) { super(args); }
 
@@ -32,7 +40,7 @@ public class EpochRecordHistoryTimeSeriesCheck extends TroubleshootCommand {
 
     }
 
-    public void check() {
+    public boolean check() {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
@@ -45,24 +53,66 @@ public class EpochRecordHistoryTimeSeriesCheck extends TroubleshootCommand {
 
             SegmentHelper segmentHelper = null;
             if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
-                store = StreamStoreFactory.createZKStore(zkClient, executor);
+                store = StreamStoreFactoryExtended.createZKStore(zkClient, executor);
             } else {
                 segmentHelper = instantiateSegmentHelper(zkClient);
                 AuthHelper authHelper = AuthHelper.getDisabledAuthHelper();
-                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
+                store = StreamStoreFactoryExtended.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
-            EpochRecord activeEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join();
+            HistoryTimeSeries history;
 
-            responseBuilder.append("Current stream epoch: ").append(activeEpoch.getEpoch()).append(", creation time: ")
-                    .append(activeEpoch.getCreationTime()).append("\n");
-            responseBuilder.append("Segments in active epoch: ").append("\n");
-            activeEpoch.getSegments().forEach(segment -> responseBuilder.append("> ").append(segment.toString()).append("\n"));
+            try {
+                history = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor).join();
 
-            output(responseBuilder.toString());
+            } catch (StoreException.DataNotFoundException e) {
+                responseBuilder.append("HistoryTimeSeries chunk is corrupted or unavailable").append("\n");
+                output(responseBuilder.toString());
+
+                return false;
+            }
+
+            ImmutableList<HistoryTimeSeriesRecord> historyRecords = history.getHistoryRecords();
+
+            boolean isConsistent = true;
+            boolean isAvailable = true;
+
+            for (HistoryTimeSeriesRecord record : historyRecords.reverse()) {
+                EpochRecord correspondingEpochRecord;
+                responseBuilder.append(record.getEpoch()).append("\n");
+
+                try {
+                    correspondingEpochRecord = store.getEpoch(scope, streamName, record.getEpoch(),
+                            null, executor).join();
+
+                } catch (StoreException.DataNotFoundException e) {
+                    responseBuilder.append("The corresponding EpochRecord is corrupted or does not exist.").append("\n");
+                    responseBuilder.append("HistoryTimeSeriesRecord : ").append(outputHistoryRecord(record));
+                    isAvailable = false;
+
+                    continue;
+                }
+
+                isConsistent = isConsistent && checkConsistency(correspondingEpochRecord, record);
+
+                if (!isConsistent) {
+                    responseBuilder.append("EpochRecord : ").append(outputEpoch(correspondingEpochRecord));
+                    responseBuilder.append("HistoryTimeSeriesRecord : ").append(outputHistoryRecord(record));
+                }
+
+            }
+
+            if (!isConsistent || !isAvailable) {
+                output(responseBuilder.toString());
+                return false;
+            }
+
+            output("History and Epoch data consistent.");
+            return true;
 
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
+            return true;
         }
     }
 

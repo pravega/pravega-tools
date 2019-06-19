@@ -9,10 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.utils;
 
-import io.pravega.controller.store.stream.records.EpochRecord;
-import io.pravega.controller.store.stream.records.EpochTransitionRecord;
-import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
-import io.pravega.controller.store.stream.records.StreamTruncationRecord;
+import io.pravega.controller.store.stream.records.*;
 
 public class OutputUtils {
 
@@ -85,6 +82,25 @@ public class OutputUtils {
         responseBuilder.append("Updating: ").append(record.isUpdating()).append("\n");
         responseBuilder.append("Span epoch low: ").append(record.getSpanEpochLow()).append("\n");
         responseBuilder.append("Span epoch high: ").append(record.getSpanEpochHigh()).append("\n");
+
+        return responseBuilder.toString();
+    }
+
+    public static String outputConfiguration(StreamConfigurationRecord record) {
+        StringBuilder responseBuilder = new StringBuilder();
+
+        if (record == null) {
+            return responseBuilder.toString();
+        }
+
+        responseBuilder.append("Scope: ").append(record.getScope()).append(", stream: ")
+                .append(record.getStreamName()).append("\n");
+        responseBuilder.append("Stream Configuration: ").append("\n");
+        responseBuilder.append("scaling policy: ")
+                .append(record.getStreamConfiguration().getScalingPolicy().toString()).append("\n");
+        responseBuilder.append("retention policy")
+                .append(record.getStreamConfiguration().getRetentionPolicy().toString()).append("\n");
+        responseBuilder.append("Updating: ").append(record.isUpdating()).append("\n");
 
         return responseBuilder.toString();
     }
