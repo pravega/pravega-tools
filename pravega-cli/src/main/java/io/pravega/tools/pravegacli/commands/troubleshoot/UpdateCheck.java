@@ -9,17 +9,11 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.AuthHelper;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
-import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import org.apache.curator.framework.CuratorFramework;
 
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -36,46 +30,28 @@ public class UpdateCheck extends TroubleshootCommand {
 
     }
 
-    public boolean check() {
+    public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         StringBuilder responseBuilder = new StringBuilder();
 
+        StreamConfigurationRecord configurationRecord;
+
         try {
-            @Cleanup
-            CuratorFramework zkClient = createZKClient();
-            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
+            configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
+                    .thenApply(VersionedMetadata::getObject).join();
 
-            SegmentHelper segmentHelper = null;
-            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
-                store = StreamStoreFactoryExtended.createZKStore(zkClient, executor);
-            } else {
-                segmentHelper = instantiateSegmentHelper(zkClient);
-                AuthHelper authHelper = AuthHelper.getDisabledAuthHelper();
-                store = StreamStoreFactoryExtended.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
-            }
-
-            StreamConfigurationRecord configurationRecord;
-
-            try {
-                configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
-                        .thenApply(VersionedMetadata::getObject).join();
-
-            } catch (StoreException.DataNotFoundException e) {
-                responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
-                output(responseBuilder.toString());
-                return false;
-            }
-
-            responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
-            responseBuilder.append(outputConfiguration(configurationRecord));
-
-            return true;
-
-        } catch (Exception e) {
-            System.err.println("Exception accessing metadata store: " + e.getMessage());
-            return true;
+        } catch (StoreException.DataNotFoundException e) {
+            responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
+            output(responseBuilder.toString());
+            return false;
         }
+
+        responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
+        responseBuilder.append(outputConfiguration(configurationRecord));
+
+        return true;
+
     }
 }
