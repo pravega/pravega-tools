@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTruncation;
 
-public class TruncateCheck extends TroubleshootCommand {
+public class TruncateCheck extends TroubleshootCommand implements Check {
 
     protected ExtendedStreamMetadataStore store;
 
@@ -32,6 +32,7 @@ public class TruncateCheck extends TroubleshootCommand {
 
     }
 
+    @Override
     public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);

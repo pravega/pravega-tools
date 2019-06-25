@@ -19,7 +19,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputConfiguration;
 
-public class UpdateCheck extends TroubleshootCommand {
+public class UpdateCheck extends TroubleshootCommand implements Check{
 
     protected ExtendedStreamMetadataStore store;
 
@@ -30,6 +30,7 @@ public class UpdateCheck extends TroubleshootCommand {
 
     }
 
+    @Override
     public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);

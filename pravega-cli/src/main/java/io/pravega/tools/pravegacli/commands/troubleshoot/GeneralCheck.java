@@ -23,7 +23,7 @@ import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCros
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputEpoch;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHistoryRecord;
 
-public class GeneralCheck extends TroubleshootCommand {
+public class GeneralCheck extends TroubleshootCommand implements Check {
 
     protected ExtendedStreamMetadataStore store;
 
@@ -34,6 +34,7 @@ public class GeneralCheck extends TroubleshootCommand {
 
     }
 
+    @Override
     public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);

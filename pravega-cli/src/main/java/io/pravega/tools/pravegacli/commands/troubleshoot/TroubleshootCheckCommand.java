@@ -44,7 +44,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
             CuratorFramework zkClient = createZKClient();
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
 
-            SegmentHelper segmentHelper = null;
+            SegmentHelper segmentHelper;
             if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
                 store = StreamStoreFactoryExtended.createZKStore(zkClient, executor);
             } else {
@@ -55,10 +55,12 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
 
             GeneralCheck generalChecker = new GeneralCheck(getCommandArgs());
             ScaleCheck scaleChecker = new ScaleCheck(getCommandArgs());
+            CommittingTransactionsCheck committingTransactionsChecker = new CommittingTransactionsCheck(getCommandArgs());
             TruncateCheck truncateChecker = new TruncateCheck(getCommandArgs());
             UpdateCheck updateChecker = new UpdateCheck(getCommandArgs());
             boolean isConsistent;
 
+            // THE GENERAL CHECKUP
             output("\n-------GENERAL CHECKUP-------\n\n");
 
             isConsistent = generalChecker.check(store, executor);
@@ -66,8 +68,49 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 return;
             }
 
+            // THE UPDATE CHECKUP
+            output("\n-------UPDATE CHECKUP-------\n\n");
+
+            isConsistent = updateChecker.check(store, executor);
+            if (!isConsistent) {
+                return;
+            }
+
+            // Check for viability of workflow check up
             int currentEpoch = store.getActiveEpoch(scope, streamName, null,
                     true, executor).join().getEpoch();
+
+            int historyCurrentEpoch = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor)
+                    .join().getLatestRecord().getEpoch();
+
+            if (currentEpoch != historyCurrentEpoch) {
+
+                //THE SCALE CHECK
+                output("\n-------SCALE CHECKUP-------\n\n");
+
+                isConsistent = scaleChecker.check(store, executor);
+                if (!isConsistent) {
+                    return;
+                }
+
+                //THE COMMITTING TRANSACTIONS CHECK
+                output("\n-------COMMITTING TRANSACTIONS CHECKUP-------\n\n");
+
+                isConsistent = committingTransactionsChecker.check(store, executor);
+                if (!isConsistent) {
+                    return;
+                }
+            }
+
+            //THE TRUNCATE CHECK
+            output("\n-------TRUNCATE CHECKUP-------\n\n");
+
+            isConsistent = truncateChecker.check(store, executor);
+            if (!isConsistent) {
+                return;
+            }
+
+            output("Everything seems ok.");
 
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
@@ -75,7 +118,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
     }
 
     public static CommandDescriptor descriptor() {
-        return new CommandDescriptor(COMPONENT, "diagnosis", "Just testing the command",
+        return new CommandDescriptor(COMPONENT, "diagnosis", "check health based on stream-specific metadata",
                 new ArgDescriptor("scope-name", "Name of the scope"),
                 new ArgDescriptor("stream-name", "Name of the stream"));
     }

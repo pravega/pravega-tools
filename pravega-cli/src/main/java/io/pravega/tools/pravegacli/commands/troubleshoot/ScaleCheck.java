@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.*;
 
-public class ScaleCheck extends TroubleshootCommand {
+public class ScaleCheck extends TroubleshootCommand implements Check{
 
     public ScaleCheck(CommandArgs args) { super(args); }
 
@@ -37,6 +37,7 @@ public class ScaleCheck extends TroubleshootCommand {
 
     }
 
+    @Override
     public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);

@@ -104,4 +104,21 @@ public class OutputUtils {
 
         return responseBuilder.toString();
     }
+
+    public static String outputCommittingTransactions(CommittingTransactionsRecord record) {
+        StringBuilder responseBuilder = new StringBuilder();
+
+        if (record == null) {
+            return responseBuilder.toString();
+        }
+
+        responseBuilder.append("Epoch: ").append(record.getEpoch()).append("\n");
+        responseBuilder.append("Transactions to commit: ").append(record.getTransactionsToCommit()).append("\n");
+
+        if (record.isRollingTxnRecord()) {
+            responseBuilder.append("Rolling Transaction, active epoch: ").append(record.getCurrentEpoch()).append("\n");
+        }
+
+        return responseBuilder.toString();
+    }
 }
