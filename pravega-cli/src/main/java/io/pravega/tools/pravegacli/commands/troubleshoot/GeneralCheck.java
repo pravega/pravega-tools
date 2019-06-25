@@ -23,9 +23,7 @@ import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCros
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputEpoch;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHistoryRecord;
 
-public class GeneralCheck extends TroubleshootCommand implements Check {
-
-    protected ExtendedStreamMetadataStore store;
+public class GeneralCheck extends TroubleshootCommand implements Check{
 
     public GeneralCheck(CommandArgs args) { super(args); }
 
@@ -88,9 +86,8 @@ public class GeneralCheck extends TroubleshootCommand implements Check {
             return false;
         }
 
-        output("History and Epoch data consistent.");
+        output("History and Epoch data consistent.\n");
         return true;
-
     }
 
 }

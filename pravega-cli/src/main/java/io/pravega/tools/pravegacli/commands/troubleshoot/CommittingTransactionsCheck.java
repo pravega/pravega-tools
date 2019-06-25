@@ -28,6 +28,8 @@ import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.*;
 
 public class CommittingTransactionsCheck extends TroubleshootCommand implements Check{
 
+    protected ExtendedStreamMetadataStore store;
+
     public CommittingTransactionsCheck(CommandArgs args) { super(args); }
 
     @Override
@@ -115,7 +117,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
 
 
             epochExists = true;
-            historyExists= true;
+            historyExists = true;
 
             // For duplicate active epoch record
             try {
@@ -187,10 +189,10 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
 
 
             // Check the time for the EpochRecords
-            if (duplicateActiveEpochRecord.getCreationTime() != duplicateTxnEpochRecord.getCreationTime()+1) {
+            if (duplicateActiveEpochRecord.getCreationTime() != duplicateTxnEpochRecord.getCreationTime() + 1) {
                 responseBuilder.append("Inconsistency: duplicates time's are not ordered properly.").append("\n");
             }
-            isConsistent = isConsistent && duplicateActiveEpochRecord.getCreationTime() == duplicateTxnEpochRecord.getCreationTime()+1;
+            isConsistent = isConsistent && duplicateActiveEpochRecord.getCreationTime() == duplicateTxnEpochRecord.getCreationTime() + 1;
 
 
             // Get the original records
@@ -276,7 +278,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
             return false;
         }
 
-        output("Consistent with respect to committing transaction.");
+        output("Consistent with respect to committing transaction.\n");
         return true;
     }
 }

@@ -17,6 +17,7 @@ public class OutputUtils {
         StringBuilder responseBuilder = new StringBuilder();
 
         if (record == null) {
+            responseBuilder.append("Record is null").append("\n");
             return responseBuilder.toString();
         }
 
@@ -39,6 +40,7 @@ public class OutputUtils {
         StringBuilder responseBuilder = new StringBuilder();
 
         if (record == null) {
+            responseBuilder.append("Record is null").append("\n");
             return responseBuilder.toString();
         }
 
@@ -54,6 +56,7 @@ public class OutputUtils {
         StringBuilder responseBuilder = new StringBuilder();
 
         if (record == null) {
+            responseBuilder.append("Record is null").append("\n");
             return responseBuilder.toString();
         }
 
@@ -71,6 +74,7 @@ public class OutputUtils {
         StringBuilder responseBuilder = new StringBuilder();
 
         if (record == null) {
+            responseBuilder.append("Record is null").append("\n");
             return responseBuilder.toString();
         }
 
@@ -90,16 +94,12 @@ public class OutputUtils {
         StringBuilder responseBuilder = new StringBuilder();
 
         if (record == null) {
+            responseBuilder.append("Record is null").append("\n");
             return responseBuilder.toString();
         }
 
         responseBuilder.append("Scope: ").append(record.getScope()).append(", stream: ")
                 .append(record.getStreamName()).append("\n");
-        responseBuilder.append("Stream Configuration: ").append("\n");
-        responseBuilder.append("scaling policy: ")
-                .append(record.getStreamConfiguration().getScalingPolicy().toString()).append("\n");
-        responseBuilder.append("retention policy")
-                .append(record.getStreamConfiguration().getRetentionPolicy().toString()).append("\n");
         responseBuilder.append("Updating: ").append(record.isUpdating()).append("\n");
 
         return responseBuilder.toString();
@@ -109,6 +109,7 @@ public class OutputUtils {
         StringBuilder responseBuilder = new StringBuilder();
 
         if (record == null) {
+            responseBuilder.append("Record is null").append("\n");
             return responseBuilder.toString();
         }
 

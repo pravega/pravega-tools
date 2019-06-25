@@ -19,7 +19,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputConfiguration;
 
-public class UpdateCheck extends TroubleshootCommand implements Check{
+public class UpdateCheck extends TroubleshootCommand implements Check {
 
     protected ExtendedStreamMetadataStore store;
 
@@ -37,22 +37,22 @@ public class UpdateCheck extends TroubleshootCommand implements Check{
         final String streamName = getCommandArgs().getArgs().get(1);
         StringBuilder responseBuilder = new StringBuilder();
 
-        StreamConfigurationRecord configurationRecord;
+            StreamConfigurationRecord configurationRecord;
 
-        try {
-            configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
-                    .thenApply(VersionedMetadata::getObject).join();
+            try {
+                configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
+                        .thenApply(VersionedMetadata::getObject).join();
 
-        } catch (StoreException.DataNotFoundException e) {
-            responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
+            } catch (StoreException.DataNotFoundException e) {
+                responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
+                output(responseBuilder.toString());
+                return false;
+            }
+
+            responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
+            responseBuilder.append("StreamConfigurationRecord: ").append(outputConfiguration(configurationRecord));
+
             output(responseBuilder.toString());
-            return false;
-        }
-
-        responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
-        responseBuilder.append(outputConfiguration(configurationRecord));
-
-        return true;
-
+            return true;
     }
 }

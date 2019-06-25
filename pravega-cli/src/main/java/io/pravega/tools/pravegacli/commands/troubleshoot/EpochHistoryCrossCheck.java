@@ -71,7 +71,14 @@ public class EpochHistoryCrossCheck {
                 .boxed()
                 .collect(Collectors.toList()));
 
-        if (epochMinSegment < Collections.max(sealedSegmentsHistory)) {
+        Long maxSealedSegment;
+        if (sealedSegmentsHistory.isEmpty()) {
+            maxSealedSegment = Long.MIN_VALUE;
+        } else {
+            maxSealedSegment = Collections.max(sealedSegmentsHistory);
+        }
+
+        if (epochMinSegment < maxSealedSegment) {
             responseBuilder.append("EpochRecord's segments behind the sealed segments.");
             isConsistent = false;
         }

@@ -90,8 +90,7 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
             return false;
         }
 
-        output("Consistent with respect to truncating");
+        output("Consistent with respect to truncating\n");
         return true;
-
     }
 }

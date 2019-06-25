@@ -28,7 +28,9 @@ import java.util.stream.Collectors;
 import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.*;
 
-public class ScaleCheck extends TroubleshootCommand implements Check{
+public class ScaleCheck extends TroubleshootCommand implements Check {
+
+    protected ExtendedStreamMetadataStore store;
 
     public ScaleCheck(CommandArgs args) { super(args); }
 
@@ -43,7 +45,6 @@ public class ScaleCheck extends TroubleshootCommand implements Check{
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         StringBuilder responseBuilder = new StringBuilder();
-
 
         // Check for the existence of an EpochTransitionRecord
         EpochTransitionRecord transitionRecord;
@@ -61,7 +62,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check{
 
         // If the EpochTransitionRecord is EMPTY then there's no need to check further
         if (transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
-            output("No error involving scaling.");
+            output("No error involving scaling.\n");
             return true;
         }
 
@@ -157,8 +158,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check{
             return false;
         }
 
-        output("Consistent with respect to scaling");
+        output("Consistent with respect to scaling\n");
         return true;
-
     }
 }

@@ -61,19 +61,27 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
             boolean isConsistent;
 
             // THE GENERAL CHECKUP
-            output("\n-------GENERAL CHECKUP-------\n\n");
+            output("\n-------GENERAL CHECKUP-------\n");
 
-            isConsistent = generalChecker.check(store, executor);
-            if (!isConsistent) {
-                return;
+            try {
+                isConsistent = generalChecker.check(store, executor);
+                if (!isConsistent) {
+                    return;
+                }
+            } catch (Exception e) {
+                output("General Checkup error: " + e.getMessage());
             }
 
             // THE UPDATE CHECKUP
-            output("\n-------UPDATE CHECKUP-------\n\n");
+            output("\n-------UPDATE CHECKUP-------\n");
 
-            isConsistent = updateChecker.check(store, executor);
-            if (!isConsistent) {
-                return;
+            try {
+                isConsistent = updateChecker.check(store, executor);
+                if (!isConsistent) {
+                    return;
+                }
+            } catch (Exception e) {
+                output("Update Checkup error: " + e.getMessage());
             }
 
             // Check for viability of workflow check up
@@ -86,31 +94,43 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
             if (currentEpoch != historyCurrentEpoch) {
 
                 //THE SCALE CHECK
-                output("\n-------SCALE CHECKUP-------\n\n");
+                output("\n-------SCALE CHECKUP-------\n");
 
-                isConsistent = scaleChecker.check(store, executor);
-                if (!isConsistent) {
-                    return;
+                try {
+                    isConsistent = scaleChecker.check(store, executor);
+                    if (!isConsistent) {
+                        return;
+                    }
+                } catch (Exception e) {
+                    output("Scale Checkup error: " + e.getMessage());
                 }
 
                 //THE COMMITTING TRANSACTIONS CHECK
-                output("\n-------COMMITTING TRANSACTIONS CHECKUP-------\n\n");
+                output("\n-------COMMITTING TRANSACTIONS CHECKUP-------\n");
 
-                isConsistent = committingTransactionsChecker.check(store, executor);
-                if (!isConsistent) {
-                    return;
+                try {
+                    isConsistent = committingTransactionsChecker.check(store, executor);
+                    if (!isConsistent) {
+                        return;
+                    }
+                } catch (Exception e) {
+                    output("Committing_txn Checkup error: " + e.getMessage());
                 }
             }
 
             //THE TRUNCATE CHECK
-            output("\n-------TRUNCATE CHECKUP-------\n\n");
+            output("\n-------TRUNCATE CHECKUP-------\n");
 
-            isConsistent = truncateChecker.check(store, executor);
-            if (!isConsistent) {
-                return;
+            try {
+                isConsistent = truncateChecker.check(store, executor);
+                if (!isConsistent) {
+                    return;
+                }
+            } catch (Exception e) {
+                output("Truncate Checkup error: " + e.getMessage());
             }
 
-            output("Everything seems ok.");
+            output("\nEverything seems ok.");
 
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
