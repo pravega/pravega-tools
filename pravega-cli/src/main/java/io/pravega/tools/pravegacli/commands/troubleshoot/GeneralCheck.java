@@ -23,8 +23,16 @@ import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCros
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputEpoch;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHistoryRecord;
 
-public class GeneralCheck extends TroubleshootCommand implements Check{
+/**
+ * A helper class that checks the stream with respect to the general case.
+ */
+public class GeneralCheck extends TroubleshootCommand implements Check {
 
+    /**
+     * Creates a new instance of the Command class.
+     *
+     * @param args The arguments for the command.
+     */
     public GeneralCheck(CommandArgs args) { super(args); }
 
     @Override
@@ -41,6 +49,7 @@ public class GeneralCheck extends TroubleshootCommand implements Check{
 
         HistoryTimeSeries history;
 
+        // Get the HistoryTimeSeries chunk.
         try {
             history = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor).join();
 
@@ -56,6 +65,7 @@ public class GeneralCheck extends TroubleshootCommand implements Check{
         boolean isConsistent = true;
         boolean isAvailable = true;
 
+        // Check the relation between each EpochRecord and its corresponding HistoryTimeSeriesRecord.
         for (HistoryTimeSeriesRecord record : historyRecords.reverse()) {
             EpochRecord correspondingEpochRecord;
             responseBuilder.append(record.getEpoch()).append("\n");
@@ -74,11 +84,11 @@ public class GeneralCheck extends TroubleshootCommand implements Check{
 
             isConsistent = isConsistent && checkConsistency(correspondingEpochRecord, record, scope, streamName, store, executor);
 
-            if (!isConsistent) {
+            // Output the record in case of inconsistency.
+            if (!checkConsistency(correspondingEpochRecord, record, scope, streamName, store, executor)) {
                 responseBuilder.append("EpochRecord : ").append(outputEpoch(correspondingEpochRecord));
                 responseBuilder.append("HistoryTimeSeriesRecord : ").append(outputHistoryRecord(record));
             }
-
         }
 
         if (!isConsistent || !isAvailable) {
@@ -89,5 +99,4 @@ public class GeneralCheck extends TroubleshootCommand implements Check{
         output("History and Epoch data consistent.\n");
         return true;
     }
-
 }

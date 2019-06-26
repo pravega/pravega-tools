@@ -20,6 +20,9 @@ import org.apache.curator.framework.CuratorFramework;
 
 import java.util.concurrent.ScheduledExecutorService;
 
+/**
+ * Runs a diagnosis of the stream while providing pointers and highlighting faults when found.
+ */
 public class TroubleshootCheckCommand extends TroubleshootCommand {
 
     protected ExtendedStreamMetadataStore store;
@@ -60,9 +63,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
             UpdateCheck updateChecker = new UpdateCheck(getCommandArgs());
             boolean isConsistent;
 
-            // THE GENERAL CHECKUP
+            // The General Checkup.
             output("\n-------GENERAL CHECKUP-------\n");
-
             try {
                 isConsistent = generalChecker.check(store, executor);
                 if (!isConsistent) {
@@ -72,9 +74,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 output("General Checkup error: " + e.getMessage());
             }
 
-            // THE UPDATE CHECKUP
+            // The Update Checkup.
             output("\n-------UPDATE CHECKUP-------\n");
-
             try {
                 isConsistent = updateChecker.check(store, executor);
                 if (!isConsistent) {
@@ -84,7 +85,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 output("Update Checkup error: " + e.getMessage());
             }
 
-            // Check for viability of workflow check up
+            // Check for viability of workflow check up.
             int currentEpoch = store.getActiveEpoch(scope, streamName, null,
                     true, executor).join().getEpoch();
 
@@ -92,10 +93,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                     .join().getLatestRecord().getEpoch();
 
             if (currentEpoch != historyCurrentEpoch) {
-
-                //THE SCALE CHECK
+                // The Scale Checkup.
                 output("\n-------SCALE CHECKUP-------\n");
-
                 try {
                     isConsistent = scaleChecker.check(store, executor);
                     if (!isConsistent) {
@@ -105,9 +104,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                     output("Scale Checkup error: " + e.getMessage());
                 }
 
-                //THE COMMITTING TRANSACTIONS CHECK
+                // The Committing Transactions Checkup.
                 output("\n-------COMMITTING TRANSACTIONS CHECKUP-------\n");
-
                 try {
                     isConsistent = committingTransactionsChecker.check(store, executor);
                     if (!isConsistent) {
@@ -118,9 +116,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 }
             }
 
-            //THE TRUNCATE CHECK
+            // The Truncate Checkup.
             output("\n-------TRUNCATE CHECKUP-------\n");
-
             try {
                 isConsistent = truncateChecker.check(store, executor);
                 if (!isConsistent) {
@@ -130,7 +127,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 output("Truncate Checkup error: " + e.getMessage());
             }
 
-            output("\nEverything seems ok.");
+            output("\n\nEverything seems ok.");
 
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());

@@ -19,10 +19,28 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
+/**
+ * A helper class to the general checkup case.
+ */
 public class EpochHistoryCrossCheck {
 
-    public static boolean checkConsistency(EpochRecord record, HistoryTimeSeriesRecord history, String scope, String streamName,
-                                           ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    /**
+     * Method to check for consistency among a given EpochRecord and its corresponding HistoryTimeSeriesRecord.
+     *
+     * @param record      EpochRecord
+     * @param history     HistoryTimeSeriesRecord
+     * @param scope       stream scope
+     * @param streamName  stream name
+     * @param store       an instance of the extended metadata store
+     * @param executor    callers executor
+     * @return
+     */
+    public static boolean checkConsistency(final EpochRecord record,
+                                           final HistoryTimeSeriesRecord history,
+                                           final String scope,
+                                           final String streamName,
+                                           final ExtendedStreamMetadataStore store,
+                                           final ScheduledExecutorService executor) {
         StringBuilder responseBuilder = new StringBuilder();
         boolean isConsistent;
 
@@ -30,6 +48,7 @@ public class EpochHistoryCrossCheck {
             return false;
         }
 
+        // Similar fields should have similar values.
         isConsistent = record.getEpoch() == history.getEpoch();
         if (record.getEpoch() != history.getEpoch()) {
             responseBuilder.append("Epoch mismatch : May or may not be the correct record").append("\n");
@@ -56,6 +75,7 @@ public class EpochHistoryCrossCheck {
                 .boxed()
                 .collect(Collectors.toList());
 
+        // Segments in the history record should be sealed.
         for (Long id : sealedSegmentsHistory) {
             boolean isSealed = store.checkSegmentSealed(scope, streamName, id, null, executor).join();
             if (!isSealed) {
@@ -78,6 +98,7 @@ public class EpochHistoryCrossCheck {
             maxSealedSegment = Collections.max(sealedSegmentsHistory);
         }
 
+        // Consistency in the new segments and the sealed segments.
         if (epochMinSegment < maxSealedSegment) {
             responseBuilder.append("EpochRecord's segments behind the sealed segments.");
             isConsistent = false;

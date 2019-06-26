@@ -9,10 +9,24 @@
  */
 package io.pravega.tools.pravegacli.commands.utils;
 
-import io.pravega.controller.store.stream.records.*;
+import io.pravega.controller.store.stream.records.CommittingTransactionsRecord;
+import io.pravega.controller.store.stream.records.EpochRecord;
+import io.pravega.controller.store.stream.records.EpochTransitionRecord;
+import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
+import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
+import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 
+/**
+ * Class for methods to output various metadata records.
+ */
 public class OutputUtils {
 
+    /**
+     * Method to output an EpochTransitionRecord.
+     *
+     * @param record  EpochTransitionRecord
+     * @return The record in the form a string.
+     */
     public static String outputTransition(EpochTransitionRecord record) {
         StringBuilder responseBuilder = new StringBuilder();
 
@@ -36,6 +50,12 @@ public class OutputUtils {
         return responseBuilder.toString();
     }
 
+    /**
+     * Method to output an EpochRecord.
+     *
+     * @param record  EpochRecord
+     * @return The record in the form a string.
+     */
     public static String outputEpoch(EpochRecord record) {
         StringBuilder responseBuilder = new StringBuilder();
 
@@ -52,6 +72,12 @@ public class OutputUtils {
         return responseBuilder.toString();
     }
 
+    /**
+     * Method to output a HistoryTimeSeriesRecord.
+     *
+     * @param record  HistoryTimeSeriesRecord
+     * @return The record in the form a string.
+     */
     public static String outputHistoryRecord(HistoryTimeSeriesRecord record) {
         StringBuilder responseBuilder = new StringBuilder();
 
@@ -70,6 +96,12 @@ public class OutputUtils {
         return responseBuilder.toString();
     }
 
+    /**
+     * Method to output a StreamTruncationRecord.
+     *
+     * @param record  StreamTruncationRecord
+     * @return The record in the form a string.
+     */
     public static String outputTruncation(StreamTruncationRecord record) {
         StringBuilder responseBuilder = new StringBuilder();
 
@@ -90,6 +122,12 @@ public class OutputUtils {
         return responseBuilder.toString();
     }
 
+    /**
+     * Method to output a StreamConfigurationRecord.
+     *
+     * @param record  StreamConfigurationRecord
+     * @return The record in the form a string.
+     */
     public static String outputConfiguration(StreamConfigurationRecord record) {
         StringBuilder responseBuilder = new StringBuilder();
 
@@ -105,6 +143,12 @@ public class OutputUtils {
         return responseBuilder.toString();
     }
 
+    /**
+     * Method to output a CommittingTransactionsRecord.
+     *
+     * @param record  CommittingTransactionsRecord
+     * @return The record in the form a string.
+     */
     public static String outputCommittingTransactions(CommittingTransactionsRecord record) {
         StringBuilder responseBuilder = new StringBuilder();
 

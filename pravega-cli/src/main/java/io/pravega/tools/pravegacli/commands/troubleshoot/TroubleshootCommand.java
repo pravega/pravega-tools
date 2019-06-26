@@ -54,7 +54,7 @@ public abstract class TroubleshootCommand extends Command{
     }
 
     /**
-     * Creates a context for child classes consisting of a REST client to execute calls against the Controller.
+     * Creates a context for child classes consisting of a REST client to execute calls against the Troubleshooter.
      *
      * @return REST client.
      */
@@ -75,7 +75,7 @@ public abstract class TroubleshootCommand extends Command{
     /**
      * Generic method to execute execute a request against the Controller and get the response.
      *
-     * @param context Controller command context.
+     * @param context Troubleshoot command context.
      * @param requestURI URI to execute the request against.
      * @return Response for the REST call.
      */

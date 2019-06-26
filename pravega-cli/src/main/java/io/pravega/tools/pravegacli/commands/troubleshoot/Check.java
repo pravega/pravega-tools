@@ -13,8 +13,17 @@ import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 
 import java.util.concurrent.ScheduledExecutorService;
 
+/**
+ * An interface for the basic check method
+ */
 public interface Check {
 
+    /**
+     * Method to check the consistency of a given case of records
+     *
+     * @param store     an instance of the extended metadata store
+     * @param executor  callers executor
+     * @return A boolean which represents whether there is any error or not.
+     */
     boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor);
-
 }

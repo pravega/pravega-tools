@@ -26,10 +26,16 @@ import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
 import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.*;
 
+/**
+ * A helper class that checks the stream with respect to the committing_txn case.
+ */
 public class CommittingTransactionsCheck extends TroubleshootCommand implements Check{
 
-    protected ExtendedStreamMetadataStore store;
-
+    /**
+     * Creates a new instance of the Command class.
+     *
+     * @param args The arguments for the command.
+     */
     public CommittingTransactionsCheck(CommandArgs args) { super(args); }
 
     @Override
@@ -46,7 +52,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
 
         boolean isConsistent;
 
-        // Check for the existence of an CommittingTransactionsRecord
+        // Check for the existence of an CommittingTransactionsRecord.
         CommittingTransactionsRecord committingRecord;
 
         EpochRecord txnEpochRecord = null;
@@ -58,7 +64,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
         HistoryTimeSeriesRecord duplicateActiveHistoryRecord = null;
 
 
-        // To obtain the CommittingTransactionRecord and check if it is corrupted or not
+        // To obtain the CommittingTransactionRecord and check if it is corrupted or not.
         try {
             committingRecord = store.getVersionedCommittingTransactionsRecord(scope, streamName, null, executor)
                     .thenApply(VersionedMetadata::getObject).join();
@@ -70,14 +76,14 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
         }
 
 
-        // Check if its a rolling transaction
+        // Check if its a rolling transaction.
         if (committingRecord.isRollingTxnRecord()) {
             responseBuilder.append("The CommittingTransactionsRecord is a rolling transaction record").append("\n");
 
             boolean epochExists = true;
             boolean historyExists = true;
 
-            // For duplicate transaction epoch
+            // For duplicate transaction epoch.
             try {
                 duplicateTxnEpochRecord = store.getEpoch(scope, streamName, committingRecord.getNewTxnEpoch(),
                         null, executor).join();
@@ -96,7 +102,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
                 historyExists = false;
             }
 
-            // Output the existing records in case of corruption
+            // Output the existing records in case of corruption.
             if (!(epochExists && historyExists)) {
                 responseBuilder.append("CommittingTransactionsRecord : ");
                 responseBuilder.append(outputCommittingTransactions(committingRecord));
@@ -119,7 +125,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
             epochExists = true;
             historyExists = true;
 
-            // For duplicate active epoch record
+            // For duplicate active epoch record.
             try {
                 duplicateActiveEpochRecord = store.getEpoch(scope, streamName, committingRecord.getNewActiveEpoch(),
                         null, executor).join();
@@ -138,7 +144,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
                 historyExists = false;
             }
 
-            // Output the existing records in case of corruption
+            // Output the existing records in case of corruption.
             if (!(epochExists && historyExists)) {
                 responseBuilder.append("CommittingTransactionsRecord : ");
                 responseBuilder.append(outputCommittingTransactions(committingRecord));
@@ -158,21 +164,21 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
             }
 
 
-            // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate txn
+            // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate txn.
             if (!checkConsistency(duplicateTxnEpochRecord, duplicateTxnHistoryRecord, scope, streamName, store, executor)) {
                 responseBuilder.append("DuplicateTxn: Inconsistency among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
             }
             isConsistent = checkConsistency(duplicateTxnEpochRecord, duplicateTxnHistoryRecord, scope, streamName, store, executor);
 
 
-            // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate active
+            // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate active.
             if (!checkConsistency(duplicateActiveEpochRecord, duplicateActiveHistoryRecord, scope, streamName, store, executor)) {
                 responseBuilder.append("Duplicate active: Inconsistency among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
             }
             isConsistent = isConsistent && checkConsistency(duplicateActiveEpochRecord, duplicateActiveHistoryRecord, scope, streamName, store, executor);
 
 
-            // Check the emptiness of the HistoryTimeSeriesRecords
+            // Check the emptiness of the HistoryTimeSeriesRecords.
             isConsistent = isConsistent &&
                     (duplicateTxnHistoryRecord.getSegmentsCreated().isEmpty() && duplicateTxnHistoryRecord.getSegmentsSealed().isEmpty());
 
@@ -188,14 +194,14 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
             }
 
 
-            // Check the time for the EpochRecords
+            // Check the time for the EpochRecords.
             if (duplicateActiveEpochRecord.getCreationTime() != duplicateTxnEpochRecord.getCreationTime() + 1) {
                 responseBuilder.append("Inconsistency: duplicates time's are not ordered properly.").append("\n");
             }
             isConsistent = isConsistent && duplicateActiveEpochRecord.getCreationTime() == duplicateTxnEpochRecord.getCreationTime() + 1;
 
 
-            // Get the original records
+            // Get the original records.
             boolean txnExists = true;
             try {
                 txnEpochRecord = store.getEpoch(scope, streamName, committingRecord.getEpoch(),
@@ -207,7 +213,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
             }
 
             if (txnExists) {
-                // Check the duplicate segments
+                // Check the duplicate segments.
                 EpochRecord finalTxnEpochRecord = txnEpochRecord;
                 List<Long> dup2Segments = txnEpochRecord.getSegmentIds().stream()
                         .map(id -> computeSegmentId(Math.toIntExact(id), finalTxnEpochRecord.getEpoch()))
@@ -219,7 +225,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
                 }
                 isConsistent = isConsistent && duplicateSegments.equals(dup2Segments);
 
-                // Check the reference epochs
+                // Check the reference epochs.
                 if (duplicateActiveEpochRecord.getReferenceEpoch() != finalTxnEpochRecord.getReferenceEpoch()) {
                     responseBuilder.append("Duplicate txn: Inconsistency in the reference epochs").append("\n");
                 }
@@ -238,7 +244,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
             }
 
             if (activeExists) {
-                // Check the duplicate segments
+                // Check the duplicate segments.
                 EpochRecord finalActiveEpochRecord = activeEpochRecord;
                 List<Long> dup2Segments = activeEpochRecord.getSegmentIds().stream()
                         .map(id -> computeSegmentId(Math.toIntExact(id), finalActiveEpochRecord.getEpoch()))
@@ -250,7 +256,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
                 }
                 isConsistent = isConsistent && duplicateSegments.equals(dup2Segments);
 
-                // Check the reference epochs
+                // Check the reference epochs.
                 if (duplicateActiveEpochRecord.getReferenceEpoch() != finalActiveEpochRecord.getReferenceEpoch()) {
                     responseBuilder.append("Duplicate active: Inconsistency in the reference epochs").append("\n");
                 }
@@ -264,7 +270,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
             isConsistent = true;
         }
 
-        // Based on consistency, return all records or none
+        // Based on consistency, return all records or none.
         if (!isConsistent) {
             responseBuilder.append("EpochTransitionRecord : ").append(outputCommittingTransactions(committingRecord));
 

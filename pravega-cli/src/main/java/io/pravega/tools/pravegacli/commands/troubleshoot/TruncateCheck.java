@@ -21,10 +21,16 @@ import java.util.stream.Collectors;
 
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTruncation;
 
+/**
+ * A helper class that checks the stream with respect to the truncate case.
+ */
 public class TruncateCheck extends TroubleshootCommand implements Check {
 
-    protected ExtendedStreamMetadataStore store;
-
+    /**
+     * Creates a new instance of the Command class.
+     *
+     * @param args The arguments for the command.
+     */
     public TruncateCheck(CommandArgs args) { super(args); }
 
     @Override
@@ -51,7 +57,7 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
             return false;
         }
 
-        // If the StreamTruncationRecord is EMPTY then there's no need to check further
+        // If the StreamTruncationRecord is EMPTY then there's no need to check further.
         if (truncationRecord.equals(StreamTruncationRecord.EMPTY)) {
             output("No error involving truncating.");
             return true;
@@ -59,8 +65,8 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
 
         boolean isConsistent = true;
 
-        // Need to check internal consistency
-        // Updating and segments to delete check
+        // Need to check internal consistency.
+        // Updating and segments to delete check.
         if (!truncationRecord.isUpdating()) {
             if (!truncationRecord.getToDelete().isEmpty()) {
                 responseBuilder.append("Inconsistency in the StreamTruncationRecord in regards to updating and segments to delete").append("\n");
@@ -68,7 +74,7 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
             }
         }
 
-        // Correct segments deletion check
+        // Correct segments deletion check.
         Long streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
         Set<Long> allDelete = truncationRecord.getToDelete();
         allDelete.addAll(truncationRecord.getDeletedSegments());
@@ -83,7 +89,7 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
             isConsistent = false;
         }
 
-        // Based on consistency, return all records or none
+        // Based on consistency, return all records or none.
         if (!isConsistent) {
             responseBuilder.append(outputTruncation(truncationRecord));
             output(responseBuilder.toString());

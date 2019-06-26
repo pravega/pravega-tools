@@ -19,10 +19,16 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputConfiguration;
 
+/**
+ * A helper class that checks the stream with respect to the update case.
+ */
 public class UpdateCheck extends TroubleshootCommand implements Check {
 
-    protected ExtendedStreamMetadataStore store;
-
+    /**
+     * Creates a new instance of the Command class.
+     *
+     * @param args The arguments for the command.
+     */
     public UpdateCheck(CommandArgs args) { super(args); }
 
     @Override
@@ -37,22 +43,22 @@ public class UpdateCheck extends TroubleshootCommand implements Check {
         final String streamName = getCommandArgs().getArgs().get(1);
         StringBuilder responseBuilder = new StringBuilder();
 
-            StreamConfigurationRecord configurationRecord;
+        StreamConfigurationRecord configurationRecord;
 
-            try {
-                configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
-                        .thenApply(VersionedMetadata::getObject).join();
+        try {
+            configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
+                    .thenApply(VersionedMetadata::getObject).join();
 
-            } catch (StoreException.DataNotFoundException e) {
-                responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
-                output(responseBuilder.toString());
-                return false;
-            }
-
-            responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
-            responseBuilder.append("StreamConfigurationRecord: ").append(outputConfiguration(configurationRecord));
-
+        } catch (StoreException.DataNotFoundException e) {
+            responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
             output(responseBuilder.toString());
-            return true;
+            return false;
+        }
+
+        responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
+        responseBuilder.append("StreamConfigurationRecord: ").append(outputConfiguration(configurationRecord));
+
+        output(responseBuilder.toString());
+        return true;
     }
 }

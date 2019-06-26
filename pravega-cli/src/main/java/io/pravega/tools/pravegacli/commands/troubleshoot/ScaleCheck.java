@@ -28,10 +28,16 @@ import java.util.stream.Collectors;
 import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.*;
 
+/**
+ * A helper class that checks the stream with respect to the scale case.
+ */
 public class ScaleCheck extends TroubleshootCommand implements Check {
 
-    protected ExtendedStreamMetadataStore store;
-
+    /**
+     * Creates a new instance of the Command class.
+     *
+     * @param args The arguments for the command.
+     */
     public ScaleCheck(CommandArgs args) { super(args); }
 
     @Override
@@ -46,10 +52,10 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
         final String streamName = getCommandArgs().getArgs().get(1);
         StringBuilder responseBuilder = new StringBuilder();
 
-        // Check for the existence of an EpochTransitionRecord
+        // Check for the existence of an EpochTransitionRecord.
         EpochTransitionRecord transitionRecord;
 
-        // To obtain the EpochTransitionRecord and check if it is corrupted or not
+        // To obtain the EpochTransitionRecord and check if it is corrupted or not.
         try {
             transitionRecord = store.getEpochTransition(scope, streamName, null, executor)
                     .thenApply(VersionedMetadata::getObject).join();
@@ -60,7 +66,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
             return false;
         }
 
-        // If the EpochTransitionRecord is EMPTY then there's no need to check further
+        // If the EpochTransitionRecord is EMPTY then there's no need to check further.
         if (transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
             output("No error involving scaling.\n");
             return true;
@@ -71,7 +77,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
         HistoryTimeSeriesRecord neededHistoryRecord = null;
         boolean historyExists = true;
 
-        // To obtain the corresponding EpochRecord and check if it is corrupted or not
+        // To obtain the corresponding EpochRecord and check if it is corrupted or not.
         try {
             neededEpochRecord = store.getEpoch(scope, streamName, transitionRecord.getNewEpoch(),
                     null, executor).join();
@@ -81,7 +87,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
             epochExists = false;
         }
 
-        // To obtain the corresponding HistoryTimeSeriesRecord and check if it corrupted or not
+        // To obtain the corresponding HistoryTimeSeriesRecord and check if it corrupted or not.
         try {
             neededHistoryRecord = store.getHistoryTimeSeriesRecord(scope, streamName, transitionRecord.getNewEpoch(),
                     null, executor).join();
@@ -91,7 +97,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
             historyExists = false;
         }
 
-        // Output the existing records in case of corruption
+        // Output the existing records in case of corruption.
         if (!(epochExists && historyExists)) {
             responseBuilder.append("EpochTransitionRecord : ");
             responseBuilder.append(outputTransition(transitionRecord));
@@ -110,7 +116,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
             return false;
         }
 
-        // Check the EpochRecord and HistoryTimeSeriesRecord
+        // Check the EpochRecord and HistoryTimeSeriesRecord.
         boolean isConsistent = checkConsistency(neededEpochRecord, neededHistoryRecord, scope, streamName, store, executor);
 
         if (!isConsistent) {
@@ -118,7 +124,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
         }
 
 
-        // Check the EpochTransitionRecord with the EpochRecord and the HistoryTimeSeriesRecord
+        // Check the EpochTransitionRecord with the EpochRecord and the HistoryTimeSeriesRecord.
         // Cross check the segments
         Set<Long> segmentIds = neededEpochRecord.getSegmentIds();
         ImmutableMap<Long, Map.Entry<Double, Double>> newSegments = transitionRecord.getNewSegmentsWithRange();
@@ -134,7 +140,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
             }
         }
 
-        // Cross check the sealed segments
+        // Cross check the sealed segments.
         List<Long> sealedSegmentTransition = new ArrayList<>(transitionRecord.getSegmentsToSeal());
 
         List<Long> sealedSegmentsHistory = neededHistoryRecord.getSegmentsSealed().stream()
@@ -148,7 +154,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
             isConsistent = false;
         }
 
-        // Based on consistency, return all records or none
+        // Based on consistency, return all records or none.
         if (!isConsistent) {
             responseBuilder.append("EpochTransitionRecord : ").append(outputTransition(transitionRecord));
             responseBuilder.append("EpochRecord : ").append(outputEpoch(neededEpochRecord));
