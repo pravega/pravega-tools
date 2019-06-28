@@ -166,14 +166,14 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
 
             // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate txn.
             if (!checkConsistency(duplicateTxnEpochRecord, duplicateTxnHistoryRecord, scope, streamName, store, executor)) {
-                responseBuilder.append("DuplicateTxn: Inconsistency among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
+                responseBuilder.append("DuplicateTxn: Fault among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
             }
             isConsistent = checkConsistency(duplicateTxnEpochRecord, duplicateTxnHistoryRecord, scope, streamName, store, executor);
 
 
             // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate active.
             if (!checkConsistency(duplicateActiveEpochRecord, duplicateActiveHistoryRecord, scope, streamName, store, executor)) {
-                responseBuilder.append("Duplicate active: Inconsistency among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
+                responseBuilder.append("Duplicate active: Fault among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
             }
             isConsistent = isConsistent && checkConsistency(duplicateActiveEpochRecord, duplicateActiveHistoryRecord, scope, streamName, store, executor);
 
@@ -196,7 +196,7 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
 
             // Check the time for the EpochRecords.
             if (duplicateActiveEpochRecord.getCreationTime() != duplicateTxnEpochRecord.getCreationTime() + 1) {
-                responseBuilder.append("Inconsistency: duplicates time's are not ordered properly.").append("\n");
+                responseBuilder.append("Fault: duplicates time's are not ordered properly.").append("\n");
             }
             isConsistent = isConsistent && duplicateActiveEpochRecord.getCreationTime() == duplicateTxnEpochRecord.getCreationTime() + 1;
 
@@ -221,13 +221,13 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
                 List<Long> duplicateSegments = new ArrayList<>(duplicateTxnEpochRecord.getSegmentIds());
 
                 if (!duplicateSegments.equals(dup2Segments)) {
-                    responseBuilder.append("Duplicate txn: Inconsistency in the generated duplicate segments").append("\n");
+                    responseBuilder.append("Duplicate txn: Fault in the generated duplicate segments").append("\n");
                 }
                 isConsistent = isConsistent && duplicateSegments.equals(dup2Segments);
 
                 // Check the reference epochs.
                 if (duplicateActiveEpochRecord.getReferenceEpoch() != finalTxnEpochRecord.getReferenceEpoch()) {
-                    responseBuilder.append("Duplicate txn: Inconsistency in the reference epochs").append("\n");
+                    responseBuilder.append("Duplicate txn: Fault in the reference epochs").append("\n");
                 }
                 isConsistent = isConsistent && duplicateActiveEpochRecord.getReferenceEpoch() == finalTxnEpochRecord.getReferenceEpoch();
             }
@@ -252,13 +252,13 @@ public class CommittingTransactionsCheck extends TroubleshootCommand implements 
                 List<Long> duplicateSegments = new ArrayList<>(duplicateActiveEpochRecord.getSegmentIds());
 
                 if (!duplicateSegments.equals(dup2Segments)) {
-                    responseBuilder.append("Duplicate active : Inconsistency in the generated duplicate segments").append("\n");
+                    responseBuilder.append("Duplicate active : Fault in the generated duplicate segments").append("\n");
                 }
                 isConsistent = isConsistent && duplicateSegments.equals(dup2Segments);
 
                 // Check the reference epochs.
                 if (duplicateActiveEpochRecord.getReferenceEpoch() != finalActiveEpochRecord.getReferenceEpoch()) {
-                    responseBuilder.append("Duplicate active: Inconsistency in the reference epochs").append("\n");
+                    responseBuilder.append("Duplicate active: Fault in the reference epochs").append("\n");
                 }
                 isConsistent = isConsistent && duplicateActiveEpochRecord.getReferenceEpoch() == finalActiveEpochRecord.getReferenceEpoch();
             }

@@ -17,11 +17,13 @@ import io.pravega.controller.store.stream.records.HistoryTimeSeries;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
-import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputEpoch;
-import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHistoryRecord;
 
 /**
  * A helper class that checks the stream with respect to the general case.
@@ -41,11 +43,11 @@ public class GeneralCheck extends TroubleshootCommand implements Check {
     }
 
     @Override
-    public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    public Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
-        StringBuilder responseBuilder = new StringBuilder();
+        Map<Record, List<Fault>> faults = new HashMap<>();
 
         HistoryTimeSeries history;
 
@@ -54,49 +56,38 @@ public class GeneralCheck extends TroubleshootCommand implements Check {
             history = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor).join();
 
         } catch (StoreException.DataNotFoundException e) {
-            responseBuilder.append("HistoryTimeSeries chunk is corrupted or unavailable").append("\n");
-            output(responseBuilder.toString());
+            Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
+            List<Fault> faultList = new ArrayList<>();
 
-            return false;
+            faultList.add(Fault.unavailable("HistoryTimeSeries chunk is corrupted or unavailable"));
+            faults.putIfAbsent(historySeriesRecord, faultList);
+
+            return faults;
         }
 
         ImmutableList<HistoryTimeSeriesRecord> historyRecords = history.getHistoryRecords();
 
-        boolean isConsistent = true;
-        boolean isAvailable = true;
-
         // Check the relation between each EpochRecord and its corresponding HistoryTimeSeriesRecord.
-        for (HistoryTimeSeriesRecord record : historyRecords.reverse()) {
+        for (HistoryTimeSeriesRecord historyRecord : historyRecords.reverse()) {
             EpochRecord correspondingEpochRecord;
-            responseBuilder.append(record.getEpoch()).append("\n");
 
             try {
-                correspondingEpochRecord = store.getEpoch(scope, streamName, record.getEpoch(),
+                correspondingEpochRecord = store.getEpoch(scope, streamName, historyRecord.getEpoch(),
                         null, executor).join();
 
             } catch (StoreException.DataNotFoundException e) {
-                responseBuilder.append("The corresponding EpochRecord is corrupted or does not exist.").append("\n");
-                responseBuilder.append("HistoryTimeSeriesRecord : ").append(outputHistoryRecord(record));
-                isAvailable = false;
+                Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
+                List<Fault> faultList = new ArrayList<>();
+
+                faultList.add(Fault.unavailable("Epoch: "+ historyRecord.getEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
+                faults.putIfAbsent(epochRecord, faultList);
 
                 continue;
             }
 
-            isConsistent = isConsistent && checkConsistency(correspondingEpochRecord, record, scope, streamName, store, executor);
-
-            // Output the record in case of inconsistency.
-            if (!checkConsistency(correspondingEpochRecord, record, scope, streamName, store, executor)) {
-                responseBuilder.append("EpochRecord : ").append(outputEpoch(correspondingEpochRecord));
-                responseBuilder.append("HistoryTimeSeriesRecord : ").append(outputHistoryRecord(record));
-            }
+            faults.putAll(checkConsistency(correspondingEpochRecord, historyRecord, scope, streamName, store, executor));
         }
 
-        if (!isConsistent || !isAvailable) {
-            output(responseBuilder.toString());
-            return false;
-        }
-
-        output("History and Epoch data consistent.\n");
-        return true;
+        return faults;
     }
 }

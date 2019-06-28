@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli;
 
+import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import org.junit.AfterClass;
@@ -17,9 +18,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
 
+import java.io.ByteArrayOutputStream;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static io.micrometer.shaded.reactor.core.publisher.Mono.when;
+import static org.mockito.Mockito.mock;
 
 /**
  * Validate basic troubleshoot commands
@@ -49,7 +54,32 @@ public class TroubleshootCommandsTest {
     }
 
     @Test
-    public void diagnosisCommand() throws Exception {
+    public void epochHistoryCrossCheckTest() throws Exception {
+
+    }
+
+    @Test
+    public void generalCheckTest() throws Exception {
+
+    }
+
+    @Test
+    public void updateCheckTest() throws Exception {
+
+    }
+
+    @Test
+    public void scaleCheckTest() throws Exception {
+
+    }
+
+    @Test
+    public void committingTransactionsCheckTest() throws Exception {
+
+    }
+
+    @Test
+    public void truncateCheckTest() throws Exception {
 
     }
 }

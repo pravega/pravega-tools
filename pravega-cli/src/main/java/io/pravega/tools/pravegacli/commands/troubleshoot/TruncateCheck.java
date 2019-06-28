@@ -69,7 +69,7 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
         // Updating and segments to delete check.
         if (!truncationRecord.isUpdating()) {
             if (!truncationRecord.getToDelete().isEmpty()) {
-                responseBuilder.append("Inconsistency in the StreamTruncationRecord in regards to updating and segments to delete").append("\n");
+                responseBuilder.append("Fault in the StreamTruncationRecord in regards to updating and segments to delete").append("\n");
                 isConsistent = false;
             }
         }
@@ -84,7 +84,7 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
                 .collect(Collectors.toList());
 
         if (!badSegments.isEmpty()) {
-            responseBuilder.append("Inconsistency in the StreamTruncationRecord in regards to segments deletion, " +
+            responseBuilder.append("Fault in the StreamTruncationRecord in regards to segments deletion, " +
                     "segments ahead of stream cut being deleted").append("\n");
             isConsistent = false;
         }

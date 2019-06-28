@@ -120,7 +120,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
         boolean isConsistent = checkConsistency(neededEpochRecord, neededHistoryRecord, scope, streamName, store, executor);
 
         if (!isConsistent) {
-            responseBuilder.append("Inconsistency among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
+            responseBuilder.append("Fault among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
         }
 
 
@@ -134,7 +134,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
                     neededEpochRecord.getSegment(id).getKeyEnd());
 
             if (!segmentRange.equals(newSegments.get(id))) {
-                responseBuilder.append("Inconsistency among the EpochRecord and the EpochTransitionRecord").append("\n");
+                responseBuilder.append("Fault among the EpochRecord and the EpochTransitionRecord").append("\n");
                 isConsistent = false;
                 break;
             }
@@ -150,7 +150,7 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
                 .collect(Collectors.toList());
 
         if (!sealedSegmentTransition.equals(sealedSegmentsHistory)) {
-            responseBuilder.append("Inconsistency among the HistoryTimeSeriesRecord and the EpochTransitionRecord").append("\n");
+            responseBuilder.append("Fault among the HistoryTimeSeriesRecord and the EpochTransitionRecord").append("\n");
             isConsistent = false;
         }
 

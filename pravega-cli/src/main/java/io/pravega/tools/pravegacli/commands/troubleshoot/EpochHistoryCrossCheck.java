@@ -10,13 +10,14 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
+import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.controller.store.stream.records.StreamSegmentRecord;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -33,80 +34,157 @@ public class EpochHistoryCrossCheck {
      * @param streamName  stream name
      * @param store       an instance of the extended metadata store
      * @param executor    callers executor
-     * @return
+     * @return A map of Record and Fault.
      */
-    public static boolean checkConsistency(final EpochRecord record,
-                                           final HistoryTimeSeriesRecord history,
-                                           final String scope,
-                                           final String streamName,
-                                           final ExtendedStreamMetadataStore store,
-                                           final ScheduledExecutorService executor) {
-        StringBuilder responseBuilder = new StringBuilder();
-        boolean isConsistent;
+    public static Map<Record, List<Fault>> checkConsistency(final EpochRecord record,
+                                                            final HistoryTimeSeriesRecord history,
+                                                            final String scope,
+                                                            final String streamName,
+                                                            final ExtendedStreamMetadataStore store,
+                                                            final ScheduledExecutorService executor) {
+        Map<Record, List<Fault>> faults = new HashMap<>();
 
         if (record == null || history == null) {
-            return false;
+            return faults;
         }
+
+        Record<EpochRecord> epochRecord = new Record<>(record, EpochRecord.class);
+        Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(history, HistoryTimeSeriesRecord.class);
+        List<Fault> epochFaultList = new ArrayList<>();
+        List<Fault> historyFaultList = new ArrayList<>();
+
+        boolean exists;
 
         // Similar fields should have similar values.
-        isConsistent = record.getEpoch() == history.getEpoch();
-        if (record.getEpoch() != history.getEpoch()) {
-            responseBuilder.append("Epoch mismatch : May or may not be the correct record").append("\n");
+        // Epoch.
+        exists = checkField(record, history, "epoch value",
+                EpochRecord::getEpoch,
+                HistoryTimeSeriesRecord::getEpoch,
+                epochFaultList,
+                historyFaultList);
+
+        if (exists && record.getEpoch() != history.getEpoch()) {
+            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                    "Epoch mismatch : May or may not be the correct record."));
         }
 
-        isConsistent = isConsistent && record.getReferenceEpoch() == history.getReferenceEpoch();
-        if (record.getReferenceEpoch() != history.getReferenceEpoch()) {
-            responseBuilder.append("Reference epoch mismatch.").append("\n");
+        // Reference Epoch
+        exists = checkField(record, history, "reference epoch value",
+                EpochRecord::getReferenceEpoch,
+                HistoryTimeSeriesRecord::getReferenceEpoch,
+                epochFaultList,
+                historyFaultList);
+
+        if (exists && record.getReferenceEpoch() != history.getReferenceEpoch()) {
+            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                    "Reference epoch mismatch."));
         }
 
-        isConsistent = isConsistent && record.getSegments().equals(history.getSegmentsCreated());
-        if (!record.getSegments().equals(history.getSegmentsCreated())) {
-            responseBuilder.append("Segment data mismatch.").append("\n");
+        // Segment data
+        exists = checkField(record, history, "segment data",
+                EpochRecord::getSegments,
+                HistoryTimeSeriesRecord::getSegmentsCreated,
+                epochFaultList,
+                historyFaultList);
+
+        if (exists && !record.getSegments().equals(history.getSegmentsCreated())) {
+            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                    "Segment data mismatch."));
         }
 
-        isConsistent = isConsistent && record.getCreationTime() == history.getScaleTime();
-        if (record.getCreationTime() != history.getScaleTime()) {
-            responseBuilder.append("Creation time mismatch.").append("\n");
-        }
+        // Creation time
+        exists = checkField(record, history, "creation time",
+                EpochRecord::getCreationTime,
+                HistoryTimeSeriesRecord::getScaleTime,
+                epochFaultList,
+                historyFaultList);
 
-        List<Long> sealedSegmentsHistory = history.getSegmentsSealed().stream()
-                .map(StreamSegmentRecord::getSegmentNumber)
-                .mapToLong(Integer::longValue)
-                .boxed()
-                .collect(Collectors.toList());
+        if (exists && record.getCreationTime() != history.getScaleTime()) {
+            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                    "Creation time mismatch."));
+        }
 
         // Segments in the history record should be sealed.
-        for (Long id : sealedSegmentsHistory) {
-            boolean isSealed = store.checkSegmentSealed(scope, streamName, id, null, executor).join();
-            if (!isSealed) {
-                responseBuilder.append("Inconsistency among the HistoryTimeSeriesRecord and the SealedSegmentRecords").append("\n");
-                isConsistent = false;
-                break;
+        boolean sealedExists = true;
+
+        try {
+            history.getSegmentsSealed();
+        } catch (StoreException.DataNotFoundException e) {
+            historyFaultList.add(Fault.unavailable("HistoryTimeSeriesRecord is missing sealed segment data."));
+            sealedExists = false;
+        }
+
+        List<Long> sealedSegmentsHistory = new ArrayList<>();
+
+        if (sealedExists) {
+            sealedSegmentsHistory = history.getSegmentsSealed().stream()
+                    .map(StreamSegmentRecord::getSegmentNumber)
+                    .mapToLong(Integer::longValue)
+                    .boxed()
+                    .collect(Collectors.toList());
+
+            for (Long id : sealedSegmentsHistory) {
+                boolean isSealed = store.checkSegmentSealed(scope, streamName, id, null, executor).join();
+                if (!isSealed) {
+                    epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                            "Fault among the HistoryTimeSeriesRecord and the SealedSegmentRecords."));
+                    break;
+                }
             }
         }
 
-        Long epochMinSegment = Collections.min(record.getSegments().stream()
-                .map(StreamSegmentRecord::getSegmentNumber)
-                .mapToLong(Integer::longValue)
-                .boxed()
-                .collect(Collectors.toList()));
+        // Segments created in epoch should be ahead of the sealed segments.
+        if (sealedExists && !epochFaultList.contains(Fault.unavailable("EpochRecord is missing segment data."))) {
+            Long epochMinSegment = Collections.min(record.getSegments().stream()
+                    .map(StreamSegmentRecord::getSegmentNumber)
+                    .mapToLong(Integer::longValue)
+                    .boxed()
+                    .collect(Collectors.toList()));
 
-        Long maxSealedSegment;
-        if (sealedSegmentsHistory.isEmpty()) {
-            maxSealedSegment = Long.MIN_VALUE;
-        } else {
-            maxSealedSegment = Collections.max(sealedSegmentsHistory);
+            Long maxSealedSegment;
+            if (sealedSegmentsHistory.isEmpty()) {
+                maxSealedSegment = Long.MIN_VALUE;
+            } else {
+                maxSealedSegment = Collections.max(sealedSegmentsHistory);
+            }
+
+            if (epochMinSegment < maxSealedSegment) {
+                epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                        "EpochRecord's segments behind the sealed segments."));
+            }
         }
 
-        // Consistency in the new segments and the sealed segments.
-        if (epochMinSegment < maxSealedSegment) {
-            responseBuilder.append("EpochRecord's segments behind the sealed segments.");
-            isConsistent = false;
+        if (!epochFaultList.isEmpty()) {
+            faults.putIfAbsent(epochRecord, epochFaultList);
         }
 
-        if (!isConsistent) {
-            System.out.println(responseBuilder.toString());
+        if (!historyFaultList.isEmpty()) {
+            faults.putIfAbsent(historyTimeSeriesRecord, historyFaultList);
         }
-        return isConsistent;
+
+        return faults;
+    }
+
+    private static boolean checkField(final EpochRecord record, final HistoryTimeSeriesRecord history, final String field,
+                                      final Function<EpochRecord, Object> epochFunc, final Function<HistoryTimeSeriesRecord, Object> historyFunc,
+                                      List<Fault> epochFaultList, List<Fault> historyFaultList) {
+        boolean epochValExists = true;
+        boolean historyValExists = true;
+
+        try {
+            epochFunc.apply(record);
+        } catch (StoreException.DataNotFoundException e) {
+            epochFaultList.add(Fault.unavailable("EpochRecord is missing "+ field + "."));
+            epochValExists = false;
+        }
+
+        try {
+            historyFunc.apply(history);
+        } catch (StoreException.DataNotFoundException e) {
+            historyFaultList.add(Fault.unavailable("HistoryTimeSeriesRecord is missing "+ field+ "."));
+            historyValExists = false;
+        }
+
+        return epochValExists && historyValExists;
     }
 }

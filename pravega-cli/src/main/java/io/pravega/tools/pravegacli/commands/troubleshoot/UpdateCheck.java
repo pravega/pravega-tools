@@ -15,9 +15,11 @@ import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
-
-import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputConfiguration;
 
 /**
  * A helper class that checks the stream with respect to the update case.
@@ -37,11 +39,11 @@ public class UpdateCheck extends TroubleshootCommand implements Check {
     }
 
     @Override
-    public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    public Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
-        StringBuilder responseBuilder = new StringBuilder();
+        Map<Record, List<Fault>> faults = new HashMap<>();
 
         StreamConfigurationRecord configurationRecord;
 
@@ -50,15 +52,22 @@ public class UpdateCheck extends TroubleshootCommand implements Check {
                     .thenApply(VersionedMetadata::getObject).join();
 
         } catch (StoreException.DataNotFoundException e) {
-            responseBuilder.append("StreamConfigurationRecord is corrupted or unavailable").append("\n");
-            output(responseBuilder.toString());
-            return false;
+            Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(null, StreamConfigurationRecord.class);
+            List<Fault> faultList = new ArrayList<>();
+
+            faultList.add(Fault.unavailable("StreamConfigurationRecord is corrupted or unavailable"));
+            faults.putIfAbsent(streamConfigurationRecord, faultList);
+
+            return faults;
         }
 
-        responseBuilder.append("StreamConfigurationRecord consistency check requires human intervention").append("\n");
-        responseBuilder.append("StreamConfigurationRecord: ").append(outputConfiguration(configurationRecord));
+        Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(configurationRecord, StreamConfigurationRecord.class);
+        List<Fault> faultList = new ArrayList<>();
 
-        output(responseBuilder.toString());
-        return true;
+        faultList.add(Fault.inconsistent(streamConfigurationRecord,
+                "StreamConfigurationRecord consistency check requires human intervention"));
+        faults.putIfAbsent(streamConfigurationRecord, faultList);
+
+        return faults;
     }
 }

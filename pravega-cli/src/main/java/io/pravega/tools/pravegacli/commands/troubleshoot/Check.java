@@ -11,6 +11,8 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
@@ -23,7 +25,7 @@ public interface Check {
      *
      * @param store     an instance of the extended metadata store
      * @param executor  callers executor
-     * @return A boolean which represents whether there is any error or not.
+     * @return A map of Record and Fault.
      */
-    boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor);
+    Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor);
 }
