@@ -17,13 +17,14 @@ import io.pravega.controller.store.stream.records.HistoryTimeSeries;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 
 /**
  * A helper class that checks the stream with respect to the general case.
@@ -57,10 +58,8 @@ public class GeneralCheck extends TroubleshootCommand implements Check {
 
         } catch (StoreException.DataNotFoundException e) {
             Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
-            List<Fault> faultList = new ArrayList<>();
-
-            faultList.add(Fault.unavailable("HistoryTimeSeries chunk is corrupted or unavailable"));
-            faults.putIfAbsent(historySeriesRecord, faultList);
+            putInFaultMap(faults, historySeriesRecord,
+                    Fault.unavailable("HistoryTimeSeries chunk is corrupted or unavailable"));
 
             return faults;
         }
@@ -77,15 +76,13 @@ public class GeneralCheck extends TroubleshootCommand implements Check {
 
             } catch (StoreException.DataNotFoundException e) {
                 Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
-                List<Fault> faultList = new ArrayList<>();
-
-                faultList.add(Fault.unavailable("Epoch: "+ historyRecord.getEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
-                faults.putIfAbsent(epochRecord, faultList);
+                putInFaultMap(faults, epochRecord,
+                        Fault.unavailable("Epoch: "+ historyRecord.getEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
 
                 continue;
             }
 
-            faults.putAll(checkConsistency(correspondingEpochRecord, historyRecord, scope, streamName, store, executor));
+            putAllInFaultMap(faults, checkConsistency(correspondingEpochRecord, historyRecord, scope, streamName, store, executor));
         }
 
         return faults;

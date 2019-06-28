@@ -10,7 +10,9 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableMap;
-import io.pravega.controller.store.stream.*;
+import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
+import io.pravega.controller.store.stream.StoreException;
+import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.EpochTransitionRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
@@ -19,14 +21,17 @@ import io.pravega.tools.pravegacli.commands.CommandArgs;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
-import static io.pravega.tools.pravegacli.commands.troubleshoot.EpochHistoryCrossCheck.checkConsistency;
-import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.*;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 
 /**
  * A helper class that checks the stream with respect to the scale case.
@@ -46,11 +51,11 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
     }
 
     @Override
-    public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    public Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
-        StringBuilder responseBuilder = new StringBuilder();
+        Map<Record, List<Fault>> faults = new HashMap<>();
 
         // Check for the existence of an EpochTransitionRecord.
         EpochTransitionRecord transitionRecord;
@@ -61,15 +66,16 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
                     .thenApply(VersionedMetadata::getObject).join();
 
         } catch (StoreException.DataNotFoundException e) {
-            responseBuilder.append("EpochTransitionRecord is corrupted").append("\n");
-            output(responseBuilder.toString());
-            return false;
+            Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(null, EpochTransitionRecord.class);
+            putInFaultMap(faults, epochTransitionRecord,
+                    Fault.unavailable("EpochTransitionRecord is corrupted or unavailable"));
+
+            return faults;
         }
 
         // If the EpochTransitionRecord is EMPTY then there's no need to check further.
         if (transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
-            output("No error involving scaling.\n");
-            return true;
+            return faults;
         }
 
         EpochRecord neededEpochRecord = null;
@@ -83,7 +89,10 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
                     null, executor).join();
 
         } catch (StoreException.DataNotFoundException e) {
-            responseBuilder.append("The corresponding EpochRecord is corrupted or does not exist.").append("\n");
+            Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
+            putInFaultMap(faults, epochRecord,
+                    Fault.unavailable("Epoch: "+ transitionRecord.getNewEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
+
             epochExists = false;
         }
 
@@ -93,39 +102,33 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
                     null, executor).join();
 
         } catch (StoreException.DataNotFoundException e) {
-            responseBuilder.append("The corresponding HistoryTimeSeriesRecord is corrupted or does not exist.").append("\n");
+            Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(null, HistoryTimeSeriesRecord.class);
+            putInFaultMap(faults, historyTimeSeriesRecord,
+                    Fault.unavailable("History: "+ transitionRecord.getNewEpoch() + ", The corresponding HistoryTimeSeriesRecord is corrupted or does not exist."));
+
             historyExists = false;
         }
 
-        // Output the existing records in case of corruption.
+        // Return the faults in case of corruption.
         if (!(epochExists && historyExists)) {
-            responseBuilder.append("EpochTransitionRecord : ");
-            responseBuilder.append(outputTransition(transitionRecord));
-
-            if (historyExists) {
-                responseBuilder.append("HistoryTimeSeriesRecord : ");
-                responseBuilder.append(outputHistoryRecord(neededHistoryRecord));
-            }
-
-            if (epochExists) {
-                responseBuilder.append("EpochRecord : ");
-                responseBuilder.append(outputEpoch(neededEpochRecord));
-            }
-
-            output(responseBuilder.toString());
-            return false;
+            return faults;
         }
 
         // Check the EpochRecord and HistoryTimeSeriesRecord.
-        boolean isConsistent = checkConsistency(neededEpochRecord, neededHistoryRecord, scope, streamName, store, executor);
+        putAllInFaultMap(faults, checkConsistency(neededEpochRecord, neededHistoryRecord, scope, streamName, store, executor));
 
-        if (!isConsistent) {
-            responseBuilder.append("Fault among the EpochRecord and the HistoryTimeSeriesRecord").append("\n");
-        }
-
+        Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(transitionRecord, EpochTransitionRecord.class);
+        Record<EpochRecord> epochRecord = new Record<>(neededEpochRecord, EpochRecord.class);
+        Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(neededHistoryRecord, HistoryTimeSeriesRecord.class);
 
         // Check the EpochTransitionRecord with the EpochRecord and the HistoryTimeSeriesRecord.
         // Cross check the segments
+        Fault transitionFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getNewSegmentsWithRange,
+                "segments created", "EpochTransitionRecord");
+        if (transitionFault != null) {
+            putInFaultMap(faults, epochTransitionRecord, transitionFault);
+        }
+
         Set<Long> segmentIds = neededEpochRecord.getSegmentIds();
         ImmutableMap<Long, Map.Entry<Double, Double>> newSegments = transitionRecord.getNewSegmentsWithRange();
 
@@ -134,13 +137,19 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
                     neededEpochRecord.getSegment(id).getKeyEnd());
 
             if (!segmentRange.equals(newSegments.get(id))) {
-                responseBuilder.append("Fault among the EpochRecord and the EpochTransitionRecord").append("\n");
-                isConsistent = false;
+                putInFaultMap(faults, epochTransitionRecord,
+                        Fault.inconsistent(epochRecord, "EpochRecord and the EpochTransitionRecord mismatch in the segments"));
                 break;
             }
         }
 
         // Cross check the sealed segments.
+        transitionFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getSegmentsToSeal,
+                "segments to be sealed", "EpochTransitionRecord");
+        if (transitionFault != null) {
+            putInFaultMap(faults, epochTransitionRecord, transitionFault);
+        }
+
         List<Long> sealedSegmentTransition = new ArrayList<>(transitionRecord.getSegmentsToSeal());
 
         List<Long> sealedSegmentsHistory = neededHistoryRecord.getSegmentsSealed().stream()
@@ -150,21 +159,10 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
                 .collect(Collectors.toList());
 
         if (!sealedSegmentTransition.equals(sealedSegmentsHistory)) {
-            responseBuilder.append("Fault among the HistoryTimeSeriesRecord and the EpochTransitionRecord").append("\n");
-            isConsistent = false;
+            putInFaultMap(faults, epochTransitionRecord,
+                    Fault.inconsistent(historyTimeSeriesRecord, "HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments"));
         }
 
-        // Based on consistency, return all records or none.
-        if (!isConsistent) {
-            responseBuilder.append("EpochTransitionRecord : ").append(outputTransition(transitionRecord));
-            responseBuilder.append("EpochRecord : ").append(outputEpoch(neededEpochRecord));
-            responseBuilder.append("HistoryTimeSeriesRecord : ").append(outputHistoryRecord(neededHistoryRecord));
-
-            output(responseBuilder.toString());
-            return false;
-        }
-
-        output("Consistent with respect to scaling\n");
-        return true;
+        return faults;
     }
 }

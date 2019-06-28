@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
+
 /**
  * A helper class that checks the stream with respect to the update case.
  */
@@ -53,20 +55,15 @@ public class UpdateCheck extends TroubleshootCommand implements Check {
 
         } catch (StoreException.DataNotFoundException e) {
             Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(null, StreamConfigurationRecord.class);
-            List<Fault> faultList = new ArrayList<>();
-
-            faultList.add(Fault.unavailable("StreamConfigurationRecord is corrupted or unavailable"));
-            faults.putIfAbsent(streamConfigurationRecord, faultList);
+            putInFaultMap(faults, streamConfigurationRecord,
+                    Fault.unavailable("StreamConfigurationRecord is corrupted or unavailable"));
 
             return faults;
         }
 
         Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(configurationRecord, StreamConfigurationRecord.class);
-        List<Fault> faultList = new ArrayList<>();
-
-        faultList.add(Fault.inconsistent(streamConfigurationRecord,
-                "StreamConfigurationRecord consistency check requires human intervention"));
-        faults.putIfAbsent(streamConfigurationRecord, faultList);
+        putInFaultMap(faults, streamConfigurationRecord,
+                Fault.inconsistent(streamConfigurationRecord, "StreamConfigurationRecord consistency check requires human intervention"));
 
         return faults;
     }

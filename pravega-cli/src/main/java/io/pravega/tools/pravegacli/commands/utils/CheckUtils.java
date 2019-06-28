@@ -7,15 +7,21 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands.troubleshoot;
+package io.pravega.tools.pravegacli.commands.utils;
 
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.controller.store.stream.records.StreamSegmentRecord;
+import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
+import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -23,7 +29,7 @@ import java.util.stream.Collectors;
 /**
  * A helper class to the general checkup case.
  */
-public class EpochHistoryCrossCheck {
+public class CheckUtils {
 
     /**
      * Method to check for consistency among a given EpochRecord and its corresponding HistoryTimeSeriesRecord.
@@ -167,24 +173,49 @@ public class EpochHistoryCrossCheck {
 
     private static boolean checkField(final EpochRecord record, final HistoryTimeSeriesRecord history, final String field,
                                       final Function<EpochRecord, Object> epochFunc, final Function<HistoryTimeSeriesRecord, Object> historyFunc,
-                                      List<Fault> epochFaultList, List<Fault> historyFaultList) {
+                                      final List<Fault> epochFaultList, final List<Fault> historyFaultList) {
         boolean epochValExists = true;
         boolean historyValExists = true;
 
-        try {
-            epochFunc.apply(record);
-        } catch (StoreException.DataNotFoundException e) {
-            epochFaultList.add(Fault.unavailable("EpochRecord is missing "+ field + "."));
+        Fault epochFault = checkCorrupted(record, epochFunc, field, "EpochRecord");
+        if (epochFault != null) {
+            epochFaultList.add(epochFault);
             epochValExists = false;
         }
 
-        try {
-            historyFunc.apply(history);
-        } catch (StoreException.DataNotFoundException e) {
-            historyFaultList.add(Fault.unavailable("HistoryTimeSeriesRecord is missing "+ field+ "."));
+        Fault historyFault = checkCorrupted(history, historyFunc, field, "HistoryTimeSeriesRecord");
+        if (historyFault != null) {
+            historyFaultList.add(historyFault);
             historyValExists = false;
         }
 
         return epochValExists && historyValExists;
+    }
+
+    public static <T> Fault checkCorrupted(final T record, final Function<T, Object> getFunc,
+                                           final String field, final String className) {
+        try {
+            getFunc.apply(record);
+        } catch (StoreException.DataNotFoundException e) {
+            return Fault.unavailable(className + " is missing " + field + ".");
+        }
+
+        return null;
+    }
+
+    public static void putInFaultMap(final Map<Record, List<Fault>> faultMap, final Record record, final Fault fault) {
+        if (faultMap.containsKey(record)) {
+            faultMap.get(record).add(fault);
+
+        } else {
+            List<Fault> faultList = new ArrayList<>();
+            faultList.add(fault);
+
+            faultMap.putIfAbsent(record, faultList);
+        }
+    }
+
+    public static void putAllInFaultMap(final Map<Record, List<Fault>> faultMap, final Map<Record, List<Fault>> extraMap) {
+        extraMap.forEach((k, v) -> v.forEach(fault -> putInFaultMap(faultMap, k, fault)));
     }
 }
