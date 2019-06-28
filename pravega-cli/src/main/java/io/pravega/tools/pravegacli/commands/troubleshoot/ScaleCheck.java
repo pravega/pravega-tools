@@ -123,44 +123,46 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
 
         // Check the EpochTransitionRecord with the EpochRecord and the HistoryTimeSeriesRecord.
         // Cross check the segments
-        Fault transitionFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getNewSegmentsWithRange,
+        Fault getSegmentsFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getNewSegmentsWithRange,
                 "segments created", "EpochTransitionRecord");
-        if (transitionFault != null) {
-            putInFaultMap(faults, epochTransitionRecord, transitionFault);
-        }
+        if (getSegmentsFault != null) {
+            putInFaultMap(faults, epochTransitionRecord, getSegmentsFault);
+        } else {
 
-        Set<Long> segmentIds = neededEpochRecord.getSegmentIds();
-        ImmutableMap<Long, Map.Entry<Double, Double>> newSegments = transitionRecord.getNewSegmentsWithRange();
+            Set<Long> segmentIds = neededEpochRecord.getSegmentIds();
+            ImmutableMap<Long, Map.Entry<Double, Double>> newSegments = transitionRecord.getNewSegmentsWithRange();
 
-        for (Long id : segmentIds) {
-            SimpleEntry<Double, Double> segmentRange = new SimpleEntry<>(neededEpochRecord.getSegment(id).getKeyStart(),
-                    neededEpochRecord.getSegment(id).getKeyEnd());
+            for (Long id : segmentIds) {
+                SimpleEntry<Double, Double> segmentRange = new SimpleEntry<>(neededEpochRecord.getSegment(id).getKeyStart(),
+                        neededEpochRecord.getSegment(id).getKeyEnd());
 
-            if (!segmentRange.equals(newSegments.get(id))) {
-                putInFaultMap(faults, epochTransitionRecord,
-                        Fault.inconsistent(epochRecord, "EpochRecord and the EpochTransitionRecord mismatch in the segments"));
-                break;
+                if (!segmentRange.equals(newSegments.get(id))) {
+                    putInFaultMap(faults, epochTransitionRecord,
+                            Fault.inconsistent(epochRecord, "EpochRecord and the EpochTransitionRecord mismatch in the segments"));
+                    break;
+                }
             }
         }
 
         // Cross check the sealed segments.
-        transitionFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getSegmentsToSeal,
+        Fault getSealedSegmentsFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getSegmentsToSeal,
                 "segments to be sealed", "EpochTransitionRecord");
-        if (transitionFault != null) {
-            putInFaultMap(faults, epochTransitionRecord, transitionFault);
-        }
+        if (getSealedSegmentsFault != null) {
+            putInFaultMap(faults, epochTransitionRecord, getSealedSegmentsFault);
+        } else {
 
-        List<Long> sealedSegmentTransition = new ArrayList<>(transitionRecord.getSegmentsToSeal());
+            List<Long> sealedSegmentTransition = new ArrayList<>(transitionRecord.getSegmentsToSeal());
 
-        List<Long> sealedSegmentsHistory = neededHistoryRecord.getSegmentsSealed().stream()
-                .map(StreamSegmentRecord::getSegmentNumber)
-                .mapToLong(Integer::longValue)
-                .boxed()
-                .collect(Collectors.toList());
+            List<Long> sealedSegmentsHistory = neededHistoryRecord.getSegmentsSealed().stream()
+                    .map(StreamSegmentRecord::getSegmentNumber)
+                    .mapToLong(Integer::longValue)
+                    .boxed()
+                    .collect(Collectors.toList());
 
-        if (!sealedSegmentTransition.equals(sealedSegmentsHistory)) {
-            putInFaultMap(faults, epochTransitionRecord,
-                    Fault.inconsistent(historyTimeSeriesRecord, "HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments"));
+            if (!sealedSegmentTransition.equals(sealedSegmentsHistory)) {
+                putInFaultMap(faults, epochTransitionRecord,
+                        Fault.inconsistent(historyTimeSeriesRecord, "HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments"));
+            }
         }
 
         return faults;

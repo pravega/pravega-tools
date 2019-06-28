@@ -15,11 +15,16 @@ import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
-import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTruncation;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 
 /**
  * A helper class that checks the stream with respect to the truncate case.
@@ -39,11 +44,11 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
     }
 
     @Override
-    public boolean check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    public Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
-        StringBuilder responseBuilder = new StringBuilder();
+        Map<Record, List<Fault>> faults = new HashMap<>();
 
         StreamTruncationRecord truncationRecord;
 
@@ -52,51 +57,74 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
                     .thenApply(VersionedMetadata::getObject).join();
 
         } catch (StoreException.DataNotFoundException e) {
-            responseBuilder.append("StreamTruncationRecord is corrupted or unavailable").append("\n");
-            output(responseBuilder.toString());
-            return false;
+            Record<StreamTruncationRecord> streamTruncationRecord = new Record<>(null, StreamTruncationRecord.class);
+            putInFaultMap(faults, streamTruncationRecord,
+                    Fault.unavailable("StreamTruncationRecord is corrupted or unavailable"));
+
+            return faults;
         }
 
         // If the StreamTruncationRecord is EMPTY then there's no need to check further.
         if (truncationRecord.equals(StreamTruncationRecord.EMPTY)) {
-            output("No error involving truncating.");
-            return true;
+            return faults;
         }
 
-        boolean isConsistent = true;
+        Record<StreamTruncationRecord> streamTruncationRecord = new Record<>(truncationRecord, StreamTruncationRecord.class);
 
         // Need to check internal consistency.
         // Updating and segments to delete check.
-        if (!truncationRecord.isUpdating()) {
-            if (!truncationRecord.getToDelete().isEmpty()) {
-                responseBuilder.append("Fault in the StreamTruncationRecord in regards to updating and segments to delete").append("\n");
-                isConsistent = false;
+        Fault updatingFault = checkCorrupted(truncationRecord, StreamTruncationRecord::isUpdating,
+                "updating", "StreamTruncationRecord");
+        Fault toDeleteFault = checkCorrupted(truncationRecord, StreamTruncationRecord::getToDelete,
+                "segments to delete", "StreamTruncationRecord");
+
+        if (updatingFault != null) {
+            putInFaultMap(faults, streamTruncationRecord, updatingFault);
+        }
+
+        if (toDeleteFault != null) {
+            putInFaultMap(faults, streamTruncationRecord, toDeleteFault);
+        }
+
+        if (updatingFault == null && toDeleteFault == null) {
+            if (!truncationRecord.isUpdating()) {
+                if (!truncationRecord.getToDelete().isEmpty()) {
+                    putInFaultMap(faults, streamTruncationRecord, Fault.inconsistent(streamTruncationRecord,
+                            "StreamTruncationRecord inconsistency in regards to updating and segments to delete"));
+                }
             }
         }
 
         // Correct segments deletion check.
-        Long streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
-        Set<Long> allDelete = truncationRecord.getToDelete();
-        allDelete.addAll(truncationRecord.getDeletedSegments());
+        Fault streamCutFault = checkCorrupted(truncationRecord, StreamTruncationRecord::getStreamCut,
+                "stream cut", "StreamTruncationRecord");
+        Fault deletedFault = checkCorrupted(truncationRecord, StreamTruncationRecord::getDeletedSegments,
+                "deleted segments", "StreamTruncationRecord");
 
-        List<Long> badSegments = allDelete.stream()
-                .filter(segment -> segment >= streamCutMaxSegment)
-                .collect(Collectors.toList());
-
-        if (!badSegments.isEmpty()) {
-            responseBuilder.append("Fault in the StreamTruncationRecord in regards to segments deletion, " +
-                    "segments ahead of stream cut being deleted").append("\n");
-            isConsistent = false;
+        if (streamCutFault != null) {
+            putInFaultMap(faults, streamTruncationRecord, streamCutFault);
         }
 
-        // Based on consistency, return all records or none.
-        if (!isConsistent) {
-            responseBuilder.append(outputTruncation(truncationRecord));
-            output(responseBuilder.toString());
-            return false;
+        if (deletedFault != null) {
+            putInFaultMap(faults, streamTruncationRecord, deletedFault);
         }
 
-        output("Consistent with respect to truncating\n");
-        return true;
+        if (streamCutFault == null && deletedFault == null && toDeleteFault == null) {
+            Long streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
+            Set<Long> allDelete = truncationRecord.getToDelete();
+            allDelete.addAll(truncationRecord.getDeletedSegments());
+
+            List<Long> badSegments = allDelete.stream()
+                    .filter(segment -> segment >= streamCutMaxSegment)
+                    .collect(Collectors.toList());
+
+            if (!badSegments.isEmpty()) {
+                putInFaultMap(faults, streamTruncationRecord, Fault.inconsistent(streamTruncationRecord,
+                        "Fault in the StreamTruncationRecord in regards to segments deletion, " +
+                                "segments ahead of stream cut being deleted"));
+            }
+        }
+
+        return faults;
     }
 }
