@@ -99,7 +99,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 return;
             }
 
-            outputFaults(updateFaults);
+            output(outputFaults(updateFaults));
             output("Everything seems OK.\n");
 
         } catch (Exception e) {
@@ -116,7 +116,6 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
     private boolean runCheckup(final Map<Record, Set<Fault>> faults, final Map<Record, Set<Fault>> updateFaults,
                             final BiFunction<ExtendedStreamMetadataStore, ScheduledExecutorService, Map<Record, Set<Fault>>> check,
                             final ScheduledExecutorService executor, final String checkupName) {
-        output("-------" + checkupName.toUpperCase() + "-------\n");
         try {
             putAllInFaultMap(faults, check.apply(store, executor));
 

@@ -54,18 +54,17 @@ public class TroubleshootCommandsTest {
     }
 
     @Test
-    public void epochHistoryCrossCheckTest() throws Exception {
-
-    }
-
-    @Test
     public void generalCheckTest() throws Exception {
 
     }
 
     @Test
     public void updateCheckTest() throws Exception {
+        String scope = "test-scope";
+        String streamName = "test-stream";
+        ExtendedStreamMetadataStore mockedStore = mock(ExtendedStreamMetadataStore.class);
 
+        // Test 1.
     }
 
     @Test

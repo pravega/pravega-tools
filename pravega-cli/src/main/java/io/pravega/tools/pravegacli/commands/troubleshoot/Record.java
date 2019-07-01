@@ -9,7 +9,12 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
-import io.pravega.controller.store.stream.records.*;
+import io.pravega.controller.store.stream.records.CommittingTransactionsRecord;
+import io.pravega.controller.store.stream.records.EpochRecord;
+import io.pravega.controller.store.stream.records.EpochTransitionRecord;
+import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
+import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
+import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -31,28 +36,31 @@ public class Record<T> {
     }
 
     public String toString() {
+        StringBuilder responseBuilder =  new StringBuilder();
+        responseBuilder.append(this.recordType).append("\n");
+
         if (this.recordType == EpochRecord.class) {
-            return outputEpoch((EpochRecord) this.record);
+            return responseBuilder.append(outputEpoch((EpochRecord) this.record)).toString();
         }
 
         if (this.recordType == HistoryTimeSeriesRecord.class) {
-            return outputHistoryRecord((HistoryTimeSeriesRecord) this.record);
+            return responseBuilder.append(outputHistoryRecord((HistoryTimeSeriesRecord) this.record)).toString();
         }
 
         if (this.recordType == StreamConfigurationRecord.class) {
-            return outputConfiguration((StreamConfigurationRecord)this.record);
+            return responseBuilder.append(outputConfiguration((StreamConfigurationRecord)this.record)).toString();
         }
 
         if (this.recordType == EpochTransitionRecord.class) {
-            return outputTransition((EpochTransitionRecord)this.record);
+            return responseBuilder.append(outputTransition((EpochTransitionRecord)this.record)).toString();
         }
 
         if (this.recordType == CommittingTransactionsRecord.class) {
-            return outputCommittingTransactions((CommittingTransactionsRecord) this.record);
+            return responseBuilder.append(outputCommittingTransactions((CommittingTransactionsRecord) this.record)).toString();
         }
 
         if (this.recordType == StreamTruncationRecord.class) {
-            return outputTruncation((StreamTruncationRecord)this.record);
+            return responseBuilder.append(outputTruncation((StreamTruncationRecord)this.record)).toString();
         }
 
         return null;
