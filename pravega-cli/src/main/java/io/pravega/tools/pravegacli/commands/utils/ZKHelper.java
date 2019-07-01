@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
@@ -77,7 +79,8 @@ public class ZKHelper implements AutoCloseable {
      * @return A list of bookies.
      */
     public List<String> getBookies() {
-        return getChild(BK_PATH);
+        List<String> bookies = getChild(BK_PATH);
+        return bookies != null ? bookies.stream().filter(s -> s.contains(":")).collect(Collectors.toList()) : null;
     }
 
     /**

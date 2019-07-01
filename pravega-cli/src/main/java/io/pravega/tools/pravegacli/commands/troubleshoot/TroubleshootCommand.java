@@ -7,9 +7,19 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.commands.controller;
+package io.pravega.tools.pravegacli.commands.troubleshoot;
 
+import io.pravega.client.netty.impl.ConnectionFactory;
+import io.pravega.client.netty.impl.ConnectionFactoryImpl;
+import io.pravega.client.stream.impl.DefaultCredentials;
+import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
+import io.pravega.controller.store.client.StoreClientFactory;
+import io.pravega.controller.store.host.HostControllerStore;
+import io.pravega.controller.store.host.HostMonitorConfig;
+import io.pravega.controller.store.host.HostStoreFactory;
+import io.pravega.controller.store.host.impl.HostMonitorConfigImpl;
+import io.pravega.controller.util.Config;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import javax.ws.rs.client.Client;
@@ -19,39 +29,42 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import org.apache.curator.framework.CuratorFramework;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
+
+import java.net.URI;
 
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 /**
- * Base for any Controller-related commands.
+ * Base for any Troubleshoot-related commands.
  */
-public abstract class ControllerCommand extends Command {
-    static final String COMPONENT = "controller";
+public abstract class TroubleshootCommand extends Command{
+    static final String COMPONENT = "troubleshoot";
 
     /**
      * Creates a new instance of the Command class.
      *
      * @param args The arguments for the command.
      */
-    ControllerCommand(CommandArgs args) {
+    TroubleshootCommand(CommandArgs args) {
         super(args);
     }
 
     /**
-     * Creates a context for child classes consisting of a REST client to execute calls against the Controller.
+     * Creates a context for child classes consisting of a REST client to execute calls against the Troubleshooter.
      *
      * @return REST client.
      */
-    protected ControllerCommand.Context createContext() {
+    protected TroubleshootCommand.Context createContext() {
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.register(JacksonJsonProvider.class);
         clientConfig.property("sun.net.http.allowRestrictedHeaders", "true");
         Client client = ClientBuilder.newClient(clientConfig);
         // If authorization parameters are configured, set them in the client.
-        if (getCLIControllerConfig().isAuthEnabled()) {
+        if (getCLIControllerConfig().getUserName() != null && !getCLIControllerConfig().getUserName().equals("")) {
             HttpAuthenticationFeature auth = HttpAuthenticationFeature.basic(getCLIControllerConfig().getUserName(),
                     getCLIControllerConfig().getPassword());
             client = client.register(auth);
@@ -62,7 +75,7 @@ public abstract class ControllerCommand extends Command {
     /**
      * Generic method to execute execute a request against the Controller and get the response.
      *
-     * @param context Controller command context.
+     * @param context Troubleshoot command context.
      * @param requestURI URI to execute the request against.
      * @return Response for the REST call.
      */
@@ -84,6 +97,22 @@ public abstract class ControllerCommand extends Command {
         } else {
             output("The REST request was not successful: " + response.getStatus());
         }
+    }
+
+    public SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
+        HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
+                .hostMonitorEnabled(true)
+                .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
+                .containerCount(getServiceConfig().getContainerCount())
+                .build();
+        HostControllerStore hostStore = HostStoreFactory.createStore(hostMonitorConfig, StoreClientFactory.createZKStoreClient(zkClient));
+        io.pravega.client.ClientConfig clientConfig = io.pravega.client.ClientConfig.builder()
+                .controllerURI(URI.create((getCLIControllerConfig().getControllerGrpcURI())))
+                .validateHostName(getCLIControllerConfig().isAuthEnabled())
+                .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
+                .build();
+        ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
+        return new SegmentHelper(connectionFactory, hostStore);
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)

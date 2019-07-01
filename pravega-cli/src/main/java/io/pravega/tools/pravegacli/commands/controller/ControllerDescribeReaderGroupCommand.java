@@ -35,7 +35,7 @@ public class ControllerDescribeReaderGroupCommand extends ControllerCommand {
         val context = createContext();
         String scope = getCommandArgs().getArgs().get(0);
         String readerGroup = getCommandArgs().getArgs().get(1);
-        output(executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups/" + readerGroup));
+        prettyJSONOutput(executeRESTCall(context, "/v1/scopes/" + scope + "/readergroups/" + readerGroup));
     }
 
     public static CommandDescriptor descriptor() {
