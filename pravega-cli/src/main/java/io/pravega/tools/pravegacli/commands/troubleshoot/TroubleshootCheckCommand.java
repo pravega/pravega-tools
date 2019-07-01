@@ -64,11 +64,11 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 store = StreamStoreFactoryExtended.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
-            GeneralCheck general = new GeneralCheck(getCommandArgs());
-            ScaleCheck scale = new ScaleCheck(getCommandArgs());
-            CommittingTransactionsCheck committingTransactions = new CommittingTransactionsCheck(getCommandArgs());
-            TruncateCheck truncate = new TruncateCheck(getCommandArgs());
-            UpdateCheck update = new UpdateCheck(getCommandArgs());
+            GeneralCheckCommand general = new GeneralCheckCommand(getCommandArgs());
+            ScaleCheckCommand scale = new ScaleCheckCommand(getCommandArgs());
+            CommittingTransactionsCheckCommand committingTransactions = new CommittingTransactionsCheckCommand(getCommandArgs());
+            TruncateCheckCommand truncate = new TruncateCheckCommand(getCommandArgs());
+            UpdateCheckCommand update = new UpdateCheckCommand(getCommandArgs());
 
             // The Update Checkup.
             Map<Record, Set<Fault>> updateFaults = update.check(store, executor);

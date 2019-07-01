@@ -32,7 +32,7 @@ import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFault
 /**
  * A helper class that checks the stream with respect to the update case.
  */
-public class UpdateCheck extends TroubleshootCommand implements Check {
+public class UpdateCheckCommand extends TroubleshootCommand implements Check {
 
     protected ExtendedStreamMetadataStore store;
 
@@ -41,7 +41,7 @@ public class UpdateCheck extends TroubleshootCommand implements Check {
      *
      * @param args The arguments for the command.
      */
-    public UpdateCheck(CommandArgs args) { super(args); }
+    public UpdateCheckCommand(CommandArgs args) { super(args); }
 
     @Override
     public void execute() {
@@ -96,7 +96,7 @@ public class UpdateCheck extends TroubleshootCommand implements Check {
     }
 
     public static CommandDescriptor descriptor() {
-        return new CommandDescriptor(COMPONENT, "update-check", "check the update mechanism",
+        return new CommandDescriptor(COMPONENT, "update-check", "check health of the update workflow",
                 new ArgDescriptor("scope-name", "Name of the scope"),
                 new ArgDescriptor("stream-name", "Name of the stream"));
     }

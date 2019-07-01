@@ -9,11 +9,17 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
+import io.pravega.controller.server.SegmentHelper;
+import io.pravega.controller.server.rpc.auth.AuthHelper;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
+import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
+import lombok.Cleanup;
+import org.apache.curator.framework.CuratorFramework;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,22 +31,44 @@ import java.util.stream.Collectors;
 
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
  * A helper class that checks the stream with respect to the truncate case.
  */
-public class TruncateCheck extends TroubleshootCommand implements Check {
+public class TruncateCheckCommand extends TroubleshootCommand implements Check {
+
+    protected ExtendedStreamMetadataStore store;
 
     /**
      * Creates a new instance of the Command class.
      *
      * @param args The arguments for the command.
      */
-    public TruncateCheck(CommandArgs args) { super(args); }
+    public TruncateCheckCommand(CommandArgs args) { super(args); }
 
     @Override
     public void execute() {
+        try {
+            @Cleanup
+            CuratorFramework zkClient = createZKClient();
+            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
 
+            SegmentHelper segmentHelper;
+            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
+                store = StreamStoreFactoryExtended.createZKStore(zkClient, executor);
+            } else {
+                segmentHelper = instantiateSegmentHelper(zkClient);
+                AuthHelper authHelper = AuthHelper.getDisabledAuthHelper();
+                store = StreamStoreFactoryExtended.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
+            }
+
+            Map<Record, Set<Fault>> faults = check(store, executor);
+            output(outputFaults(faults));
+
+        } catch (Exception e) {
+            System.err.println("Exception accessing metadata store: " + e.getMessage());
+        }
     }
 
     @Override
@@ -111,5 +139,11 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
         }
 
         return faults;
+    }
+
+    public static CommandDescriptor descriptor() {
+        return new CommandDescriptor(COMPONENT, "truncate-check", "check health of the truncate workflow",
+                new ArgDescriptor("scope-name", "Name of the scope"),
+                new ArgDescriptor("stream-name", "Name of the stream"));
     }
 }
