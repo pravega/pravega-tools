@@ -18,8 +18,8 @@ import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
@@ -44,11 +44,11 @@ public class GeneralCheck extends TroubleshootCommand implements Check {
     }
 
     @Override
-    public Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
-        Map<Record, List<Fault>> faults = new HashMap<>();
+        Map<Record, Set<Fault>> faults = new HashMap<>();
 
         HistoryTimeSeries history;
 

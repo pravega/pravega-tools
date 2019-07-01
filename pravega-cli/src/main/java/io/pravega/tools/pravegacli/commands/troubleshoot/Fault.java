@@ -10,6 +10,7 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import lombok.Builder;
+import lombok.Getter;
 
 public class Fault {
 
@@ -18,8 +19,11 @@ public class Fault {
         INCONSISTENT
     }
 
+    @Getter
     private final InconsistencyType inconsistencyType;
+    @Getter
     private final Record inconsistentWith;
+    @Getter
     private final String errorMessage;
 
     @Builder

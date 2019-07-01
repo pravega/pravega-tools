@@ -44,11 +44,11 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
     }
 
     @Override
-    public Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
-        Map<Record, List<Fault>> faults = new HashMap<>();
+        Map<Record, Set<Fault>> faults = new HashMap<>();
 
         StreamTruncationRecord truncationRecord;
 
@@ -73,20 +73,12 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
 
         // Need to check internal consistency.
         // Updating and segments to delete check.
-        Fault updatingFault = checkCorrupted(truncationRecord, StreamTruncationRecord::isUpdating,
-                "updating", "StreamTruncationRecord");
-        Fault toDeleteFault = checkCorrupted(truncationRecord, StreamTruncationRecord::getToDelete,
-                "segments to delete", "StreamTruncationRecord");
+        boolean updatingExists = checkCorrupted(truncationRecord, StreamTruncationRecord::isUpdating,
+                "updating", "StreamTruncationRecord", faults);
+        boolean toDeleteExists = checkCorrupted(truncationRecord, StreamTruncationRecord::getToDelete,
+                "segments to delete", "StreamTruncationRecord", faults);
 
-        if (updatingFault != null) {
-            putInFaultMap(faults, streamTruncationRecord, updatingFault);
-        }
-
-        if (toDeleteFault != null) {
-            putInFaultMap(faults, streamTruncationRecord, toDeleteFault);
-        }
-
-        if (updatingFault == null && toDeleteFault == null) {
+        if (updatingExists && toDeleteExists) {
             if (!truncationRecord.isUpdating()) {
                 if (!truncationRecord.getToDelete().isEmpty()) {
                     putInFaultMap(faults, streamTruncationRecord, Fault.inconsistent(streamTruncationRecord,
@@ -96,20 +88,13 @@ public class TruncateCheck extends TroubleshootCommand implements Check {
         }
 
         // Correct segments deletion check.
-        Fault streamCutFault = checkCorrupted(truncationRecord, StreamTruncationRecord::getStreamCut,
-                "stream cut", "StreamTruncationRecord");
-        Fault deletedFault = checkCorrupted(truncationRecord, StreamTruncationRecord::getDeletedSegments,
-                "deleted segments", "StreamTruncationRecord");
+        boolean streamCutExists = checkCorrupted(truncationRecord, StreamTruncationRecord::getStreamCut,
+                "stream cut", "StreamTruncationRecord", faults);
+        boolean deletedExists = checkCorrupted(truncationRecord, StreamTruncationRecord::getDeletedSegments,
+                "deleted segments", "StreamTruncationRecord", faults);
 
-        if (streamCutFault != null) {
-            putInFaultMap(faults, streamTruncationRecord, streamCutFault);
-        }
 
-        if (deletedFault != null) {
-            putInFaultMap(faults, streamTruncationRecord, deletedFault);
-        }
-
-        if (streamCutFault == null && deletedFault == null && toDeleteFault == null) {
+        if (streamCutExists && deletedExists && toDeleteExists) {
             Long streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
             Set<Long> allDelete = truncationRecord.getToDelete();
             allDelete.addAll(truncationRecord.getDeletedSegments());

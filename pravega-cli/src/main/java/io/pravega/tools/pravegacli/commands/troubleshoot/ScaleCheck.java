@@ -51,11 +51,11 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
     }
 
     @Override
-    public Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
+    public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
-        Map<Record, List<Fault>> faults = new HashMap<>();
+        Map<Record, Set<Fault>> faults = new HashMap<>();
 
         // Check for the existence of an EpochTransitionRecord.
         EpochTransitionRecord transitionRecord;
@@ -123,12 +123,9 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
 
         // Check the EpochTransitionRecord with the EpochRecord and the HistoryTimeSeriesRecord.
         // Cross check the segments
-        Fault getSegmentsFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getNewSegmentsWithRange,
-                "segments created", "EpochTransitionRecord");
-        if (getSegmentsFault != null) {
-            putInFaultMap(faults, epochTransitionRecord, getSegmentsFault);
-        } else {
-
+        boolean getSegmentsExists = checkCorrupted(transitionRecord, EpochTransitionRecord::getNewSegmentsWithRange,
+                "segments created", "EpochTransitionRecord", faults);
+        if (getSegmentsExists) {
             Set<Long> segmentIds = neededEpochRecord.getSegmentIds();
             ImmutableMap<Long, Map.Entry<Double, Double>> newSegments = transitionRecord.getNewSegmentsWithRange();
 
@@ -145,12 +142,9 @@ public class ScaleCheck extends TroubleshootCommand implements Check {
         }
 
         // Cross check the sealed segments.
-        Fault getSealedSegmentsFault = checkCorrupted(transitionRecord, EpochTransitionRecord::getSegmentsToSeal,
-                "segments to be sealed", "EpochTransitionRecord");
-        if (getSealedSegmentsFault != null) {
-            putInFaultMap(faults, epochTransitionRecord, getSealedSegmentsFault);
-        } else {
-
+        boolean getSealedSegmentsExists = checkCorrupted(transitionRecord, EpochTransitionRecord::getSegmentsToSeal,
+                "segments to be sealed", "EpochTransitionRecord", faults);
+        if (getSealedSegmentsExists) {
             List<Long> sealedSegmentTransition = new ArrayList<>(transitionRecord.getSegmentsToSeal());
 
             List<Long> sealedSegmentsHistory = neededHistoryRecord.getSegmentsSealed().stream()

@@ -11,8 +11,8 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
@@ -27,5 +27,5 @@ public interface Check {
      * @param executor  callers executor
      * @return A map of Record and Fault.
      */
-    Map<Record, List<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor);
+    Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor);
 }

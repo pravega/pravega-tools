@@ -18,7 +18,14 @@ import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiFunction;
+
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
  * Runs a diagnosis of the stream while providing pointers and highlighting faults when found.
@@ -41,6 +48,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
+        Map<Record, Set<Fault>> faults = new HashMap<>();
 
         try {
             @Cleanup
@@ -56,78 +64,43 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 store = StreamStoreFactoryExtended.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
-            GeneralCheck generalChecker = new GeneralCheck(getCommandArgs());
-            ScaleCheck scaleChecker = new ScaleCheck(getCommandArgs());
-            CommittingTransactionsCheck committingTransactionsChecker = new CommittingTransactionsCheck(getCommandArgs());
-            TruncateCheck truncateChecker = new TruncateCheck(getCommandArgs());
-            UpdateCheck updateChecker = new UpdateCheck(getCommandArgs());
-            boolean isConsistent;
-
-            // The General Checkup.
-            output("\n-------GENERAL CHECKUP-------\n");
-            try {
-                isConsistent = generalChecker.check(store, executor);
-                if (!isConsistent) {
-                    return;
-                }
-            } catch (Exception e) {
-                output("General Checkup error: " + e.getMessage());
-            }
+            GeneralCheck general = new GeneralCheck(getCommandArgs());
+            ScaleCheck scale = new ScaleCheck(getCommandArgs());
+            CommittingTransactionsCheck committingTransactions = new CommittingTransactionsCheck(getCommandArgs());
+            TruncateCheck truncate = new TruncateCheck(getCommandArgs());
+            UpdateCheck update = new UpdateCheck(getCommandArgs());
 
             // The Update Checkup.
-            output("\n-------UPDATE CHECKUP-------\n");
-            try {
-                isConsistent = updateChecker.check(store, executor);
-                if (!isConsistent) {
-                    return;
-                }
-            } catch (Exception e) {
-                output("Update Checkup error: " + e.getMessage());
+            Map<Record, Set<Fault>> updateFaults = update.check(store, executor);
+
+            // The General Checkup.
+            if (runCheckup(faults, updateFaults, general::check, executor, "General Checkup")) {
+                return;
             }
 
             // Check for viability of workflow check up.
-            int currentEpoch = store.getActiveEpoch(scope, streamName, null,
-                    true, executor).join().getEpoch();
-
-            int historyCurrentEpoch = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor)
-                    .join().getLatestRecord().getEpoch();
+            int currentEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
+            int historyCurrentEpoch = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor).join().getLatestRecord().getEpoch();
 
             if (currentEpoch != historyCurrentEpoch) {
                 // The Scale Checkup.
-                output("\n-------SCALE CHECKUP-------\n");
-                try {
-                    isConsistent = scaleChecker.check(store, executor);
-                    if (!isConsistent) {
-                        return;
-                    }
-                } catch (Exception e) {
-                    output("Scale Checkup error: " + e.getMessage());
+                if (runCheckup(faults, updateFaults, scale::check, executor, "Scale Checkup")) {
+                    return;
                 }
 
                 // The Committing Transactions Checkup.
-                output("\n-------COMMITTING TRANSACTIONS CHECKUP-------\n");
-                try {
-                    isConsistent = committingTransactionsChecker.check(store, executor);
-                    if (!isConsistent) {
-                        return;
-                    }
-                } catch (Exception e) {
-                    output("Committing_txn Checkup error: " + e.getMessage());
+                if (runCheckup(faults, updateFaults, committingTransactions::check, executor, "Committing_txn Checkup")) {
+                    return;
                 }
             }
 
             // The Truncate Checkup.
-            output("\n-------TRUNCATE CHECKUP-------\n");
-            try {
-                isConsistent = truncateChecker.check(store, executor);
-                if (!isConsistent) {
-                    return;
-                }
-            } catch (Exception e) {
-                output("Truncate Checkup error: " + e.getMessage());
+            if (runCheckup(faults, updateFaults, truncate::check, executor, "Truncate Checkup")) {
+                return;
             }
 
-            output("\n\nEverything seems ok.");
+            outputFaults(updateFaults);
+            output("Everything seems OK.\n");
 
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
@@ -138,5 +111,26 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
         return new CommandDescriptor(COMPONENT, "diagnosis", "check health based on stream-specific metadata",
                 new ArgDescriptor("scope-name", "Name of the scope"),
                 new ArgDescriptor("stream-name", "Name of the stream"));
+    }
+
+    private boolean runCheckup(final Map<Record, Set<Fault>> faults, final Map<Record, Set<Fault>> updateFaults,
+                            final BiFunction<ExtendedStreamMetadataStore, ScheduledExecutorService, Map<Record, Set<Fault>>> check,
+                            final ScheduledExecutorService executor, final String checkupName) {
+        output("-------" + checkupName.toUpperCase() + "-------\n");
+        try {
+            putAllInFaultMap(faults, check.apply(store, executor));
+
+            if (!faults.isEmpty()) {
+                putAllInFaultMap(faults, updateFaults);
+                output(outputFaults(faults));
+                return true;
+            }
+
+            return false;
+
+        } catch (Exception e) {
+            output(checkupName + " error: " + e.getMessage());
+            return false;
+        }
     }
 }

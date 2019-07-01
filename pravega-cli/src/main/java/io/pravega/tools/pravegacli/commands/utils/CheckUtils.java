@@ -20,8 +20,10 @@ import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -42,13 +44,13 @@ public class CheckUtils {
      * @param executor    callers executor
      * @return A map of Record and Fault.
      */
-    public static Map<Record, List<Fault>> checkConsistency(final EpochRecord record,
-                                                            final HistoryTimeSeriesRecord history,
-                                                            final String scope,
-                                                            final String streamName,
-                                                            final ExtendedStreamMetadataStore store,
-                                                            final ScheduledExecutorService executor) {
-        Map<Record, List<Fault>> faults = new HashMap<>();
+    public static Map<Record, Set<Fault>> checkConsistency(final EpochRecord record,
+                                                           final HistoryTimeSeriesRecord history,
+                                                           final String scope,
+                                                           final String streamName,
+                                                           final ExtendedStreamMetadataStore store,
+                                                           final ScheduledExecutorService executor) {
+        Map<Record, Set<Fault>> faults = new HashMap<>();
 
         if (record == null || history == null) {
             return faults;
@@ -56,69 +58,44 @@ public class CheckUtils {
 
         Record<EpochRecord> epochRecord = new Record<>(record, EpochRecord.class);
         Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(history, HistoryTimeSeriesRecord.class);
-        List<Fault> epochFaultList = new ArrayList<>();
-        List<Fault> historyFaultList = new ArrayList<>();
-
         boolean exists;
 
         // Similar fields should have similar values.
         // Epoch.
-        exists = checkField(record, history, "epoch value",
-                EpochRecord::getEpoch,
-                HistoryTimeSeriesRecord::getEpoch,
-                epochFaultList,
-                historyFaultList);
+        exists = checkField(record, history, "epoch value", EpochRecord::getEpoch, HistoryTimeSeriesRecord::getEpoch, faults);
 
         if (exists && record.getEpoch() != history.getEpoch()) {
-            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+            putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
                     "Epoch mismatch : May or may not be the correct record."));
         }
 
         // Reference Epoch
-        exists = checkField(record, history, "reference epoch value",
-                EpochRecord::getReferenceEpoch,
-                HistoryTimeSeriesRecord::getReferenceEpoch,
-                epochFaultList,
-                historyFaultList);
+        exists = checkField(record, history, "reference epoch value", EpochRecord::getReferenceEpoch, HistoryTimeSeriesRecord::getReferenceEpoch, faults);
 
         if (exists && record.getReferenceEpoch() != history.getReferenceEpoch()) {
-            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+            putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
                     "Reference epoch mismatch."));
         }
 
         // Segment data
-        exists = checkField(record, history, "segment data",
-                EpochRecord::getSegments,
-                HistoryTimeSeriesRecord::getSegmentsCreated,
-                epochFaultList,
-                historyFaultList);
+        boolean segmentExists = checkField(record, history, "segment data", EpochRecord::getSegments, HistoryTimeSeriesRecord::getSegmentsCreated, faults);
 
-        if (exists && !record.getSegments().equals(history.getSegmentsCreated())) {
-            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+        if (segmentExists && !record.getSegments().equals(history.getSegmentsCreated())) {
+            putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
                     "Segment data mismatch."));
         }
 
         // Creation time
-        exists = checkField(record, history, "creation time",
-                EpochRecord::getCreationTime,
-                HistoryTimeSeriesRecord::getScaleTime,
-                epochFaultList,
-                historyFaultList);
+        exists = checkField(record, history, "creation time", EpochRecord::getCreationTime, HistoryTimeSeriesRecord::getScaleTime, faults);
 
         if (exists && record.getCreationTime() != history.getScaleTime()) {
-            epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+            putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
                     "Creation time mismatch."));
         }
 
         // Segments in the history record should be sealed.
-        boolean sealedExists = true;
-
-        try {
-            history.getSegmentsSealed();
-        } catch (StoreException.DataNotFoundException e) {
-            historyFaultList.add(Fault.unavailable("HistoryTimeSeriesRecord is missing sealed segment data."));
-            sealedExists = false;
-        }
+        boolean sealedExists = checkCorrupted(history, HistoryTimeSeriesRecord::getSegmentsSealed,
+                "sealed segment data", "HistoryTimeSeriesRecord", faults);
 
         List<Long> sealedSegmentsHistory = new ArrayList<>();
 
@@ -132,7 +109,7 @@ public class CheckUtils {
             for (Long id : sealedSegmentsHistory) {
                 boolean isSealed = store.checkSegmentSealed(scope, streamName, id, null, executor).join();
                 if (!isSealed) {
-                    epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                    putInFaultMap(faults, historyTimeSeriesRecord, Fault.inconsistent(historyTimeSeriesRecord,
                             "Fault among the HistoryTimeSeriesRecord and the SealedSegmentRecords."));
                     break;
                 }
@@ -140,7 +117,7 @@ public class CheckUtils {
         }
 
         // Segments created in epoch should be ahead of the sealed segments.
-        if (sealedExists && !epochFaultList.contains(Fault.unavailable("EpochRecord is missing segment data."))) {
+        if (sealedExists && segmentExists) {
             Long epochMinSegment = Collections.min(record.getSegments().stream()
                     .map(StreamSegmentRecord::getSegmentNumber)
                     .mapToLong(Integer::longValue)
@@ -155,17 +132,9 @@ public class CheckUtils {
             }
 
             if (epochMinSegment < maxSealedSegment) {
-                epochFaultList.add(Fault.inconsistent(historyTimeSeriesRecord,
+                putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
                         "EpochRecord's segments behind the sealed segments."));
             }
-        }
-
-        if (!epochFaultList.isEmpty()) {
-            faults.putIfAbsent(epochRecord, epochFaultList);
-        }
-
-        if (!historyFaultList.isEmpty()) {
-            faults.putIfAbsent(historyTimeSeriesRecord, historyFaultList);
         }
 
         return faults;
@@ -173,49 +142,39 @@ public class CheckUtils {
 
     private static boolean checkField(final EpochRecord record, final HistoryTimeSeriesRecord history, final String field,
                                       final Function<EpochRecord, Object> epochFunc, final Function<HistoryTimeSeriesRecord, Object> historyFunc,
-                                      final List<Fault> epochFaultList, final List<Fault> historyFaultList) {
-        boolean epochValExists = true;
-        boolean historyValExists = true;
-
-        Fault epochFault = checkCorrupted(record, epochFunc, field, "EpochRecord");
-        if (epochFault != null) {
-            epochFaultList.add(epochFault);
-            epochValExists = false;
-        }
-
-        Fault historyFault = checkCorrupted(history, historyFunc, field, "HistoryTimeSeriesRecord");
-        if (historyFault != null) {
-            historyFaultList.add(historyFault);
-            historyValExists = false;
-        }
+                                      final Map<Record, Set<Fault>> faultMap) {
+        boolean epochValExists = checkCorrupted(record, epochFunc, field, "EpochRecord", faultMap);
+        boolean historyValExists = checkCorrupted(history, historyFunc, field, "HistoryTimeSeriesRecord", faultMap);
 
         return epochValExists && historyValExists;
     }
 
-    public static <T> Fault checkCorrupted(final T record, final Function<T, Object> getFunc,
-                                           final String field, final String className) {
+    public static <T> boolean checkCorrupted(final T record, final Function<T, Object> getFunc, final String field,
+                                           final String className, final Map<Record, Set<Fault>> faultMap) {
         try {
             getFunc.apply(record);
         } catch (StoreException.DataNotFoundException e) {
-            return Fault.unavailable(className + " is missing " + field + ".");
+            Record<T> tRecord = new Record<>(record, record.getClass());
+            putInFaultMap(faultMap, tRecord, Fault.unavailable(className + " is missing " + field + "."));
+            return false;
         }
 
-        return null;
+        return true;
     }
 
-    public static void putInFaultMap(final Map<Record, List<Fault>> faultMap, final Record record, final Fault fault) {
+    public static void putInFaultMap(final Map<Record, Set<Fault>> faultMap, final Record record, final Fault fault) {
         if (faultMap.containsKey(record)) {
             faultMap.get(record).add(fault);
 
         } else {
-            List<Fault> faultList = new ArrayList<>();
+            Set<Fault> faultList = new HashSet<>();
             faultList.add(fault);
 
             faultMap.putIfAbsent(record, faultList);
         }
     }
 
-    public static void putAllInFaultMap(final Map<Record, List<Fault>> faultMap, final Map<Record, List<Fault>> extraMap) {
+    public static void putAllInFaultMap(final Map<Record, Set<Fault>> faultMap, final Map<Record, Set<Fault>> extraMap) {
         extraMap.forEach((k, v) -> v.forEach(fault -> putInFaultMap(faultMap, k, fault)));
     }
 }
