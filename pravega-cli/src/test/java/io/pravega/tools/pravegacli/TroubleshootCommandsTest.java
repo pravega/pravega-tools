@@ -12,10 +12,7 @@ package io.pravega.tools.pravegacli;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.Timeout;
 
 import java.io.ByteArrayOutputStream;
@@ -59,12 +56,11 @@ public class TroubleshootCommandsTest {
     }
 
     @Test
-    public void updateCheckTest() throws Exception {
-        String scope = "test-scope";
-        String streamName = "test-stream";
-        ExtendedStreamMetadataStore mockedStore = mock(ExtendedStreamMetadataStore.class);
-
-        // Test 1.
+    public void testUpdateCheck() throws Exception {
+        String testStream = "testStream";
+        SETUP_UTILS.createTestStream(testStream, 1);
+        String commandResult = TestUtils.executeCommand("troubleshoot update-check " + SETUP_UTILS.getScope(), STATE.get());
+        Assert.assertTrue(commandResult.contains());
     }
 
     @Test

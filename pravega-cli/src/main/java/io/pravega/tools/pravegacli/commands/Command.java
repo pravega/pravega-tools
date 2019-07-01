@@ -37,6 +37,7 @@ import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesComma
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.cluster.GetClusterNodesCommand;
 import io.pravega.tools.pravegacli.commands.troubleshoot.TroubleshootCheckCommand;
+import io.pravega.tools.pravegacli.commands.troubleshoot.UpdateCheck;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -239,6 +240,7 @@ public abstract class Command {
                         .put(ListContainersCommand::descriptor, ListContainersCommand::new)
                         .put(GetSegmentStoreByContainerCommand::descriptor, GetSegmentStoreByContainerCommand::new)
                         .put(TroubleshootCheckCommand::descriptor, TroubleshootCheckCommand::new)
+                        .put(UpdateCheck::descriptor, UpdateCheck::new)
                         .build());
 
         /**
