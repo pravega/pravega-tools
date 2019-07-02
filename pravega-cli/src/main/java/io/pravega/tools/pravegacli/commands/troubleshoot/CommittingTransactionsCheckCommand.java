@@ -10,12 +10,12 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableList;
+import io.pravega.common.Exceptions;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.AuthHelper;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
-import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.CommittingTransactionsRecord;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -37,6 +38,8 @@ import java.util.stream.Collectors;
 import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.getEpochIfExists;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.getHistoryTimeSeriesRecordIfExists;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
@@ -74,6 +77,8 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
             Map<Record, Set<Fault>> faults = check(store, executor);
             output(outputFaults(faults));
 
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
@@ -87,25 +92,22 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
         // Check for the existence of an CommittingTransactionsRecord.
-        CommittingTransactionsRecord committingRecord;
+        CommittingTransactionsRecord committingRecord = store.getVersionedCommittingTransactionsRecord(scope, streamName, null, executor)
+                .handle((x, e) -> {
+                    if (e != null) {
+                        if (Exceptions.unwrap(e) instanceof StoreException.DataNotFoundException) {
+                            Record<CommittingTransactionsRecord> committingTransactionsRecord = new Record<>(null, CommittingTransactionsRecord.class);
+                            putInFaultMap(faults, committingTransactionsRecord,
+                                    Fault.unavailable("CommittingTransactionsRecord is corrupted or unavailable"));
+                            return null;
+                        } else {
+                            throw new CompletionException(e);
+                        }
+                    }
+                    return x.getObject();
+                }).join();
 
-        EpochRecord duplicateTxnEpochRecord = null;
-        HistoryTimeSeriesRecord duplicateTxnHistoryRecord = null;
-
-        EpochRecord duplicateActiveEpochRecord = null;
-        HistoryTimeSeriesRecord duplicateActiveHistoryRecord = null;
-
-
-        // To obtain the CommittingTransactionRecord and check if it is corrupted or not.
-        try {
-            committingRecord = store.getVersionedCommittingTransactionsRecord(scope, streamName, null, executor)
-                    .thenApply(VersionedMetadata::getObject).join();
-
-        } catch (StoreException.DataNotFoundException e) {
-            Record<CommittingTransactionsRecord> committingTransactionsRecord = new Record<>(null, CommittingTransactionsRecord.class);
-            putInFaultMap(faults, committingTransactionsRecord,
-                    Fault.unavailable("CommittingTransactionsRecord is corrupted or unavailable"));
-
+        if (committingRecord == null) {
             return faults;
         }
 
@@ -115,33 +117,15 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
 
         if (rollingTxnExists) {
             if (committingRecord.isRollingTxnRecord()) {
-                boolean epochExists = true;
-                boolean historyExists = true;
+                boolean epochExists;
+                boolean historyExists;
 
                 // For duplicate transaction epoch.
-                try {
-                    duplicateTxnEpochRecord = store.getEpoch(scope, streamName, committingRecord.getNewTxnEpoch(),
-                            null, executor).join();
+                EpochRecord duplicateTxnEpochRecord = getEpochIfExists(store, executor, scope, streamName, committingRecord.getNewTxnEpoch(), faults);
+                epochExists = duplicateTxnEpochRecord != null;
 
-                } catch (StoreException.DataNotFoundException e) {
-                    Record<EpochRecord> duplicateTxnRecord = new Record<>(null, EpochRecord.class);
-                    putInFaultMap(faults, duplicateTxnRecord,
-                            Fault.unavailable("Duplicate txn epoch: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
-
-                    epochExists = false;
-                }
-
-                try {
-                    duplicateTxnHistoryRecord = store.getHistoryTimeSeriesRecord(scope, streamName,
-                            committingRecord.getNewTxnEpoch(), null, executor).join();
-
-                } catch (StoreException.DataNotFoundException e) {
-                    Record<HistoryTimeSeriesRecord> duplicateTxnHistory = new Record<>(null, HistoryTimeSeriesRecord.class);
-                    putInFaultMap(faults, duplicateTxnHistory,
-                            Fault.unavailable("Duplicate txn history: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
-
-                    historyExists = false;
-                }
+                HistoryTimeSeriesRecord duplicateTxnHistoryRecord = getHistoryTimeSeriesRecordIfExists(store, executor, scope, streamName, committingRecord.getNewTxnEpoch(), faults);
+                historyExists = duplicateTxnHistoryRecord != null;
 
                 // Return the faults in case of corruption.
                 if (!(epochExists && historyExists)) {
@@ -154,33 +138,12 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
                 Record<EpochRecord> duplicateTxnRecord = new Record<>(duplicateTxnEpochRecord, EpochRecord.class);
                 Record<HistoryTimeSeriesRecord> duplicateTxnHistory = new Record<>(duplicateTxnHistoryRecord, HistoryTimeSeriesRecord.class);
 
-                epochExists = true;
-                historyExists = true;
-
                 // For duplicate active epoch record.
-                try {
-                    duplicateActiveEpochRecord = store.getEpoch(scope, streamName, committingRecord.getNewActiveEpoch(),
-                            null, executor).join();
+                EpochRecord duplicateActiveEpochRecord = getEpochIfExists(store, executor, scope, streamName, committingRecord.getNewActiveEpoch(), faults);
+                epochExists = duplicateActiveEpochRecord != null;
 
-                } catch (StoreException.DataNotFoundException e) {
-                    Record<EpochRecord> duplicateActiveRecord = new Record<>(null, EpochRecord.class);
-                    putInFaultMap(faults, duplicateActiveRecord,
-                            Fault.unavailable("Duplicate active epoch: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
-
-                    epochExists = false;
-                }
-
-                try {
-                    duplicateActiveHistoryRecord = store.getHistoryTimeSeriesRecord(scope, streamName,
-                            committingRecord.getNewActiveEpoch(), null, executor).join();
-
-                } catch (StoreException.DataNotFoundException e) {
-                    Record<HistoryTimeSeriesRecord> duplicateActiveHistory = new Record<>(null, HistoryTimeSeriesRecord.class);
-                    putInFaultMap(faults, duplicateActiveHistory,
-                            Fault.unavailable("Duplicate active history: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
-
-                    historyExists = false;
-                }
+                HistoryTimeSeriesRecord duplicateActiveHistoryRecord = getHistoryTimeSeriesRecordIfExists(store, executor, scope, streamName, committingRecord.getNewActiveEpoch(), faults);
+                historyExists = duplicateActiveHistoryRecord != null;
 
                 // Return the faults in case of corruption.
                 if (!(epochExists && historyExists)) {
@@ -195,7 +158,6 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
 
                 // Check the emptiness of the HistoryTimeSeriesRecords.
                 checkEmptySegments(faults, duplicateTxnHistoryRecord, duplicateTxnHistory, "Duplicate txn history");
-
                 checkEmptySegments(faults, duplicateActiveHistoryRecord, duplicateActiveHistory, "Duplicate active history");
 
                 // Check the time for the EpochRecords.
@@ -252,20 +214,11 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
     private void checkOriginal(final Map<Record, Set<Fault>> faults, final int epoch, final EpochRecord duplicateEpochRecord,
                                final String scope, final String streamName, final ExtendedStreamMetadataStore store,
                                final ScheduledExecutorService executor, final String epochType) {
-        EpochRecord originalEpochRecord;
-
         String originalName = "Original " + epochType + " EpochRecord";
         String duplicateName = "Duplicate " + epochType + " EpochRecord";
 
-        try {
-            originalEpochRecord = store.getEpoch(scope, streamName, epoch,
-                    null, executor).join();
-
-        } catch (StoreException.DataNotFoundException e) {
-            Record<EpochRecord> originalRecord = new Record<>(null, EpochRecord.class);
-            putInFaultMap(faults, originalRecord,
-                    Fault.unavailable(originalName + ": " + epoch + " is corrupted or unavailable."));
-
+        EpochRecord originalEpochRecord = getEpochIfExists(store, executor, scope, streamName, epoch, faults);
+        if (originalEpochRecord == null) {
             return;
         }
 
@@ -273,8 +226,6 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
         Record<EpochRecord> duplicateRecord = new Record<>(duplicateEpochRecord, EpochRecord.class);
 
         // Check the duplicate segments.
-        EpochRecord finalTxnEpochRecord = originalEpochRecord;
-
         boolean originalSegmentExists = checkCorrupted(originalEpochRecord, EpochRecord::getSegmentIds,
                 "segments", originalName, faults);
         boolean duplicateSegmentExists =  checkCorrupted(duplicateEpochRecord, EpochRecord::getSegmentIds,
@@ -282,7 +233,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
 
         if (originalSegmentExists && duplicateSegmentExists) {
             List<Long> dup2Segments = originalEpochRecord.getSegmentIds().stream()
-                    .map(id -> computeSegmentId(Math.toIntExact(id), finalTxnEpochRecord.getEpoch()))
+                    .map(id -> computeSegmentId(Math.toIntExact(id), originalEpochRecord.getEpoch()))
                     .collect(Collectors.toList());
             List<Long> duplicateSegments = new ArrayList<>(duplicateEpochRecord.getSegmentIds());
 
@@ -299,7 +250,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
                 "reference epoch", duplicateName, faults);
 
         if (originalReferenceExists && duplicateReferenceExists
-                && duplicateEpochRecord.getReferenceEpoch() != finalTxnEpochRecord.getReferenceEpoch()) {
+                && (duplicateEpochRecord.getReferenceEpoch() != originalEpochRecord.getReferenceEpoch())) {
             putInFaultMap(faults, duplicateRecord,
                     Fault.inconsistent(originalRecord, "Fault in the reference epochs"));
         }

@@ -10,6 +10,7 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableList;
+import io.pravega.common.Exceptions;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.AuthHelper;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
@@ -26,11 +27,10 @@ import org.apache.curator.framework.CuratorFramework;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.*;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
@@ -66,6 +66,8 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
             Map<Record, Set<Fault>> faults = check(store, executor);
             output(outputFaults(faults));
 
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
@@ -78,17 +80,23 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
-        HistoryTimeSeries history;
-
         // Get the HistoryTimeSeries chunk.
-        try {
-            history = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor).join();
+        HistoryTimeSeries history = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor)
+                .handle((x, e) -> {
+                    if (e != null) {
+                        if (Exceptions.unwrap(e) instanceof StoreException.DataNotFoundException) {
+                            Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
+                            putInFaultMap(faults, historySeriesRecord,
+                                    Fault.unavailable("HistoryTimeSeries chunk is corrupted or unavailable"));
+                            return null;
+                        } else {
+                            throw new CompletionException(e);
+                        }
+                    }
+                    return x;
+                }).join();
 
-        } catch (StoreException.DataNotFoundException e) {
-            Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
-            putInFaultMap(faults, historySeriesRecord,
-                    Fault.unavailable("HistoryTimeSeries chunk is corrupted or unavailable"));
-
+        if (history == null) {
             return faults;
         }
 
@@ -96,17 +104,8 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
 
         // Check the relation between each EpochRecord and its corresponding HistoryTimeSeriesRecord.
         for (HistoryTimeSeriesRecord historyRecord : historyRecords.reverse()) {
-            EpochRecord correspondingEpochRecord;
-
-            try {
-                correspondingEpochRecord = store.getEpoch(scope, streamName, historyRecord.getEpoch(),
-                        null, executor).join();
-
-            } catch (StoreException.DataNotFoundException e) {
-                Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
-                putInFaultMap(faults, epochRecord,
-                        Fault.unavailable("Epoch: "+ historyRecord.getEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
-
+            EpochRecord correspondingEpochRecord = getEpochIfExists(store, executor, scope, streamName, historyRecord.getEpoch(), faults);
+            if (correspondingEpochRecord == null) {
                 continue;
             }
 

@@ -9,12 +9,12 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
+import io.pravega.common.Exceptions;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.AuthHelper;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
-import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
@@ -24,6 +24,7 @@ import org.apache.curator.framework.CuratorFramework;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
@@ -62,6 +63,8 @@ public class UpdateCheckCommand extends TroubleshootCommand implements Check {
             Map<Record, Set<Fault>> faults = check(store, executor);
             output(outputFaults(faults));
 
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
@@ -74,17 +77,22 @@ public class UpdateCheckCommand extends TroubleshootCommand implements Check {
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
-        StreamConfigurationRecord configurationRecord;
+        StreamConfigurationRecord configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
+                .handle((x, e) -> {
+                    if (e != null) {
+                        if (Exceptions.unwrap(e) instanceof StoreException.DataNotFoundException) {
+                            Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(null, StreamConfigurationRecord.class);
+                            putInFaultMap(faults, streamConfigurationRecord,
+                                    Fault.unavailable("StreamConfigurationRecord is corrupted or unavailable"));
+                            return null;
+                        } else {
+                            throw new CompletionException(e);
+                        }
+                    }
+                    return x.getObject();
+                }).join();
 
-        try {
-            configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
-                    .thenApply(VersionedMetadata::getObject).join();
-
-        } catch (StoreException.DataNotFoundException e) {
-            Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(null, StreamConfigurationRecord.class);
-            putInFaultMap(faults, streamConfigurationRecord,
-                    Fault.unavailable("StreamConfigurationRecord is corrupted or unavailable"));
-
+        if (configurationRecord == null) {
             return faults;
         }
 

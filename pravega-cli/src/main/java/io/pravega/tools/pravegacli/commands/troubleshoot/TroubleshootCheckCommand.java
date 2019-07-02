@@ -21,6 +21,7 @@ import org.apache.curator.framework.CuratorFramework;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 
@@ -102,6 +103,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
             output(outputFaults(updateFaults));
             output("Everything seems OK.\n");
 
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }

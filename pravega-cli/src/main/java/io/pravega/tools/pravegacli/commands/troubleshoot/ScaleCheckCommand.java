@@ -10,12 +10,12 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableMap;
+import io.pravega.common.Exceptions;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.AuthHelper;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
-import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.EpochTransitionRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
@@ -31,13 +31,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.*;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
@@ -73,6 +71,8 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
             Map<Record, Set<Fault>> faults = check(store, executor);
             output(outputFaults(faults));
 
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
@@ -86,18 +86,22 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
         // Check for the existence of an EpochTransitionRecord.
-        EpochTransitionRecord transitionRecord;
+        EpochTransitionRecord transitionRecord = store.getEpochTransition(scope, streamName, null, executor)
+                .handle((x, e) -> {
+                    if (e != null) {
+                        if (Exceptions.unwrap(e) instanceof StoreException.DataNotFoundException) {
+                            Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(null, EpochTransitionRecord.class);
+                            putInFaultMap(faults, epochTransitionRecord,
+                                    Fault.unavailable("EpochTransitionRecord is corrupted or unavailable"));
+                            return null;
+                        } else {
+                            throw new CompletionException(e);
+                        }
+                    }
+                    return x.getObject();
+                }).join();
 
-        // To obtain the EpochTransitionRecord and check if it is corrupted or not.
-        try {
-            transitionRecord = store.getEpochTransition(scope, streamName, null, executor)
-                    .thenApply(VersionedMetadata::getObject).join();
-
-        } catch (StoreException.DataNotFoundException e) {
-            Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(null, EpochTransitionRecord.class);
-            putInFaultMap(faults, epochTransitionRecord,
-                    Fault.unavailable("EpochTransitionRecord is corrupted or unavailable"));
-
+        if (transitionRecord == null) {
             return faults;
         }
 
@@ -106,36 +110,13 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
             return faults;
         }
 
-        EpochRecord neededEpochRecord = null;
-        boolean epochExists = true;
-        HistoryTimeSeriesRecord neededHistoryRecord = null;
-        boolean historyExists = true;
-
         // To obtain the corresponding EpochRecord and check if it is corrupted or not.
-        try {
-            neededEpochRecord = store.getEpoch(scope, streamName, transitionRecord.getNewEpoch(),
-                    null, executor).join();
-
-        } catch (StoreException.DataNotFoundException e) {
-            Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
-            putInFaultMap(faults, epochRecord,
-                    Fault.unavailable("Epoch: "+ transitionRecord.getNewEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
-
-            epochExists = false;
-        }
+        EpochRecord neededEpochRecord = getEpochIfExists(store, executor, scope, streamName, transitionRecord.getNewEpoch(), faults);
+        boolean epochExists = neededEpochRecord != null;
 
         // To obtain the corresponding HistoryTimeSeriesRecord and check if it corrupted or not.
-        try {
-            neededHistoryRecord = store.getHistoryTimeSeriesRecord(scope, streamName, transitionRecord.getNewEpoch(),
-                    null, executor).join();
-
-        } catch (StoreException.DataNotFoundException e) {
-            Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(null, HistoryTimeSeriesRecord.class);
-            putInFaultMap(faults, historyTimeSeriesRecord,
-                    Fault.unavailable("History: "+ transitionRecord.getNewEpoch() + ", The corresponding HistoryTimeSeriesRecord is corrupted or does not exist."));
-
-            historyExists = false;
-        }
+        HistoryTimeSeriesRecord neededHistoryRecord = getHistoryTimeSeriesRecordIfExists(store, executor, scope, streamName, transitionRecord.getNewEpoch(), faults);
+        boolean historyExists = neededHistoryRecord != null;
 
         // Return the faults in case of corruption.
         if (!(epochExists && historyExists)) {

@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.utils;
 
+import io.pravega.common.Exceptions;
 import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.records.EpochRecord;
@@ -24,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -160,6 +162,40 @@ public class CheckUtils {
         }
 
         return true;
+    }
+
+    public static EpochRecord getEpochIfExists(final ExtendedStreamMetadataStore store, final ScheduledExecutorService executor,
+                                               final String scope, final String streamName, final int epoch, final Map<Record, Set<Fault>> faultMap) {
+        return store.getEpoch(scope, streamName, epoch, null, executor)
+                .handle((x, e) -> {
+                    if (e != null) {
+                        if (Exceptions.unwrap(e) instanceof StoreException.DataNotFoundException) {
+                            Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
+                            putInFaultMap(faultMap, epochRecord,
+                                    Fault.unavailable("Epoch: "+ epoch + ", The corresponding EpochRecord is corrupted or does not exist."));
+                        } else {
+                            throw new CompletionException(e);
+                        }
+                    }
+                    return x;
+                }).join();
+    }
+
+    public static HistoryTimeSeriesRecord getHistoryTimeSeriesRecordIfExists(final ExtendedStreamMetadataStore store, final ScheduledExecutorService executor,
+                                                                             final String scope, final String streamName, final int epoch, final Map<Record, Set<Fault>> faultMap) {
+        return store.getHistoryTimeSeriesRecord(scope, streamName, epoch, null, executor)
+                .handle((x, e) -> {
+                    if (e != null) {
+                        if (Exceptions.unwrap(e) instanceof  StoreException.DataNotFoundException) {
+                            Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(null, HistoryTimeSeriesRecord.class);
+                            putInFaultMap(faultMap, historyTimeSeriesRecord,
+                                    Fault.unavailable("History: "+ epoch + ", The corresponding HistoryTimeSeriesRecord is corrupted or does not exist."));
+                        } else {
+                            throw new CompletionException(e);
+                        }
+                    }
+                    return x;
+                }).join();
     }
 
     public static void putInFaultMap(final Map<Record, Set<Fault>> faultMap, final Record record, final Fault fault) {
