@@ -23,6 +23,7 @@ import org.apache.curator.framework.CuratorFramework;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -132,7 +133,8 @@ public class TruncateCheckCommand extends TroubleshootCommand implements Check {
 
         if (streamCutExists && deletedExists && toDeleteExists) {
             Long streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
-            Set<Long> allDelete = truncationRecord.getToDelete();
+            Set<Long> allDelete = new HashSet<>();
+            allDelete.addAll(truncationRecord.getToDelete());
             allDelete.addAll(truncationRecord.getDeletedSegments());
 
             List<Long> badSegments = allDelete.stream()

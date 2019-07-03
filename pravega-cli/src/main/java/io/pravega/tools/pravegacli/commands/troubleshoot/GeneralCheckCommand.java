@@ -30,7 +30,11 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.*;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.getEpochIfExists;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
@@ -97,6 +101,10 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
                 }).join();
 
         if (history == null) {
+            return faults;
+        }
+
+        if (!checkCorrupted(history, HistoryTimeSeries::getHistoryRecords, "history records", "HistoryTimeSeries", faults)) {
             return faults;
         }
 

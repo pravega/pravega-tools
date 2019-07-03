@@ -35,7 +35,12 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
-import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.*;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.getEpochIfExists;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.getHistoryTimeSeriesRecordIfExists;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
@@ -110,6 +115,10 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
             return faults;
         }
 
+        if (!checkCorrupted(transitionRecord, EpochTransitionRecord::getNewEpoch, "new epoch", "EpochTransitionRecord", faults)) {
+            return faults;
+        }
+
         // To obtain the corresponding EpochRecord and check if it is corrupted or not.
         EpochRecord neededEpochRecord = getEpochIfExists(store, executor, scope, streamName, transitionRecord.getNewEpoch(), faults);
         boolean epochExists = neededEpochRecord != null;
@@ -142,7 +151,7 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
                 SimpleEntry<Double, Double> segmentRange = new SimpleEntry<>(neededEpochRecord.getSegment(id).getKeyStart(),
                         neededEpochRecord.getSegment(id).getKeyEnd());
 
-                if (!segmentRange.equals(newSegments.get(id))) {
+                if (!newSegments.containsValue(segmentRange)) {
                     putInFaultMap(faults, epochTransitionRecord,
                             Fault.inconsistent(epochRecord, "EpochRecord and the EpochTransitionRecord mismatch in the segments"));
                     break;

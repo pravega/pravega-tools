@@ -20,7 +20,12 @@ import lombok.Getter;
 
 import java.lang.reflect.Type;
 
-import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.*;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputCommittingTransactions;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputConfiguration;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputEpoch;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHistoryRecord;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTransition;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTruncation;
 
 public class Record<T> {
 
@@ -63,6 +68,6 @@ public class Record<T> {
             return responseBuilder.append(outputTruncation((StreamTruncationRecord)this.record)).toString();
         }
 
-        return null;
+        return responseBuilder.toString();
     }
 }
