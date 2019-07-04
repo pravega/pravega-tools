@@ -133,7 +133,7 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
         }
 
         // Check the EpochRecord and HistoryTimeSeriesRecord.
-        putAllInFaultMap(faults, checkConsistency(neededEpochRecord, neededHistoryRecord, scope, streamName, store, executor));
+        putAllInFaultMap(faults, checkConsistency(neededEpochRecord, neededHistoryRecord, false, scope, streamName, store, executor));
 
         Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(transitionRecord, EpochTransitionRecord.class);
         Record<EpochRecord> epochRecord = new Record<>(neededEpochRecord, EpochRecord.class);

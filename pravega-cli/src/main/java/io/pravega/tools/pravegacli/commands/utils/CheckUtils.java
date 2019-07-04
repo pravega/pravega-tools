@@ -48,6 +48,7 @@ public class CheckUtils {
      */
     public static Map<Record, Set<Fault>> checkConsistency(final EpochRecord record,
                                                            final HistoryTimeSeriesRecord history,
+                                                           final boolean isDuplicate,
                                                            final String scope,
                                                            final String streamName,
                                                            final ExtendedStreamMetadataStore store,
@@ -82,9 +83,11 @@ public class CheckUtils {
         // Segment data
         boolean segmentExists = checkField(record, history, "segment data", EpochRecord::getSegments, HistoryTimeSeriesRecord::getSegmentsCreated, faults);
 
-        if (segmentExists && !record.getSegments().equals(history.getSegmentsCreated())) {
-            putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
-                    "Segment data mismatch."));
+        if (!isDuplicate) {
+            if (segmentExists && !record.getSegments().equals(history.getSegmentsCreated())) {
+                putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
+                        "Segment data mismatch."));
+            }
         }
 
         // Creation time

@@ -117,7 +117,16 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
                 continue;
             }
 
-            putAllInFaultMap(faults, checkConsistency(correspondingEpochRecord, historyRecord, scope, streamName, store, executor));
+            boolean referenceExists = checkCorrupted(correspondingEpochRecord, EpochRecord::getReferenceEpoch,
+                    "reference epoch value", "EpochRecord", faults);
+            boolean epochExists = checkCorrupted(correspondingEpochRecord, EpochRecord::getEpoch,
+                    "epoch value", "EpochRecord", faults);
+
+            if (referenceExists && epochExists && correspondingEpochRecord.getEpoch() != correspondingEpochRecord.getReferenceEpoch()) {
+                putAllInFaultMap(faults, checkConsistency(correspondingEpochRecord, historyRecord, true, scope, streamName, store, executor));
+            } else {
+                putAllInFaultMap(faults, checkConsistency(correspondingEpochRecord, historyRecord, false, scope, streamName, store, executor));
+            }
         }
 
         return faults;

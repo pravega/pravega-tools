@@ -25,7 +25,6 @@ import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +35,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
+import static io.pravega.shared.segment.StreamSegmentNameUtils.getEpoch;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.getEpochIfExists;
@@ -138,7 +138,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
                 }
 
                 // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate txn.
-                putAllInFaultMap(faults, checkConsistency(duplicateTxnEpochRecord, duplicateTxnHistoryRecord, scope, streamName, store, executor));
+                putAllInFaultMap(faults, checkConsistency(duplicateTxnEpochRecord, duplicateTxnHistoryRecord, true, scope, streamName, store, executor));
 
                 Record<EpochRecord> duplicateTxnRecord = new Record<>(duplicateTxnEpochRecord, EpochRecord.class);
                 Record<HistoryTimeSeriesRecord> duplicateTxnHistory = new Record<>(duplicateTxnHistoryRecord, HistoryTimeSeriesRecord.class);
@@ -156,7 +156,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
                 }
 
                 // Check consistency for EpochRecord and HistoryTimeSeriesRecord for duplicate active.
-                putAllInFaultMap(faults, checkConsistency(duplicateActiveEpochRecord, duplicateActiveHistoryRecord, scope, streamName, store, executor));
+                putAllInFaultMap(faults, checkConsistency(duplicateActiveEpochRecord, duplicateActiveHistoryRecord, true, scope, streamName, store, executor));
 
                 Record<EpochRecord> duplicateActiveRecord = new Record<>(duplicateActiveEpochRecord, EpochRecord.class);
                 Record<HistoryTimeSeriesRecord> duplicateActiveHistory = new Record<>(duplicateActiveHistoryRecord, HistoryTimeSeriesRecord.class);
@@ -210,7 +210,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
 
         if (segmentsExists && !((ImmutableList<StreamSegmentRecord>)historyFunc.apply(record)).isEmpty()) {
             putInFaultMap(faults, historyRecord,
-                    Fault.inconsistent(historyRecord, className + ": " + field + "are not empty."));
+                    Fault.inconsistent(historyRecord, className + ": " + field + " are not empty."));
         }
     }
 
@@ -235,10 +235,13 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
                 "segments", duplicateName, faults);
 
         if (originalSegmentExists && duplicateSegmentExists) {
-            List<Long> dup2Segments = originalEpochRecord.getSegmentIds().stream()
-                    .map(id -> computeSegmentId(Math.toIntExact(id), originalEpochRecord.getEpoch()))
+            List<Integer> dup2Segments = originalEpochRecord.getSegments().stream()
+                    .map(segment -> getEpoch(computeSegmentId(Math.toIntExact(segment.getSegmentNumber()), originalEpochRecord.getEpoch())))
                     .collect(Collectors.toList());
-            List<Long> duplicateSegments = new ArrayList<>(duplicateEpochRecord.getSegmentIds());
+
+            List<Integer> duplicateSegments = duplicateEpochRecord.getSegments().stream()
+                    .map(StreamSegmentRecord::getSegmentNumber)
+                    .collect(Collectors.toList());
 
             if (!duplicateSegments.equals(dup2Segments)) {
                 putInFaultMap(faults, duplicateRecord,

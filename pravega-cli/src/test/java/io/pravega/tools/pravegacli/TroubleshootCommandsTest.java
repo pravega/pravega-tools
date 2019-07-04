@@ -20,7 +20,14 @@ import io.pravega.controller.store.stream.ExtendedStreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.Version;
 import io.pravega.controller.store.stream.VersionedMetadata;
-import io.pravega.controller.store.stream.records.*;
+import io.pravega.controller.store.stream.records.CommittingTransactionsRecord;
+import io.pravega.controller.store.stream.records.EpochRecord;
+import io.pravega.controller.store.stream.records.EpochTransitionRecord;
+import io.pravega.controller.store.stream.records.HistoryTimeSeries;
+import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
+import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
+import io.pravega.controller.store.stream.records.StreamSegmentRecord;
+import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
@@ -49,6 +56,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.pravega.controller.store.stream.records.StreamSegmentRecord.newSegmentRecord;
+import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
+import static io.pravega.shared.segment.StreamSegmentNameUtils.getEpoch;
+import static io.pravega.shared.segment.StreamSegmentNameUtils.getSegmentNumber;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -396,6 +406,95 @@ public class TroubleshootCommandsTest {
         faults = committingTxn.check(spyStore, null);
 
         Assert.assertTrue("Test for if available but is not a rolling txn", faults.isEmpty());
+
+        // Test 3.2: A rolling transaction.
+        int originalTxnEpoch = 1;
+        int originalActiveEpoch = 2;
+        int duplicateTxnEpoch = 3;
+        int duplicateActiveEpoch = 4;
+
+        ImmutableList<StreamSegmentRecord> segmentsCreated = ImmutableList.of(newSegmentRecord(1, duplicateActiveEpoch, 10L, 0.0, 0.5),
+                newSegmentRecord(2, duplicateActiveEpoch, 10L, 0.5, 1.0));
+        ImmutableList<StreamSegmentRecord> segmentsSealed = ImmutableList.of(newSegmentRecord(0, duplicateTxnEpoch, 1L, 0, 1));
+
+        EpochRecord spyDuplicateTxnEpoch = spy(new EpochRecord(duplicateTxnEpoch, originalTxnEpoch, segmentsSealed, 11L));
+        HistoryTimeSeriesRecord spyDuplicateTxnHistoryRecord = spy(new HistoryTimeSeriesRecord(duplicateTxnEpoch, originalTxnEpoch, ImmutableList.of(), ImmutableList.of(), 11L));
+
+        EpochRecord spyDuplicateActiveEpoch = spy(new EpochRecord(duplicateActiveEpoch, originalActiveEpoch, segmentsCreated, 10L));
+        HistoryTimeSeriesRecord spyDuplicateActiveHistoryRecord = spy(new HistoryTimeSeriesRecord(duplicateActiveEpoch, originalActiveEpoch, ImmutableList.of(), ImmutableList.of(), 10L));
+
+        doReturn(true).when(spyRecord).isRollingTxnRecord();
+
+        doReturn(duplicateTxnEpoch).when(spyRecord).getNewTxnEpoch();
+        doReturn(duplicateActiveEpoch).when(spyRecord).getNewActiveEpoch();
+
+        doReturn(CompletableFuture.completedFuture(spyDuplicateTxnEpoch)).when(spyStore).getEpoch(args.get(0), args.get(1), duplicateTxnEpoch, null, null);
+        doReturn(CompletableFuture.completedFuture(spyDuplicateTxnHistoryRecord))
+                .when(spyStore).getHistoryTimeSeriesRecord(args.get(0), args.get(1), duplicateTxnEpoch, null, null);
+
+        doReturn(CompletableFuture.completedFuture(spyDuplicateActiveEpoch)).when(spyStore).getEpoch(args.get(0), args.get(1), duplicateActiveEpoch, null, null);
+        doReturn(CompletableFuture.completedFuture(spyDuplicateActiveHistoryRecord)).when(spyStore)
+                .getHistoryTimeSeriesRecord(args.get(0), args.get(1), duplicateActiveEpoch, null, null);
+
+        doReturn(segmentsSealed).when(spyDuplicateTxnHistoryRecord).getSegmentsSealed();
+        doReturn(segmentsSealed).when(spyDuplicateTxnHistoryRecord).getSegmentsCreated();
+        doReturn(segmentsSealed).when(spyDuplicateActiveHistoryRecord).getSegmentsSealed();
+        doReturn(segmentsCreated).when(spyDuplicateActiveHistoryRecord).getSegmentsCreated();
+
+        doReturn(CompletableFuture.completedFuture(true)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 0, null, null);
+
+        doReturn(duplicateTxnEpoch).when(spyRecord).getEpoch();
+        doReturn(duplicateActiveEpoch).when(spyRecord).getCurrentEpoch();
+
+        // Test 3.2.1: Inconsistent case.
+        faults = committingTxn.check(spyStore, null);
+
+        Assert.assertTrue("Test for history empty segments",
+                outputFaults(faults).contains("Duplicate txn history: segments created are not empty.") &&
+                        outputFaults(faults).contains("Duplicate txn history: segments sealed are not empty."));
+        Assert.assertTrue("Test for history empty segments",
+                outputFaults(faults).contains("Duplicate active history: segments created are not empty.") &&
+                        outputFaults(faults).contains("Duplicate active history: segments sealed are not empty."));
+        Assert.assertTrue("Test for correct duplicate segments",
+                outputFaults(faults).contains("Faults in the generated duplicate segments"));
+        Assert.assertTrue("Test for faulty times",
+                outputFaults(faults).contains("Fault: duplicates time's are not ordered properly."));
+
+        // Test 3.2.2: Consistent case.
+        EpochRecord spyOriginalTxnEpoch = spy(new EpochRecord(originalTxnEpoch, originalTxnEpoch, segmentsSealed, 6L));
+        EpochRecord spyOriginalActiveEpoch = spy(new EpochRecord(originalActiveEpoch, originalActiveEpoch, segmentsCreated, 7L));
+
+        long dupSegment0 = computeSegmentId(0, originalTxnEpoch);
+        long dupSegment1 = computeSegmentId(1, originalActiveEpoch);
+        long dupSegment2 = computeSegmentId(2, originalActiveEpoch);
+
+        ImmutableList<StreamSegmentRecord> duplicateSegmentsSealed = ImmutableList
+                .of(newSegmentRecord(getEpoch(dupSegment0), getSegmentNumber(dupSegment0), 10L, 0.0, 1.0));
+
+        ImmutableList<StreamSegmentRecord> duplicateSegmentsCreated = ImmutableList
+                .of(newSegmentRecord(getEpoch(dupSegment1), getSegmentNumber(dupSegment1), 11L, 0.0, 0.5),
+                        newSegmentRecord(getEpoch(dupSegment2), getSegmentNumber(dupSegment2), 11L, 0.5, 1.0));
+
+        doReturn(duplicateSegmentsCreated).when(spyDuplicateActiveEpoch).getSegments();
+        doReturn(duplicateSegmentsSealed).when(spyDuplicateTxnEpoch).getSegments();
+
+        doReturn(9L).when(spyDuplicateTxnEpoch).getCreationTime();
+        doReturn(9L).when(spyDuplicateTxnHistoryRecord).getScaleTime();
+
+        doReturn(ImmutableList.of()).when(spyDuplicateTxnHistoryRecord).getSegmentsSealed();
+        doReturn(ImmutableList.of()).when(spyDuplicateTxnHistoryRecord).getSegmentsCreated();
+        doReturn(ImmutableList.of()).when(spyDuplicateActiveHistoryRecord).getSegmentsSealed();
+        doReturn(ImmutableList.of()).when(spyDuplicateActiveHistoryRecord).getSegmentsCreated();
+
+        doReturn(originalTxnEpoch).when(spyRecord).getEpoch();
+        doReturn(originalActiveEpoch).when(spyRecord).getCurrentEpoch();
+
+        doReturn(CompletableFuture.completedFuture(spyOriginalTxnEpoch)).when(spyStore).getEpoch(args.get(0), args.get(1), originalTxnEpoch, null, null);
+        doReturn(CompletableFuture.completedFuture(spyOriginalActiveEpoch)).when(spyStore).getEpoch(args.get(0), args.get(1), originalActiveEpoch, null, null);
+
+        faults = committingTxn.check(spyStore, null);
+
+        Assert.assertTrue("Test for consistent case", faults.isEmpty());
     }
 
     @Test
