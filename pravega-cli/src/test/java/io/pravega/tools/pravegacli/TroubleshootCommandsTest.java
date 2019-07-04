@@ -48,7 +48,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.pravega.controller.store.stream.records.HistoryTimeSeries.addHistoryRecord;
 import static io.pravega.controller.store.stream.records.StreamSegmentRecord.newSegmentRecord;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 import static org.mockito.Mockito.doReturn;
@@ -127,14 +126,72 @@ public class TroubleshootCommandsTest {
                 newSegmentRecord(2, 1, 10L, 0.5, 1.0));
         ImmutableList<StreamSegmentRecord> segmentsSealed = ImmutableList.of(newSegmentRecord(0, 0, 1L, 0, 1));
 
-        EpochRecord spyEpochZero = spy(new EpochRecord(epochZero, epochZero, segmentsSealed, 6L));
+        EpochRecord spyEpochZero = spy(new EpochRecord(epochZero, epochZero, segmentsSealed, 9L));
         HistoryTimeSeriesRecord spyHistoryRecordZero = spy(new HistoryTimeSeriesRecord(epochZero, epochZero, ImmutableList.of(), segmentsSealed, 9L));
 
         EpochRecord spyEpochOne = spy(new EpochRecord(epochOne, epochOne, segmentsCreated, 10L));
         HistoryTimeSeriesRecord spyHistoryRecordOne = spy(new HistoryTimeSeriesRecord(epochOne, epochOne, segmentsSealed, segmentsCreated, 10L));
 
-        addHistoryRecord(spyHistory, spyHistoryRecordZero);
-        addHistoryRecord(spyHistory, spyHistoryRecordOne);
+        spyHistory = spy(new HistoryTimeSeries(ImmutableList.of(spyHistoryRecordZero, spyHistoryRecordOne)));
+
+        doReturn(CompletableFuture.completedFuture(spyHistory))
+                .when(spyStore).getHistoryTimeSeriesChunkRecent(args.get(0), args.get(1), null, null);
+
+        doReturn(CompletableFuture.completedFuture(spyEpochZero)).when(spyStore).getEpoch(args.get(0), args.get(1), epochZero, null, null);
+        doReturn(CompletableFuture.completedFuture(spyEpochOne)).when(spyStore).getEpoch(args.get(0), args.get(1), epochOne, null, null);
+
+        doReturn(CompletableFuture.completedFuture(true)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 0, null, null);
+
+        // Test 2.2.1: Consistent case
+        faults = general.check(spyStore, null);
+
+        Assert.assertTrue("Test for consistency", faults.isEmpty());
+
+        // Test 2.2.2: Inconsistent case.
+        // Test 2.2.2.1: Fields available but inconsistent.
+        doReturn(1).when(spyEpochZero).getReferenceEpoch();
+        doReturn(segmentsSealed).when(spyEpochOne).getSegments();
+        doReturn(6L).when(spyEpochZero).getCreationTime();
+
+        doReturn(segmentsCreated).when(spyHistoryRecordOne).getSegmentsSealed();
+
+        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 0, null, null);
+        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 1, null, null);
+        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 2, null, null);
+
+        faults = general.check(spyStore, null);
+
+        Assert.assertTrue("Test for inconsistency reference epoch",
+                outputFaults(faults).contains("Reference epoch mismatch."));
+        Assert.assertTrue("Test for inconsistency segments",
+                outputFaults(faults).contains("Segment data mismatch."));
+        Assert.assertTrue("Test for inconsistency creation time",
+                outputFaults(faults).contains("Creation time mismatch."));
+        Assert.assertTrue("Test for inconsistency sealed segments",
+                outputFaults(faults).contains("Fault among the HistoryTimeSeriesRecord and the SealedSegmentRecords."));
+        Assert.assertTrue("Test for inconsistency epoch segments and sealed segments",
+                outputFaults(faults).contains("EpochRecord's segments behind the sealed segments."));
+
+        // Test 2.2.2.2: Fields are unavailable.
+        doThrow(StoreException.create(StoreException.Type.DATA_NOT_FOUND,
+                "epoch record's reference epoch not found")).when(spyEpochZero).getReferenceEpoch();
+        doThrow(StoreException.create(StoreException.Type.DATA_NOT_FOUND,
+                "epoch record's segments not found")).when(spyEpochZero).getSegments();
+        doThrow(StoreException.create(StoreException.Type.DATA_NOT_FOUND,
+                "epoch record's creation time not found")).when(spyEpochZero).getCreationTime();
+        doThrow(StoreException.create(StoreException.Type.DATA_NOT_FOUND,
+                "history record's sealed segments not found")).when(spyHistoryRecordZero).getSegmentsSealed();
+
+        faults = general.check(spyStore, null);
+
+        Assert.assertTrue("Test for reference epoch unavailability",
+                outputFaults(faults).contains("EpochRecord is missing reference epoch value."));
+        Assert.assertTrue("Test for segment data unavailability",
+                outputFaults(faults).contains("EpochRecord is missing segment data."));
+        Assert.assertTrue("Test for creation time unavailability",
+                outputFaults(faults).contains("EpochRecord is missing creation time."));
+        Assert.assertTrue("Test for sealed segment unavailability",
+                outputFaults(faults).contains("HistoryTimeSeriesRecord is missing sealed segment data."));
     }
 
     @Test
@@ -304,7 +361,7 @@ public class TroubleshootCommandsTest {
         ExtendedStreamMetadataStore spyStore = spy(ExtendedStreamMetadataStore.class);
         Map<Record, Set<Fault>> faults;
 
-        // Test 1: CommittingTransactionsRecord is corrupted or unavailable
+        // Test 1: CommittingTransactionsRecord is corrupted or unavailable.
         doReturn(Futures.failedFuture(StoreException.create(StoreException.Type.DATA_NOT_FOUND,
                 "no truncation record found")))
                 .when(spyStore).getVersionedCommittingTransactionsRecord(args.get(0), args.get(1), null, null);
@@ -314,7 +371,31 @@ public class TroubleshootCommandsTest {
         Assert.assertTrue("Test for if unavailable",
                 outputFaults(faults).contains("CommittingTransactionsRecord is corrupted or unavailable"));
 
-        // Test 2: CommittingTransactionsRecord is available but not rolling
+        // Test 2: CommittingTransactionsRecord is available but EMPTY.
+        CommittingTransactionsRecord spyRecord = spy(CommittingTransactionsRecord.EMPTY);
+
+        doReturn(CompletableFuture.completedFuture(new VersionedMetadata<>(spyRecord, v)))
+                .when(spyStore).getVersionedCommittingTransactionsRecord(args.get(0), args.get(1), null, null);
+
+        faults = committingTxn.check(spyStore, null);
+
+        Assert.assertTrue("Test for if available but EMPTY", faults.isEmpty());
+
+        // Test 3: CommittingTransactionsRecord is available.
+        // Test 3.1: Not a rolling txn or the field does not exist.
+        doThrow(StoreException.create(StoreException.Type.DATA_NOT_FOUND,
+                "committing record's active epoch not found")).when(spyRecord).isRollingTxnRecord();
+
+        faults = committingTxn.check(spyStore, null);
+
+        Assert.assertTrue("Test for if available but rolling txn is corrupted",
+                outputFaults(faults).contains("CommittingTransactionsRecord is missing active epoch."));
+
+        doReturn(false).when(spyRecord).isRollingTxnRecord();
+
+        faults = committingTxn.check(spyStore, null);
+
+        Assert.assertTrue("Test for if available but is not a rolling txn", faults.isEmpty());
     }
 
     @Test

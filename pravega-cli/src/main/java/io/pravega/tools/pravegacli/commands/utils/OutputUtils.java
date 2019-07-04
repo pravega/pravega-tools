@@ -20,6 +20,7 @@ import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -35,8 +36,10 @@ public class OutputUtils {
      */
     public static String outputFaults(Map<Record, Set<Fault>> faults) {
         StringBuilder responseBuilder = new StringBuilder();
+        AtomicInteger serialNumber = new AtomicInteger(1);
 
         faults.forEach((k, v) -> {
+            responseBuilder.append(serialNumber.get()).append(")").append("\n");
             responseBuilder.append(k.toString())
                     .append("-----------------------").append("\n");
 
@@ -51,6 +54,7 @@ public class OutputUtils {
             });
 
             responseBuilder.append("-----------------------").append("\n\n\n");
+            serialNumber.addAndGet(1);
         });
 
         return responseBuilder.toString();

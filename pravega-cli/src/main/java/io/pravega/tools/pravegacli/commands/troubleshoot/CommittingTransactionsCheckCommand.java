@@ -111,9 +111,14 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
             return faults;
         }
 
+        // If the CommittingTransactionsRecord is EMPTY then there's no need to check further.
+        if (committingRecord.equals(CommittingTransactionsRecord.EMPTY)) {
+            return faults;
+        }
+
         // Check if its a rolling transaction.
         boolean rollingTxnExists = checkCorrupted(committingRecord, CommittingTransactionsRecord::isRollingTxnRecord,
-                "active epoch", "CommittingTransactionRecord", faults);
+                "active epoch", "CommittingTransactionsRecord", faults);
 
         if (rollingTxnExists) {
             if (committingRecord.isRollingTxnRecord()) {
@@ -176,8 +181,6 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
 
                 checkOriginal(faults, committingRecord.getEpoch(), duplicateTxnEpochRecord, scope, streamName,
                         store, executor, "Txn");
-
-
                 checkOriginal(faults, committingRecord.getCurrentEpoch(), duplicateActiveEpochRecord, scope, streamName,
                         store, executor, "Active");
             }
