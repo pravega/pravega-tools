@@ -60,6 +60,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
 
     @Override
     public void execute() {
+        ensureArgCount(2);
         try {
             @Cleanup
             CuratorFramework zkClient = createZKClient();

@@ -59,6 +59,7 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
 
     @Override
     public void execute() {
+        ensureArgCount(2);
         try {
             @Cleanup
             CuratorFramework zkClient = createZKClient();
