@@ -165,9 +165,9 @@ public class TroubleshootCommandsTest {
 
         doReturn(segmentsCreated).when(spyHistoryRecordOne).getSegmentsSealed();
 
-        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 0, null, null);
-        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 1, null, null);
-        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 2, null, null);
+        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), computeSegmentId(0, 0), null, null);
+        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), computeSegmentId(1, 1), null, null);
+        doReturn(CompletableFuture.completedFuture(false)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), computeSegmentId(2, 1), null, null);
 
         faults = general.check(spyStore, null);
 
@@ -441,7 +441,10 @@ public class TroubleshootCommandsTest {
         doReturn(segmentsSealed).when(spyDuplicateActiveHistoryRecord).getSegmentsSealed();
         doReturn(segmentsCreated).when(spyDuplicateActiveHistoryRecord).getSegmentsCreated();
 
-        doReturn(CompletableFuture.completedFuture(true)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1), 0, null, null);
+        doReturn(CompletableFuture.completedFuture(true)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1),
+                computeSegmentId(0, duplicateTxnEpoch-1), null, null);
+        doReturn(CompletableFuture.completedFuture(true)).when(spyStore).checkSegmentSealed(args.get(0), args.get(1),
+                computeSegmentId(0, duplicateActiveEpoch-1), null, null);
 
         doReturn(duplicateTxnEpoch).when(spyRecord).getEpoch();
         doReturn(duplicateActiveEpoch).when(spyRecord).getCurrentEpoch();

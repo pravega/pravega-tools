@@ -36,12 +36,7 @@ import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroup
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.cluster.GetClusterNodesCommand;
-import io.pravega.tools.pravegacli.commands.troubleshoot.CommittingTransactionsCheckCommand;
-import io.pravega.tools.pravegacli.commands.troubleshoot.GeneralCheckCommand;
-import io.pravega.tools.pravegacli.commands.troubleshoot.ScaleCheckCommand;
-import io.pravega.tools.pravegacli.commands.troubleshoot.TroubleshootCheckCommand;
-import io.pravega.tools.pravegacli.commands.troubleshoot.TruncateCheckCommand;
-import io.pravega.tools.pravegacli.commands.troubleshoot.UpdateCheckCommand;
+import io.pravega.tools.pravegacli.commands.troubleshoot.*;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -249,6 +244,7 @@ public abstract class Command {
                         .put(ScaleCheckCommand::descriptor, ScaleCheckCommand::new)
                         .put(TruncateCheckCommand::descriptor, TruncateCheckCommand::new)
                         .put(UpdateCheckCommand::descriptor, UpdateCheckCommand::new)
+                        .put(TroubleshootPrintMetadataCommand::descriptor, TroubleshootPrintMetadataCommand::new)
                         .build());
 
         /**

@@ -15,13 +15,18 @@ import io.pravega.controller.store.stream.records.EpochTransitionRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
+import io.pravega.shared.segment.StreamSegmentNameUtils;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static io.pravega.shared.segment.StreamSegmentNameUtils.getSegmentNumber;
 
 /**
  * Class for methods to output various metadata records.
@@ -47,7 +52,7 @@ public class OutputUtils {
                 responseBuilder.append(f.getInconsistencyType()).append("\n");
 
                 if (f.getInconsistentWith() != null) {
-                    responseBuilder.append(f.getInconsistentWith().toString());
+                    responseBuilder.append(f.getInconsistentWith().toString()).append("\n");
                 }
 
                 responseBuilder.append(f.getErrorMessage()).append("\n\n");
@@ -75,15 +80,20 @@ public class OutputUtils {
         }
 
         responseBuilder.append("The active epoch: ").append(tryOutputValue(record, EpochTransitionRecord::getActiveEpoch))
-                .append(", creation time: ").append(tryOutputValue(record, EpochTransitionRecord::getTime)).append("\n")
-                .append("Segments to seal: ").append(tryOutputValue(record, EpochTransitionRecord::getSegmentsToSeal)).append("\n");
+                .append(", creation time: ").append(tryOutputValue(record, EpochTransitionRecord::getTime)).append("\n");
 
+        try {
+            List<Integer> segmentsToSeal = record.getSegmentsToSeal().stream().map(StreamSegmentNameUtils::getSegmentNumber).collect(Collectors.toList());
+            responseBuilder.append("Segments to seal: ").append(segmentsToSeal).append("\n");
+        } catch (Exception e) {
+            responseBuilder.append("\n");
+        }
 
         responseBuilder.append("New Ranges: ").append("\n");
         try {
             record.getNewSegmentsWithRange().forEach(
                     (id, range) -> {
-                        responseBuilder.append(id).append(" -> ");
+                        responseBuilder.append(getSegmentNumber(id)).append(" -> ");
                         responseBuilder.append("(").append(range.getKey())
                                 .append(", ").append(range.getValue()).append(")").append("\n");
                     });

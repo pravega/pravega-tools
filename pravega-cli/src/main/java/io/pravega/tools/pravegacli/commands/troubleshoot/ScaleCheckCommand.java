@@ -19,7 +19,6 @@ import io.pravega.controller.store.stream.StreamStoreFactoryExtended;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.EpochTransitionRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
-import io.pravega.controller.store.stream.records.StreamSegmentRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.Cleanup;
@@ -35,6 +34,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
+import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.getEpochIfExists;
@@ -167,9 +167,7 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
             List<Long> sealedSegmentTransition = new ArrayList<>(transitionRecord.getSegmentsToSeal());
 
             List<Long> sealedSegmentsHistory = neededHistoryRecord.getSegmentsSealed().stream()
-                    .map(StreamSegmentRecord::getSegmentNumber)
-                    .mapToLong(Integer::longValue)
-                    .boxed()
+                    .map(s -> computeSegmentId(s.getSegmentNumber(), s.getCreationEpoch()))
                     .collect(Collectors.toList());
 
             if (!sealedSegmentTransition.equals(sealedSegmentsHistory)) {

@@ -83,6 +83,9 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
             int currentEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
             int historyCurrentEpoch = store.getHistoryTimeSeriesChunkRecent(scope, streamName, null, executor).join().getLatestRecord().getEpoch();
 
+            System.out.println(currentEpoch);
+            System.out.println(historyCurrentEpoch);
+
             if (currentEpoch != historyCurrentEpoch) {
                 // The Scale Checkup.
                 if (runCheckup(faults, updateFaults, scale::check, executor, "Scale Checkup")) {

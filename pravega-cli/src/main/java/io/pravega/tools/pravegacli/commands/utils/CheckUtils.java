@@ -30,6 +30,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
+
 /**
  * A helper class to the general checkup case.
  */
@@ -106,9 +108,7 @@ public class CheckUtils {
 
         if (sealedExists) {
             sealedSegmentsHistory = history.getSegmentsSealed().stream()
-                    .map(StreamSegmentRecord::getSegmentNumber)
-                    .mapToLong(Integer::longValue)
-                    .boxed()
+                    .map(s -> computeSegmentId(s.getSegmentNumber(), s.getCreationEpoch()))
                     .collect(Collectors.toList());
 
             for (Long id : sealedSegmentsHistory) {
@@ -123,17 +123,19 @@ public class CheckUtils {
 
         // Segments created in epoch should be ahead of the sealed segments.
         if (sealedExists && segmentExists) {
-            Long epochMinSegment = Collections.min(record.getSegments().stream()
+            List<Integer> sealedSegments = history.getSegmentsSealed().stream()
                     .map(StreamSegmentRecord::getSegmentNumber)
-                    .mapToLong(Integer::longValue)
-                    .boxed()
+                    .collect(Collectors.toList());
+
+            Integer epochMinSegment = Collections.min(record.getSegments().stream()
+                    .map(StreamSegmentRecord::getSegmentNumber)
                     .collect(Collectors.toList()));
 
-            Long maxSealedSegment;
+            Integer maxSealedSegment;
             if (sealedSegmentsHistory.isEmpty()) {
-                maxSealedSegment = Long.MIN_VALUE;
+                maxSealedSegment = Integer.MIN_VALUE;
             } else {
-                maxSealedSegment = Collections.max(sealedSegmentsHistory);
+                maxSealedSegment = Collections.max(sealedSegments);
             }
 
             if (epochMinSegment < maxSealedSegment) {
