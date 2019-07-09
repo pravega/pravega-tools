@@ -75,6 +75,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                 store = StreamStoreFactoryExtended.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
+            // The StreamConfigurationRecord.
             StreamConfigurationRecord configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
                     .handle((x, e) -> {
                         if (e != null) {
@@ -90,8 +91,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
             output("StreamConfigurationRecord: ");
             output(outputConfiguration(configurationRecord));
 
-            output("\n");
-
+            // The StreamTruncationRecord.
             StreamTruncationRecord truncationRecord = store.getTruncationRecord(scope, streamName, null, executor)
                     .handle((x, e) -> {
                         if (e != null) {
@@ -105,10 +105,13 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                     }).join();
 
             output("StreamTruncationRecord: ");
-            output(outputTruncation(truncationRecord));
+            if (truncationRecord!= null && truncationRecord.equals(StreamTruncationRecord.EMPTY)) {
+                output("EMPTY\n");
+            } else {
+                output(outputTruncation(truncationRecord));
+            }
 
-            output("\n");
-
+            // The epoch and history records.
             output("EpochRecords and HistoryTimeSeriesRecords: ");
 
             int epoch = 0;
@@ -130,8 +133,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                 epoch++;
             }
 
-            output("\n");
-
+            // The EpochTransitionRecord.
             EpochTransitionRecord transitionRecord = store.getEpochTransition(scope, streamName, null, executor)
                     .handle((x, e) -> {
                         if (e != null) {
@@ -145,10 +147,13 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                     }).join();
 
             output("EpochTransitionRecord: ");
-            output(outputTransition(transitionRecord));
+            if (transitionRecord!= null && transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
+                output("EMPTY\n");
+            } else {
+                output(outputTransition(transitionRecord));
+            }
 
-            output("\n");
-
+            // The CommittingTransactionsRecord.
             CommittingTransactionsRecord committingRecord = store.getVersionedCommittingTransactionsRecord(scope, streamName, null, executor)
                     .handle((x, e) -> {
                         if (e != null) {
@@ -162,9 +167,11 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                     }).join();
 
             output("CommittingTransactionsRecord: ");
-            output(outputCommittingTransactions(committingRecord));
-
-            output("\n");
+            if (committingRecord!= null && committingRecord.equals(CommittingTransactionsRecord.EMPTY)) {
+                output("EMPTY\n");
+            } else {
+                output(outputCommittingTransactions(committingRecord));
+            }
 
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());

@@ -44,7 +44,7 @@ public class OutputUtils {
         AtomicInteger serialNumber = new AtomicInteger(1);
 
         faults.forEach((k, v) -> {
-            responseBuilder.append(serialNumber.get()).append(")").append("\n");
+            responseBuilder.append(serialNumber.get()).append(") ");
             responseBuilder.append(k.toString())
                     .append("-----------------------").append("\n");
 
@@ -55,10 +55,10 @@ public class OutputUtils {
                     responseBuilder.append(f.getInconsistentWith().toString()).append("\n");
                 }
 
-                responseBuilder.append(f.getErrorMessage()).append("\n\n");
+                responseBuilder.append(f.getErrorMessage()).append("\n");
             });
 
-            responseBuilder.append("-----------------------").append("\n\n\n");
+            responseBuilder.append("-----------------------").append("\n\n");
             serialNumber.addAndGet(1);
         });
 
