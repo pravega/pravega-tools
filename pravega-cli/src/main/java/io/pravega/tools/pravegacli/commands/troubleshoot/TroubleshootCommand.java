@@ -33,6 +33,7 @@ import org.apache.curator.framework.CuratorFramework;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
 
+import java.io.PrintWriter;
 import java.net.URI;
 
 import static javax.ws.rs.core.Response.Status.OK;
@@ -99,7 +100,7 @@ public abstract class TroubleshootCommand extends Command{
         }
     }
 
-    public SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
+    SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
         HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
                 .hostMonitorEnabled(true)
                 .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
@@ -113,6 +114,34 @@ public abstract class TroubleshootCommand extends Command{
                 .build();
         ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
         return new SegmentHelper(connectionFactory, hostStore);
+    }
+
+    private boolean checkFileNotExists() {
+        try {
+            getCommandArgs().getArgs().get(2);
+            return false;
+        } catch (Exception e) {
+            ensureArgCount(2);
+            return true;
+        }
+    }
+
+    void checkTroubleshootArgs() {
+        if(checkFileNotExists()) {
+            ensureArgCount(2);
+        }
+    }
+
+    void outputToFile(final String data) {
+        if (checkFileNotExists()) {
+            output(data);
+        } else {
+            try (PrintWriter out = new PrintWriter(getCommandArgs().getArgs().get(2))) {
+                out.println(data);
+            } catch (Exception e) {
+                System.err.println("Error in writing to file: " + e);
+            }
+        }
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)

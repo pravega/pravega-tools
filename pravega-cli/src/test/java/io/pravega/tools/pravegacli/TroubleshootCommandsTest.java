@@ -242,8 +242,7 @@ public class TroubleshootCommandsTest {
 
         faults = update.check(spyStore, null);
 
-        Assert.assertTrue("Test for if available",
-                outputFaults(faults).contains("StreamConfigurationRecord consistency check requires human intervention"));
+        Assert.assertTrue("Test for if available", faults.isEmpty());
     }
 
     @Test

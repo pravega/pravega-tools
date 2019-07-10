@@ -56,10 +56,11 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
 
     @Override
     public void execute() {
-        ensureArgCount(2);
+        checkTroubleshootArgs();
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
+        StringBuilder responseBuilder = new StringBuilder();
 
         try {
             @Cleanup
@@ -88,8 +89,8 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                         return x.getObject();
                     }).join();
 
-            output("StreamConfigurationRecord: ");
-            output(outputConfiguration(configurationRecord));
+            responseBuilder.append("StreamConfigurationRecord: ").append("\n");
+            responseBuilder.append(outputConfiguration(configurationRecord)).append("\n");
 
             // The StreamTruncationRecord.
             StreamTruncationRecord truncationRecord = store.getTruncationRecord(scope, streamName, null, executor)
@@ -104,15 +105,15 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                         return x.getObject();
                     }).join();
 
-            output("StreamTruncationRecord: ");
+            responseBuilder.append("StreamTruncationRecord: ").append("\n");
             if (truncationRecord!= null && truncationRecord.equals(StreamTruncationRecord.EMPTY)) {
-                output("EMPTY\n");
+                responseBuilder.append("EMPTY\n").append("\n");
             } else {
-                output(outputTruncation(truncationRecord));
+                responseBuilder.append(outputTruncation(truncationRecord)).append("\n");
             }
 
             // The epoch and history records.
-            output("EpochRecords and HistoryTimeSeriesRecords: ");
+            responseBuilder.append("EpochRecords and HistoryTimeSeriesRecords: ").append("\n");
 
             int epoch = 0;
             int activeEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
@@ -125,10 +126,10 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                     break;
                 }
 
-                output("EpochRecord" + epoch + ": ");
-                output(outputEpoch(epochRecord));
-                output("HistoryTimeSeriesRecord" + epoch + ": ");
-                output(outputHistoryRecord(historyTimeSeriesRecord));
+                responseBuilder.append("EpochRecord ").append(epoch).append(": ").append("\n");
+                responseBuilder.append(outputEpoch(epochRecord)).append("\n");
+                responseBuilder.append("HistoryTimeSeriesRecord ").append(epoch).append(": ").append("\n");
+                responseBuilder.append(outputHistoryRecord(historyTimeSeriesRecord)).append("\n");
 
                 epoch++;
             }
@@ -146,11 +147,11 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                         return x.getObject();
                     }).join();
 
-            output("EpochTransitionRecord: ");
+            responseBuilder.append("EpochTransitionRecord: ").append("\n");
             if (transitionRecord!= null && transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
-                output("EMPTY\n");
+                responseBuilder.append("EMPTY\n").append("\n");
             } else {
-                output(outputTransition(transitionRecord));
+                responseBuilder.append(outputTransition(transitionRecord)).append("\n");
             }
 
             // The CommittingTransactionsRecord.
@@ -166,12 +167,14 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
                         return x.getObject();
                     }).join();
 
-            output("CommittingTransactionsRecord: ");
+            responseBuilder.append("CommittingTransactionsRecord: ").append("\n");
             if (committingRecord!= null && committingRecord.equals(CommittingTransactionsRecord.EMPTY)) {
-                output("EMPTY\n");
+                responseBuilder.append("EMPTY\n").append("\n");
             } else {
-                output(outputCommittingTransactions(committingRecord));
+                responseBuilder.append(outputCommittingTransactions(committingRecord)).append("\n");
             }
+
+            outputToFile(responseBuilder.toString());
 
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
@@ -183,6 +186,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
     public static CommandDescriptor descriptor() {
         return new CommandDescriptor(COMPONENT, "print-metadata", "print the stream-specific metadata",
                 new ArgDescriptor("scope-name", "Name of the scope"),
-                new ArgDescriptor("stream-name", "Name of the stream"));
+                new ArgDescriptor("stream-name", "Name of the stream"),
+                new ArgDescriptor("output-file", "(OPTIONAL) The file to output the results to"));
     }
 }

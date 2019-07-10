@@ -51,7 +51,7 @@ public class TruncateCheckCommand extends TroubleshootCommand implements Check {
 
     @Override
     public void execute() {
-        ensureArgCount(2);
+        checkTroubleshootArgs();
         try {
             @Cleanup
             CuratorFramework zkClient = createZKClient();
@@ -67,7 +67,7 @@ public class TruncateCheckCommand extends TroubleshootCommand implements Check {
             }
 
             Map<Record, Set<Fault>> faults = check(store, executor);
-            output(outputFaults(faults));
+            outputToFile(outputFaults(faults));
 
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
@@ -78,7 +78,7 @@ public class TruncateCheckCommand extends TroubleshootCommand implements Check {
 
     @Override
     public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
-        ensureArgCount(2);
+        checkTroubleshootArgs();
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
@@ -155,6 +155,7 @@ public class TruncateCheckCommand extends TroubleshootCommand implements Check {
     public static CommandDescriptor descriptor() {
         return new CommandDescriptor(COMPONENT, "truncate-check", "check health of the truncate workflow",
                 new ArgDescriptor("scope-name", "Name of the scope"),
-                new ArgDescriptor("stream-name", "Name of the stream"));
+                new ArgDescriptor("stream-name", "Name of the stream"),
+                new ArgDescriptor("output-file", "(OPTIONAL) The file to output the results to"));
     }
 }

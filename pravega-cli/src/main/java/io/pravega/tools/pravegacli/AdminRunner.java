@@ -17,10 +17,13 @@ import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
 import io.pravega.tools.pravegacli.commands.utils.ConfigUtils;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 import lombok.Cleanup;
@@ -168,8 +171,23 @@ public final class AdminRunner {
             }
         }
 
+        Map<String, Integer> troubleshootNumbering = new HashMap<>();
+        troubleshootNumbering.put("print-metadata", 1);
+        troubleshootNumbering.put("diagnosis", 2);
+        troubleshootNumbering.put("general-check", 3);
+        troubleshootNumbering.put("scale-check", 4);
+        troubleshootNumbering.put("committing_txn-check", 5);
+        troubleshootNumbering.put("truncate-check", 6);
+        troubleshootNumbering.put("update-check", 7);
+
         commands.stream()
-                .sorted(Comparator.comparing(Command.CommandDescriptor::getComponent).thenComparing(Command.CommandDescriptor::getName))
+                .sorted(Comparator.comparing(Command.CommandDescriptor::getComponent))
+                .sorted((c1, c2) -> {
+                    if (c1.getComponent().equals("troubleshoot") && c2.getComponent().equals("troubleshoot")) {
+                        return troubleshootNumbering.get(c1.getName()).compareTo(troubleshootNumbering.get(c2.getName()));
+                    }
+                    return c1.getComponent().compareTo(c2.getComponent());
+                })
                 .forEach(AdminRunner::printCommandSummary);
     }
 

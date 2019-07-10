@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.utils;
 
+import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.controller.store.stream.records.CommittingTransactionsRecord;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.EpochTransitionRecord;
@@ -55,12 +56,20 @@ public class OutputUtils {
                     responseBuilder.append(f.getInconsistentWith().toString()).append("\n");
                 }
 
-                responseBuilder.append(f.getErrorMessage()).append("\n");
+                responseBuilder.append(f.getErrorMessage()).append("\n\n\n");
             });
+
+            int length = responseBuilder.length();
+            responseBuilder.delete(length-3, length-1);
 
             responseBuilder.append("-----------------------").append("\n\n");
             serialNumber.addAndGet(1);
         });
+
+        int length = responseBuilder.length();
+        if (length > 0) {
+            responseBuilder.delete(length - 2, length - 1);
+        }
 
         return responseBuilder.toString();
     }
@@ -208,6 +217,26 @@ public class OutputUtils {
         responseBuilder.append("Scope: ").append(tryOutputValue(record, StreamConfigurationRecord::getScope)).append(", stream: ")
                 .append(tryOutputValue(record, StreamConfigurationRecord::getStreamName)).append("\n");
         responseBuilder.append("Updating: ").append(tryOutputValue(record, StreamConfigurationRecord::isUpdating)).append("\n");
+
+        responseBuilder.append("StreamConfiguration: ").append("\n");
+        try {
+            StreamConfiguration config = record.getStreamConfiguration();
+
+            try {
+                responseBuilder.append(config.getScalingPolicy() == null ? "ScalingPolicy(null)" : config.getScalingPolicy()).append("\n");
+            } catch (Exception e) {
+                responseBuilder.append("\n");
+            }
+
+            try {
+                responseBuilder.append(config.getRetentionPolicy() == null ? "RetentionPolicy(null)" : config.getRetentionPolicy()).append("\n");
+            } catch (Exception e) {
+                responseBuilder.append("\n");
+            }
+
+        } catch (Exception e) {
+            responseBuilder.append("\n");
+        }
 
         return responseBuilder.toString();
     }
