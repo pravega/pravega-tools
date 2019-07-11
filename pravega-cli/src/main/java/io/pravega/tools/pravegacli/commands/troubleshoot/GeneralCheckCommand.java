@@ -38,7 +38,7 @@ import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMa
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
- * A helper class that checks the stream with respect to the general case.
+ * A command that checks the stream with respect to the general case.
  */
 public class GeneralCheckCommand extends TroubleshootCommand implements Check {
 

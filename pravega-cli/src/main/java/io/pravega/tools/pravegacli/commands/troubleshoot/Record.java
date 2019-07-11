@@ -27,6 +27,9 @@ import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHisto
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTransition;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTruncation;
 
+/**
+ * A wrapper class to store various types of metadata records.
+ */
 public class Record<T> {
 
     @Getter
@@ -40,6 +43,11 @@ public class Record<T> {
         this.recordType = recordType;
     }
 
+    /**
+     * Method to write the record as a string.
+     *
+     * @return a String containing record information
+     */
     public String toString() {
         StringBuilder responseBuilder =  new StringBuilder();
         responseBuilder.append(this.recordType).append("\n");

@@ -12,6 +12,9 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 import lombok.Builder;
 import lombok.Getter;
 
+/**
+ * A class for storing a fault.
+ */
 public class Fault {
 
     public enum InconsistencyType {
@@ -33,10 +36,23 @@ public class Fault {
         this.errorMessage = errorMessage;
     }
 
+    /**
+     * Constructor for UNAVAILABLE type
+     *
+     * @param errorMessage the error message
+     * @return a new fault
+     */
     public static Fault unavailable(String errorMessage) {
         return new Fault(InconsistencyType.UNAVAILABLE, null, errorMessage);
     }
 
+    /**
+     * Constructor for INCONSISTENT type
+     *
+     * @param inconsistentWith the record
+     * @param errorMessage     the error message
+     * @return a new fault
+     */
     public static Fault inconsistent(Record inconsistentWith, String errorMessage) {
         return new Fault(InconsistencyType.INCONSISTENT, inconsistentWith, errorMessage);
     }

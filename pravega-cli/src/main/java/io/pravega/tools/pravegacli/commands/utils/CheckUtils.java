@@ -42,6 +42,7 @@ public class CheckUtils {
      *
      * @param record      EpochRecord
      * @param history     HistoryTimeSeriesRecord
+     * @param isDuplicate a boolean determining if the epoch is duplicate or not
      * @param scope       stream scope
      * @param streamName  stream name
      * @param store       an instance of the extended metadata store
@@ -156,6 +157,16 @@ public class CheckUtils {
         return epochValExists && historyValExists;
     }
 
+    /**
+     * Method to check if the field described by the given getter is corrupted or not.
+     *
+     * @param record    the metadata record
+     * @param getFunc   the getter method
+     * @param field     the field in question
+     * @param className the record name
+     * @param faultMap  the map into which faults should be put
+     * @return a boolean indicating if the field was accessible or not
+     */
     public static <T> boolean checkCorrupted(final T record, final Function<T, Object> getFunc, final String field,
                                            final String className, final Map<Record, Set<Fault>> faultMap) {
         try {
@@ -169,6 +180,17 @@ public class CheckUtils {
         return true;
     }
 
+    /**
+     * Method to return an EpochRecord if it exists.
+     *
+     * @param store      an instance of the extended metadata store
+     * @param executor   callers executor
+     * @param scope      stream scope
+     * @param streamName stream name
+     * @param epoch      the epoch
+     * @param faultMap   the map into which faults should be put
+     * @return the EpochRecord or null if it doesn't exist
+     */
     public static EpochRecord getEpochIfExists(final ExtendedStreamMetadataStore store, final ScheduledExecutorService executor,
                                                final String scope, final String streamName, final int epoch, final Map<Record, Set<Fault>> faultMap) {
         return store.getEpoch(scope, streamName, epoch, null, executor)
@@ -186,6 +208,17 @@ public class CheckUtils {
                 }).join();
     }
 
+    /**
+     * Method to return an HistoryTimeSeriesRecord if it exists.
+     *
+     * @param store      an instance of the extended metadata store
+     * @param executor   callers executor
+     * @param scope      stream scope
+     * @param streamName stream name
+     * @param epoch      the epoch
+     * @param faultMap   the map into which faults should be put
+     * @return the HistoryTimeSeriesRecord or null if it doesn't exist
+     */
     public static HistoryTimeSeriesRecord getHistoryTimeSeriesRecordIfExists(final ExtendedStreamMetadataStore store, final ScheduledExecutorService executor,
                                                                              final String scope, final String streamName, final int epoch, final Map<Record, Set<Fault>> faultMap) {
         return store.getHistoryTimeSeriesRecord(scope, streamName, epoch, null, executor)
@@ -203,6 +236,14 @@ public class CheckUtils {
                 }).join();
     }
 
+    /**
+     * Method to put a Fault in the given fault map under the given record
+     *
+     * @param faultMap the map into which faults should be put
+     * @param record   the metadata record tp put the fault under
+     * @param fault    the fault to put
+     * @return none
+     */
     public static void putInFaultMap(final Map<Record, Set<Fault>> faultMap, final Record record, final Fault fault) {
         if (faultMap.containsKey(record)) {
             faultMap.get(record).add(fault);
@@ -215,6 +256,13 @@ public class CheckUtils {
         }
     }
 
+    /**
+     * Method to merge two given fault maps
+     *
+     * @param faultMap the map into which faults should be put
+     * @param extraMap the map from which to place the faults
+     * @return none
+     */
     public static void putAllInFaultMap(final Map<Record, Set<Fault>> faultMap, final Map<Record, Set<Fault>> extraMap) {
         extraMap.forEach((k, v) -> v.forEach(fault -> putInFaultMap(faultMap, k, fault)));
     }

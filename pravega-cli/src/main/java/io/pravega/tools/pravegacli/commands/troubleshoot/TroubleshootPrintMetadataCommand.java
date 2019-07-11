@@ -41,6 +41,9 @@ import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputHisto
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTransition;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputTruncation;
 
+/**
+ * A command to print all the stream-specific metadata of the given stream.
+ */
 public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
 
     protected ExtendedStreamMetadataStore store;

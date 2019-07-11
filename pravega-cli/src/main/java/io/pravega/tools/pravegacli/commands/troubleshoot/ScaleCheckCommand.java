@@ -44,7 +44,7 @@ import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMa
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
- * A helper class that checks the stream with respect to the scale case.
+ * A command that checks the stream with respect to the scale case.
  */
 public class ScaleCheckCommand extends TroubleshootCommand implements Check {
 

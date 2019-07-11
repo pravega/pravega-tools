@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 import static io.pravega.shared.segment.StreamSegmentNameUtils.getSegmentNumber;
 
 /**
- * Class for methods to output various metadata records.
+ * Class for methods to output various metadata records and fault maps.
  */
 public class OutputUtils {
 

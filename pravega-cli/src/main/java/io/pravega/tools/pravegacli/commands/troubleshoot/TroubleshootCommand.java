@@ -126,12 +126,20 @@ public abstract class TroubleshootCommand extends Command{
         }
     }
 
+    /**
+     * Method to check if the right number of arguments are present.
+     */
     void checkTroubleshootArgs() {
         if(checkFileNotExists()) {
             ensureArgCount(2);
         }
     }
 
+    /**
+     * Method to output data to a file if the filename is given.
+     *
+     * @param data the data as a String
+     */
     void outputToFile(final String data) {
         if (checkFileNotExists()) {
             output(data);

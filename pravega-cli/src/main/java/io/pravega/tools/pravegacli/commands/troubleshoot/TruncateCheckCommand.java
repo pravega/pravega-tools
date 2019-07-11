@@ -36,7 +36,7 @@ import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMa
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
- * A helper class that checks the stream with respect to the truncate case.
+ * A command that checks the stream with respect to the truncate case.
  */
 public class TruncateCheckCommand extends TroubleshootCommand implements Check {
 

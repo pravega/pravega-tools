@@ -45,7 +45,7 @@ import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMa
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
- * A helper class that checks the stream with respect to the committing_txn case.
+ * A command that checks the stream with respect to the committing_txn case.
  */
 public class CommittingTransactionsCheckCommand extends TroubleshootCommand implements Check{
 
@@ -222,6 +222,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
         String originalName = "Original " + epochType + " EpochRecord";
         String duplicateName = "Duplicate " + epochType + " EpochRecord";
 
+        // Obtain the original record.
         EpochRecord originalEpochRecord = getEpochIfExists(store, executor, scope, streamName, epoch, faults);
         if (originalEpochRecord == null) {
             return;

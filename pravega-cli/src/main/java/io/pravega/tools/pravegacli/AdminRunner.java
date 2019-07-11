@@ -171,6 +171,7 @@ public final class AdminRunner {
             }
         }
 
+        // To fix the ordering of the troubleshoot commands.
         Map<String, Integer> troubleshootNumbering = new HashMap<>();
         troubleshootNumbering.put("print-metadata", 1);
         troubleshootNumbering.put("diagnosis", 2);
