@@ -271,6 +271,15 @@ public class OutputUtils {
         return responseBuilder.toString();
     }
 
+    /**
+     * Method to see if the field described by the given getter is corrupted or not. If it corrupted then we return an
+     * empty string. If the field is accessible then we return a string with the value of the field in it.
+     *
+     * @param record  the metadata record
+     * @param getFunc the getter function for the field
+     * @param <T>     the type of the metadata record
+     * @return a String containing field information if available.
+     */
     private static <T> String tryOutputValue(final T record, final Function<T, Object> getFunc) {
         StringBuilder responseBuilder = new StringBuilder();
         try {

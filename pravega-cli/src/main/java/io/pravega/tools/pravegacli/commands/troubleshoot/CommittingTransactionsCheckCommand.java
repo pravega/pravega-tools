@@ -58,6 +58,9 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
      */
     public CommittingTransactionsCheckCommand(CommandArgs args) { super(args); }
 
+    /**
+     * The method to execute the check method as part of the execution of the command.
+     */
     @Override
     public void execute() {
         checkTroubleshootArgs();
@@ -85,6 +88,30 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
         }
     }
 
+    /**
+     * Method to check the consistency of the stream with respect to the committing transactions workflow. We first obtain the
+     * CommittingTransactionsRecord and then run the following checks:
+     *
+     * - If its not rolling then there are no more checks
+     *
+     * - If it is rolling then, we get the duplicate transaction epoch and the duplicate active record that are generated
+     *   in the committing process. The corresponding history records are also obtained. If these are corrupted we return.
+     *
+     * - Check for any faults between each pair of epoch and history records.
+     *
+     * - Check for the emptiness of the segment lists in the duplicate history records.
+     *
+     * - Check whether the times of the duplicates is correct. The duplicate txn epoch should be followed by the duplicate active
+     *   epoch. Creation time of duplicate txn < Creation time of duplicate active.
+     *
+     * - Make sure that the duplicate records are in line with the original epoch record from which they are derived.
+     *
+     * Any faults which are noticed are immediately recorded and then finally returned.
+     *
+     * @param store     an instance of the extended metadata store
+     * @param executor  callers executor
+     * @return A map of Record and a set of Faults associated with it.
+     */
     @Override
     public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         checkTroubleshootArgs();
@@ -197,6 +224,15 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
                 new ArgDescriptor("output-file", "(OPTIONAL) The file to output the results to"));
     }
 
+    /**
+     * A method that checks if the duplicate HistoryTimeSeriesRecord's segments created list and segments sealed list are
+     * empty. If this invariant is not followed, it adds the corresponding faults into the fault map provided.
+     *
+     * @param faults        the fault map to add to
+     * @param record        the HistoryTimeSeriesRecord
+     * @param historyRecord the wrapped version of the history record for creating the map
+     * @param className     the name of the record when recording the error message in the fault
+     */
     private void checkEmptySegments(final Map<Record, Set<Fault>> faults, final HistoryTimeSeriesRecord record,
                                     final Record historyRecord, final String className) {
         checkEmptySegmentsHelper(faults, record, historyRecord, HistoryTimeSeriesRecord::getSegmentsCreated,
@@ -206,6 +242,18 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
                 "segments sealed", className);
     }
 
+    /**
+     * A helper method that checks if the HistoryTimeSeriesRecord and its given segments list is empty or not. It takes the
+     * getter method for the segment list in question and checks if its corrupted. If it isn't then we check if the list is
+     * empty or not and then add the corresponding faults into the fault map.
+     *
+     * @param faults        the fault map to add to
+     * @param record        the HistoryTimeSeriesRecord
+     * @param historyRecord the wrapped version of the history record for creating the map
+     * @param historyFunc   the getter method reference for the segment list
+     * @param field         the name of the field when recording the error message in the fault
+     * @param className     the name of the record when recording the error message in the fault
+     */
     private void checkEmptySegmentsHelper(final Map<Record, Set<Fault>> faults, final HistoryTimeSeriesRecord record, final Record historyRecord,
                                     final Function<HistoryTimeSeriesRecord, Object> historyFunc, final String field, final String className) {
         boolean segmentsExists = checkCorrupted(record, historyFunc, field, className, faults);
@@ -216,6 +264,27 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommand impl
         }
     }
 
+    /**
+     * A method to obtain the original epoch record and then compare it with the duplicate epoch record provided. We
+     * safely obtain the original epoch record. We then check the following:
+     *
+     * - The first check is to see if the segment numbers generated in the duplicate epoch are computed correctly using the
+     *   original epoch and the original epoch's segment numbers.
+     *
+     * - The second check is to see if the reference epochs of the original and the duplicate epochs are the same.
+     *
+     * In case of any of the above checks failing the corresponding fault is registered into the fault map.
+     *
+     * @param faults               the fault map to add to
+     * @param epoch                the original epoch
+     * @param duplicateEpochRecord the duplicate epoch record
+     * @param scope                scope name
+     * @param streamName           stream name
+     * @param store                an instance of the extended metadata store
+     * @param executor             callers executor
+     * @param epochType            a string indicating the type of epoch,
+     *                             to be used when registering faults only
+     */
     private void checkOriginal(final Map<Record, Set<Fault>> faults, final int epoch, final EpochRecord duplicateEpochRecord,
                                final String scope, final String streamName, final ExtendedStreamMetadataStore store,
                                final ScheduledExecutorService executor, final String epochType) {

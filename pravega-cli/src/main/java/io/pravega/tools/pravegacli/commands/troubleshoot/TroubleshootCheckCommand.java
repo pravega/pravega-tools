@@ -44,6 +44,20 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
         super(args);
     }
 
+    /**
+     * Method to execute the command. We run the checks in the following step by step manner:
+     *
+     * - We first run an update check and record any faults that might occur.
+     * - Followed by a general check.
+     * - We then check if the active epoch is the latest EpochRecord. If it is not then that means that we were most
+     *   likely in the middle of the scale or committing transactions workflow as these two involve changing the active epoch.
+     * - After which finally the truncate check is run.
+     *
+     * In case o any faults appearing in any of the checks we immediately stop there as the errors that get fixed in that case
+     * could also fix errors that are going to occur.
+     * Example: general check which identifies inconsistencies among EpochRecords and HistoryTimeSeries record may identify an error
+     * that when immediately solved could also potentially solve an error that could've been spotted in the, lets say, scale workflow.
+     */
     @Override
     public void execute() {
         checkTroubleshootArgs();

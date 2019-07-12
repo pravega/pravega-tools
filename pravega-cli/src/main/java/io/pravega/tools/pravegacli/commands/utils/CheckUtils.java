@@ -39,6 +39,9 @@ public class CheckUtils {
 
     /**
      * Method to check for consistency among a given EpochRecord and its corresponding HistoryTimeSeriesRecord.
+     * We check for field mismatches in the epoch, reference epoch, segments created and the creation time. We also make sure
+     * that segments in the segments sealed list in the HistoryTimeSeriesRecord are actually sealed. Then we finally make sure that
+     * are no sealed segments ahead of the created segments in the EpochRecord.
      *
      * @param record      EpochRecord
      * @param history     HistoryTimeSeriesRecord
@@ -148,6 +151,17 @@ public class CheckUtils {
         return faults;
     }
 
+    /**
+     * Method to check if the field corresponding to both the EpochRecord and the HistoryTimeSeriesRecord are present.
+     *
+     * @param record      the EpochRecord
+     * @param history     the HistoryTimeSeriesRecord
+     * @param field       the name of the field
+     * @param epochFunc   the getter for the EpochRecord
+     * @param historyFunc the getter for the HistoryTimeSeriesRecord
+     * @param faultMap    the map into which faults should be put
+     * @return a boolean indicating if field is corrupted in both records or not.
+     */
     private static boolean checkField(final EpochRecord record, final HistoryTimeSeriesRecord history, final String field,
                                       final Function<EpochRecord, Object> epochFunc, final Function<HistoryTimeSeriesRecord, Object> historyFunc,
                                       final Map<Record, Set<Fault>> faultMap) {

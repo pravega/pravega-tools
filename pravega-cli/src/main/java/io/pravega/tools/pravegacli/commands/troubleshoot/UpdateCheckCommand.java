@@ -44,6 +44,9 @@ public class UpdateCheckCommand extends TroubleshootCommand implements Check {
      */
     public UpdateCheckCommand(CommandArgs args) { super(args); }
 
+    /**
+     * The method to execute the check method as part of the execution of the command.
+     */
     @Override
     public void execute() {
         checkTroubleshootArgs();
@@ -71,6 +74,14 @@ public class UpdateCheckCommand extends TroubleshootCommand implements Check {
         }
     }
 
+    /**
+     * Method to check the consistency of the stream with respect to updating workflow. We first try to obtain the
+     * StreamConfigurationRecord from the given scope and stream name. If it does not exist then the fault is recorded.
+     *
+     * @param store     an instance of the extended metadata store
+     * @param executor  callers executor
+     * @return A map of Record and a set of Faults associated with it.
+     */
     @Override
     public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         checkTroubleshootArgs();

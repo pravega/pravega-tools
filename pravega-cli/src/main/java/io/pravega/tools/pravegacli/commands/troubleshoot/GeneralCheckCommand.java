@@ -51,6 +51,9 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
      */
     public GeneralCheckCommand(CommandArgs args) { super(args); }
 
+    /**
+     * The method to execute the check method as part of the execution of the command.
+     */
     @Override
     public void execute() {
         checkTroubleshootArgs();
@@ -79,6 +82,25 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
         }
     }
 
+    /**
+     * Method to check the stream in a more general setting in the absence of a workflow. We first obtain the HistoryTimeSeries
+     * and then run the following checks:
+     *
+     * - We first check if we can access the HistoryTimeSeriesRecords from the HistoryTimeSeries that we have just obtained.
+     *
+     * - We then iterate through all the HistoryTimeSeriesRecords and try to obtain their corresponding EpochRecords. If the EpochRecord
+     *   is missing we put an unavailability fault and continue to the next record.
+     *
+     * - If the EpochRecord is available then we run the consistency checks involved among an EpochRecord and HistoryTimeSeriesRecord.
+     *   For duplicate epochs when comparing with their respective history records we make sure not to compare segments as
+     *   the history records segments for duplicate epochs are empty while epoch record itself will contain duplicate epochs.
+     *
+     * Any faults which are noticed are immediately recorded and then finally returned.
+     *
+     * @param store     an instance of the extended metadata store
+     * @param executor  callers executor
+     * @return A map of Record and a set of Faults associated with it.
+     */
     @Override
     public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         checkTroubleshootArgs();

@@ -57,6 +57,15 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommand {
         super(args);
     }
 
+    /**
+     * Method to print all the stream specific metadata. The records printed in order:
+     *
+     * - StreamConfigurationRecord
+     * - StreamTruncationRecord
+     * - The set of EpochRecords along with their corresponding HistoryTimeSeriesRecords
+     * - EpochTransitionRecord
+     * - CommittingTransactionsRecord
+     */
     @Override
     public void execute() {
         checkTroubleshootArgs();

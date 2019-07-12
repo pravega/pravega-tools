@@ -57,6 +57,9 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
      */
     public ScaleCheckCommand(CommandArgs args) { super(args); }
 
+    /**
+     * The method to execute the check method as part of the execution of the command.
+     */
     @Override
     public void execute() {
         checkTroubleshootArgs();
@@ -84,6 +87,27 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
         }
     }
 
+    /**
+     * Method to check the consistency of the stream with respect to scaling workflow. We first obtain the EpochTransitionRecord
+     * and then run the following checks:
+     *
+     * - If the EpochTransitionRecord is not empty then we try to obtain the new epoch record as dictated by the EpochTransitionRecord.
+     *
+     * - Once we have the epoch record, we also obtain the corresponding history record and then run the desired consistency
+     *   checks among them. If any one of the record is not available then we stop and return all the faults upto this point.
+     *
+     * - We check whether the segments created list in the epoch record is in line with the segments described by the new
+     *   ranges in the EpochTransitionRecord.
+     *
+     * - We check if the segments sealed as mentioned in the HistoryTimeSeriesRecord are equivalent to the segments to be sealed
+     *   as described in the EpochTransitionRecord.
+     *
+     * Any faults which are noticed are immediately recorded and then finally returned.
+     *
+     * @param store     an instance of the extended metadata store
+     * @param executor  callers executor
+     * @return A map of Record and a set of Faults associated with it.
+     */
     @Override
     public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         checkTroubleshootArgs();

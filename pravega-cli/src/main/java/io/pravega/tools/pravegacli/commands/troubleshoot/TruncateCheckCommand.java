@@ -49,6 +49,9 @@ public class TruncateCheckCommand extends TroubleshootCommand implements Check {
      */
     public TruncateCheckCommand(CommandArgs args) { super(args); }
 
+    /**
+     * The method to execute the check method as part of the execution of the command.
+     */
     @Override
     public void execute() {
         checkTroubleshootArgs();
@@ -76,6 +79,25 @@ public class TruncateCheckCommand extends TroubleshootCommand implements Check {
         }
     }
 
+    /**
+     * Method to check the consistency of the stream with respect to truncating workflow. We first obtain the StreamTruncationRecord
+     * and then run the following checks:
+     *
+     * - If the StreamTruncationRecord is not EMPTY then we check for the internal consistency of the StreamTruncationRecord.
+     *
+     * - Firstly the updating flag cannot be set to false if the segments to delete list is not empty because the updating
+     *   flag being false indicates the completion of the truncation workflow during which the segments to delete should be
+     *   empty as the workflow has ended.
+     *
+     * - We run a check to make sure that there are no segments deleted ahead of the stream cut. This includes checking both
+     *   the deleted segments and the segments to delete.
+     *
+     * Any faults which are noticed are immediately recorded and then finally returned.
+     *
+     * @param store     an instance of the extended metadata store
+     * @param executor  callers executor
+     * @return A map of Record and a set of Faults associated with it.
+     */
     @Override
     public Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor) {
         checkTroubleshootArgs();

@@ -37,7 +37,7 @@ public class Fault {
     }
 
     /**
-     * Constructor for UNAVAILABLE type
+     * Constructor for UNAVAILABLE type. Data corruption or absence.
      *
      * @param errorMessage the error message
      * @return a new fault
@@ -47,7 +47,7 @@ public class Fault {
     }
 
     /**
-     * Constructor for INCONSISTENT type
+     * Constructor for INCONSISTENT type. Data inconsistency or mismatch among records.
      *
      * @param inconsistentWith the record
      * @param errorMessage     the error message

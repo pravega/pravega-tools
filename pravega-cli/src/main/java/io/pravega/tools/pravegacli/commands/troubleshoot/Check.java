@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
- * An interface for the basic check method
+ * An interface for the basic check method which will identify the faults given the store instance.
  */
 public interface Check {
 
@@ -25,7 +25,7 @@ public interface Check {
      *
      * @param store     an instance of the extended metadata store
      * @param executor  callers executor
-     * @return A map of Record and Fault.
+     * @return A map of Record and a set of Faults associated with it.
      */
     Map<Record, Set<Fault>> check(ExtendedStreamMetadataStore store, ScheduledExecutorService executor);
 }

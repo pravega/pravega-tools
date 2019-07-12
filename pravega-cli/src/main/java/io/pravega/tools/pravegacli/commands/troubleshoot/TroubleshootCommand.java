@@ -116,6 +116,11 @@ public abstract class TroubleshootCommand extends Command{
         return new SegmentHelper(connectionFactory, hostStore);
     }
 
+    /**
+     * Method to check if there is a filename argument also provided.
+     *
+     * @return a boolean indicating whether there is a filename argument.
+     */
     private boolean checkFileNotExists() {
         try {
             getCommandArgs().getArgs().get(2);
