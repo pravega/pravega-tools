@@ -38,7 +38,7 @@ do
                     exit $exitcode
             fi
             # Download the compressed file from the fluentbit pod.
-            kubectl cp $namespace/$fluentbit_pod:/tmp/$fluentbit_pod.tar.gz $output_dir
+            kubectl cp $namespace/$fluentbit_pod:/tmp/$fluentbit_pod.tar.gz $output_dir/$fluentbit_pod.tar.gz
             # Remove temporal compressed file from fluentbit pod.
             kubectl -n $namespace exec $fluentbit_pod -- bash -c "rm /tmp/$fluentbit_pod.tar.gz"
             # Untar the contents to provide a better structure of the resulting logs artifact.
