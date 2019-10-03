@@ -101,6 +101,7 @@ public final class AdminRunner {
         Parser.Command pc = Parser.parse(line);
         switch (pc.getComponent()) {
             case CMD_HELP:
+                //print("hello")
                 printHelp(null);
                 break;
             case CMD_EXIT:
