@@ -19,7 +19,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import io.pravega.common.Exceptions;
 import io.pravega.segmentstore.server.store.ServiceConfig;
-import io.pravega.tools.pravegacli.commands.PasswordFileCreator.PasswordFileCreatorCommand;
+import io.pravega.tools.pravegacli.commands.admin.PasswordFileCreatorCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCleanupCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDetailsCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDisableCommand;
