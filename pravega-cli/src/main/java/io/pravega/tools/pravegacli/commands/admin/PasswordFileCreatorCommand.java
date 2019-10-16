@@ -24,21 +24,25 @@ import java.lang.ArrayIndexOutOfBoundsException;
 public class PasswordFileCreatorCommand extends Command {
     static final String COMPONENT = "admin";
     public PasswordFileCreatorCommand(CommandArgs args){super(args);}
+    public String toWrite;
     @Override
-    public void execute() throws InvalidKeySpecException, NoSuchAlgorithmException, IOException{
+    public void execute() throws InvalidKeySpecException, NoSuchAlgorithmException, IOException {
         ensureArgCount(2);
         String fileName = getCommandArgs().getArgs().get(0);
         String s = getCommandArgs().getArgs().get(1);
-        StrongPasswordProcessor passwordEncryptor = StrongPasswordProcessor.builder().build();
         if (!Strings.isNullOrEmpty(s)) {
-            String[] lists = s.split(":");
-            if(lists.length==3) {
-                String toWrite = lists[0] + ":" + passwordEncryptor.encryptPassword(lists[1]) + ":" + lists[2] + ";";
-                WriteToFile(fileName, toWrite);
-            }
+            CreatePassword(s);
+            WriteToFile(fileName, toWrite);
         }
     }
 
+    public void CreatePassword(String s) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        StrongPasswordProcessor passwordEncryptor = StrongPasswordProcessor.builder().build();
+        String[] lists = s.split(":");
+        if (lists.length == 3) {
+            toWrite = lists[0] + ":" + passwordEncryptor.encryptPassword(lists[1]) + ":" + lists[2] + ";";
+        }
+    }
     public void WriteToFile (String fileName, String toWrite) throws IOException {
         try (FileWriter writer = new FileWriter(fileName))
         {
