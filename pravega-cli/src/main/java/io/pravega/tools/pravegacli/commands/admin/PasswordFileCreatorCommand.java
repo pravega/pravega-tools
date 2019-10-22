@@ -20,31 +20,60 @@ import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.lang.ArrayIndexOutOfBoundsException;
+import java.util.List;
+import java.util.ArrayList;
 
 public class PasswordFileCreatorCommand extends Command {
     static final String COMPONENT = "admin";
     public PasswordFileCreatorCommand(CommandArgs args){super(args);}
-    public String toWrite;
+    private String toWrite;
+
+    public String getToWrite(){
+        return this.toWrite;
+    }
+
     @Override
     public void execute() throws InvalidKeySpecException, NoSuchAlgorithmException, IOException {
-        ensureArgCount(2);
-        String fileName = getCommandArgs().getArgs().get(0);
-        String s = getCommandArgs().getArgs().get(1);
-        if (!Strings.isNullOrEmpty(s)) {
-            CreatePassword(s);
-            WriteToFile(fileName, toWrite);
+        try {
+            ensureArgCount(2);
+            String targetFileName = getTargetFilename(getCommandArgs().getArgs());
+            String userDetails = getUserDetails(getCommandArgs().getArgs());
+            createPassword(userDetails);
+            WriteToFile(targetFileName, toWrite);
+        }
+        catch (Exception e){
+            System.err.println(e.getMessage());
         }
     }
 
-    public void CreatePassword(String s) throws NoSuchAlgorithmException, InvalidKeySpecException {
-        StrongPasswordProcessor passwordEncryptor = StrongPasswordProcessor.builder().build();
-        String[] lists = s.split(":");
-        if (lists.length == 3) {
-            toWrite = lists[0] + ":" + passwordEncryptor.encryptPassword(lists[1]) + ":" + lists[2] + ";";
-        }
+    public String getTargetFilename(List<String> userInput) {
+        return userInput.get(0);
     }
-    public void WriteToFile (String fileName, String toWrite) throws IOException {
-        try (FileWriter writer = new FileWriter(fileName))
+
+    public String getUserDetails(List<String> userInput){
+        String userDetails = userInput.get(1);
+        if((userDetails.split(":")).length==3){
+            return userDetails;
+        }
+        else throw new IllegalArgumentException("The user detail entered is not of the format uname:pwd:acl");
+    }
+
+    public void createPassword(String userDetails) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        String[] lists = parseUserDetails(userDetails);
+        toWrite = generatePassword(lists);
+    }
+
+    private String[] parseUserDetails(String userDetails){
+        return userDetails.split(":");
+    }
+
+    private String generatePassword(String[] lists) throws NoSuchAlgorithmException, InvalidKeySpecException{
+        StrongPasswordProcessor passwordEncryptor = StrongPasswordProcessor.builder().build();
+        return lists[0] + ":" + passwordEncryptor.encryptPassword(lists[1]) + ":" + lists[2] + ";";
+    }
+
+    private void WriteToFile (String targetFileName, String toWrite) throws IOException {
+        try (FileWriter writer = new FileWriter(targetFileName))
         {
             writer.write(toWrite + "\n");
             writer.flush();
