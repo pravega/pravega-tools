@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli;
+package io.pravega.tools.pravegacli.commands.admin;
 
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.AfterClass;
@@ -39,7 +39,6 @@ public class PasswordFileCreatorCommandTest {
     @Test
     public void testcreatePassword() throws Exception {
         try {
-
             AdminCommandState STATE = new AdminCommandState();
             List<String> arguments = new ArrayList<String>();
             String s1 = "TestFile";
@@ -51,9 +50,7 @@ public class PasswordFileCreatorCommandTest {
             testObj.createPassword("testing:testing:testing");
             Assert.assertTrue(testObj.getToWrite().split(":")[0].equals("testing"));
             Assert.assertTrue(testObj.getToWrite().split(":")[2].equals("testing;"));
-            //Assert.assertTrue(Files.deleteIfExists("TestFile"));
-        }
-        catch(Exception e){
+        } catch(Exception e){
             System.err.println(e.getMessage());
         }
     }
