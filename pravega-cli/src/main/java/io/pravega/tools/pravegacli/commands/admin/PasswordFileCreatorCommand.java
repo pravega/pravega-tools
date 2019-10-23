@@ -34,7 +34,7 @@ public class PasswordFileCreatorCommand extends Command {
     }
 
     @Override
-    public void execute() throws InvalidKeySpecException, NoSuchAlgorithmException, IOException {
+    public void execute() {
         try {
             ensureArgCount(2);
             String targetFileName = getTargetFilename(getCommandArgs().getArgs());
