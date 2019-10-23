@@ -39,13 +39,13 @@ public class PasswordFileCreatorCommandTest {
     @Test
     public void testcreatePassword() throws Exception {
         try {
-            AdminCommandState STATE = new AdminCommandState();
+            AdminCommandState state = new AdminCommandState();
             List<String> arguments = new ArrayList<String>();
             String s1 = "TestFile";
             String s2 = "testing:testing:testing";
             arguments.add(s1);
             arguments.add(s2);
-            CommandArgs args = new CommandArgs(arguments, STATE);
+            CommandArgs args = new CommandArgs(arguments, state);
             PasswordFileCreatorCommand testObj = new PasswordFileCreatorCommand(args);
             testObj.createPassword("testing:testing:testing");
             Assert.assertTrue(testObj.getToWrite().split(":")[0].equals("testing"));
@@ -56,7 +56,7 @@ public class PasswordFileCreatorCommandTest {
     }
 
     @Test
-    public void testgetTargetFilename() throws Exception{
+    public void testgetTargetFilename() throws Exception {
         AdminCommandState STATE = new AdminCommandState();
         List<String> arguments = new ArrayList<String>();
         String s1 = "TestFile";
@@ -69,7 +69,7 @@ public class PasswordFileCreatorCommandTest {
     }
 
     @Test
-    public void testgetUserDetails() throws Exception{
+    public void testgetUserDetails() throws Exception {
         AdminCommandState STATE = new AdminCommandState();
         List<String> arguments = new ArrayList<String>();
         String s1 = "TestFile";
