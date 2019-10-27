@@ -19,6 +19,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import io.pravega.common.Exceptions;
 import io.pravega.segmentstore.server.store.ServiceConfig;
+import io.pravega.tools.pravegacli.commands.admin.PasswordFileCreatorCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperCleanupCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDetailsCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.BookKeeperDisableCommand;
@@ -237,6 +238,7 @@ public abstract class Command {
                         .put(GetClusterNodesCommand::descriptor, GetClusterNodesCommand::new)
                         .put(ListContainersCommand::descriptor, ListContainersCommand::new)
                         .put(GetSegmentStoreByContainerCommand::descriptor, GetSegmentStoreByContainerCommand::new)
+                        .put(PasswordFileCreatorCommand::descriptor, PasswordFileCreatorCommand::new)
                         .build());
 
         /**
