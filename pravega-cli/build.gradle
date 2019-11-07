@@ -14,7 +14,7 @@ apply plugin: 'distribution'
 apply plugin: 'idea'
 
 sourceCompatibility = 1.8
-archivesBaseName = 'pravega-cli'
+archivesBaseName = 'pravega-cli-' + pravegaCliVersion
 
 repositories {
     jcenter()
