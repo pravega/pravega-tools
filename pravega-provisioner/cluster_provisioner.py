@@ -7,6 +7,7 @@
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 
+from model.constants import Constants
 from model.provisioning_logic import *
 from performance.performance_profiles import BareMetalCluster
 
@@ -78,32 +79,61 @@ def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
     return requested_cpus, requested_ram_gb
 
 
-def main():
-    print("### Provisioning model for Pravega clusters ###")
+def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
+    can_allocate_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers,
+                                                          segment_stores, controllers)[0]
+    the_cluster = None
 
+    # First, make sure that whatever initial number of instances can be allocated, otherwise just throw an error.
+    assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources"
+
+    # Ask to the user whether this is a metadata-intensive workload or not.
+    metadata_heavy_workload = get_bool_input("Is the workload metadata-heavy (i.e., many clients, small transactions)?")
+
+    # Search for the maximum number of instances to saturate the cluster.
+    while can_allocate_cluster:
+
+        # Increase the number of Bookies first, if they keep a 1 to 1 relationship with Segment Stores.
+        if bookkeeper_servers <= segment_stores:
+            tentative_bookkeeper_servers = bookkeeper_servers + 1
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
+                                                                  tentative_bookkeeper_servers, segment_stores, controllers)
+        else: tentative_bookkeeper_servers = bookkeeper_servers
+
+        # Try to increase the number of Segment Stores if possible.
+        if can_allocate_cluster:
+            bookkeeper_servers = tentative_bookkeeper_servers
+            tentative_segment_stores = Constants.segment_stores_to_bookies_ratio(bookkeeper_servers)
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
+                                                                  bookkeeper_servers, tentative_segment_stores, controllers)
+        else: continue
+
+        # Try to increase the number of Controllers if possible.
+        if can_allocate_cluster:
+            segment_stores = tentative_segment_stores
+            tentative_controllers = Constants.controllers_to_segment_stores_ratio(segment_stores, metadata_heavy_workload)
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
+                                                                  bookkeeper_servers, segment_stores, tentative_controllers)
+        else: continue
+
+        # Try to increase the number of Zookeeper servers if possible.
+        if can_allocate_cluster:
+            controllers = tentative_controllers
+            tentative_zookeeper_servers = Constants.zookeeper_to_bookies_ratio(bookkeeper_servers)
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
+                                                                               bookkeeper_servers, segment_stores, controllers)
+        if can_allocate_cluster:
+            zookeeper_servers = tentative_zookeeper_servers
+
+    # Finally, we need to check how much memory is left in the nodes so we can share it across Segment Stores for cache.
+
+    print(the_cluster)
+    return zookeeper_servers, bookkeeper_servers, segment_stores, controllers
+
+
+def workload_based_provisioning(zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
     # This sets the performance numbers of the Pravega services on a specific environment (e.g., bare metal, PKS).
     performance_profile = BareMetalCluster()
-
-    # First, get the type of VMs/nodes that will be used in the cluster.
-    vm_cpus, vm_ram_gb = get_vm_flavor()
-
-    # Initialize the number of instances with the minimum defaults.
-    zookeeper_servers = Constants.min_zookeeper_servers
-    bookkeeper_servers = Constants.min_bookkeeper_servers
-    segment_stores = Constants.min_segment_stores
-    controllers = Constants.min_controllers
-    vms = 0
-
-    # Initialize values for calculation of scaling policy.
-    event_size = 0
-    write_events_per_second = 0
-    num_streams = 0
-
-    # Provision for data availability.
-    if get_bool_input("Do you want to provision redundant instances to tolerate failures?"):
-        # Calculate the number of instances of each type to tolerate the given number of failures.
-        zookeeper_servers, bookkeeper_servers, segment_stores, controllers = provision_for_availability()
-        vms = calc_min_vms_for_availability(zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
 
     # Provision Pravega data plane for workload (Bookkeeper, Segment Store).
     if get_bool_input("Do you want to right-size the Pravega 'data plane' based on the workload?"):
@@ -131,7 +161,7 @@ def main():
         num_writers = int(input("How many Writers are expected to write data to Pravega?"))
         num_readers = int(input("How many Readers are expected to read data from Pravega?"))
         metadata_ops_per_second = performance_profile.writer_default_metadata_ops_per_second * num_writers + \
-            performance_profile.reader_default_metadata_ops_per_second * num_readers
+                                  performance_profile.reader_default_metadata_ops_per_second * num_readers
         transaction_operations_per_second = 0
         if get_bool_input("Are there clients executing other types of metadata operations? (e.g., REST, list streams, get Stream info)"):
             num_clients_extra_metadata_ops = int(input("How many clients are executing extra metadata operations?"))
@@ -150,10 +180,50 @@ def main():
         controllers = max(controllers, calc_controllers_for_workload(num_streams, heavy_operations_per_second,
                                                                      metadata_ops_per_second, performance_profile))
 
-    # Estimate the amount of resources required to allocate all the service instances.
-    requested_cpus, requested_ram_gb = get_requested_resources(zookeeper_servers, bookkeeper_servers, segment_stores,
-                                                               controllers)
-    vms = max(vms, calc_min_vms_for_resources(vm_ram_gb, vm_cpus, requested_ram_gb, requested_cpus))
+    return zookeeper_servers, bookkeeper_servers, segment_stores, controllers
+
+
+def main():
+    print("### Provisioning model for Pravega clusters ###")
+
+    # First, get the type of VMs/nodes that will be used in the cluster.
+    vm_cpus, vm_ram_gb = get_vm_flavor()
+
+    # Initialize the number of instances with the minimum defaults.
+    zookeeper_servers = Constants.min_zookeeper_servers
+    bookkeeper_servers = Constants.min_bookkeeper_servers
+    segment_stores = Constants.min_segment_stores
+    controllers = Constants.min_controllers
+    vms = 0
+
+    # Initialize values for calculation of scaling policy.
+    event_size = 0
+    write_events_per_second = 0
+    num_streams = 0
+
+    provisioning_model = get_int_input("Do you want to provision a Pravega cluster based on 0) the resources available, "
+                                       "1) the input workload, 2) none?", [0, 1, 2])
+
+    if provisioning_model == 0:
+        vms = int(input("How many VMs/nodes do you want to devote for a Pravega cluster?"))
+        zookeeper_servers, bookkeeper_servers, segment_stores, controllers = resource_based_provisioning(vms, vm_cpus,
+                                        vm_ram_gb, zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
+    elif provisioning_model > 0:
+        # Provision for data availability.
+        if get_bool_input("Do you want to provision redundant instances to tolerate failures?"):
+            # Calculate the number of instances of each type to tolerate the given number of failures.
+            zookeeper_servers, bookkeeper_servers, segment_stores, controllers = provision_for_availability()
+            vms = calc_min_vms_for_availability(zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
+
+        if provisioning_model == 1:
+            zookeeper_servers, bookkeeper_servers, segment_stores, controllers = \
+                workload_based_provisioning(zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
+        else:
+            print("No provisioning model selected")
+
+        # Get the number of VMs based on the necessary for the instances selected so far.
+        requested_cpus, requested_ram_gb = get_requested_resources(zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
+        vms = max(vms, calc_min_vms_for_resources(vm_ram_gb, vm_cpus, requested_ram_gb, requested_cpus))
 
     # Calculate the number of containers and buckets.
     num_containers = Constants.segment_containers_per_segment_store * segment_stores

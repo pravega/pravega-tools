@@ -17,4 +17,7 @@ Pravega clusters.
 We provide two scripts: one that collects the logs from the pods themselves, and another one that assumes the
 existence of a logging service (i.e., FluentBit) to collect the logs from.
 
+- Pravega provisioning helper: Script tool that help with the right-sizing and proper configuration of a Pravega
+cluster.
+
 For detailed documentation of each tool, we refer to their respective README files.
