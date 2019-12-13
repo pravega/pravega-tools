@@ -33,6 +33,8 @@ class Constants:
     # Number of segment containers and buckets per Segment Store and Controller, respectively.
     segment_containers_per_segment_store = 8
     stream_buckets_per_controller = 4
+    segment_store_jvm_size_in_gb = 4
+    segment_store_direct_memory_in_gb = segment_store_ram_gb - segment_store_jvm_size_in_gb
 
 
     @staticmethod

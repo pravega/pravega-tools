@@ -6,6 +6,7 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
+import math
 
 from model.constants import Constants
 from model.provisioning_logic import *
@@ -125,9 +126,24 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, book
         if can_allocate_cluster:
             zookeeper_servers = tentative_zookeeper_servers
 
-    # Finally, we need to check how much memory is left in the nodes so we can share it across Segment Stores for cache.
-
     print(the_cluster)
+
+    # Finally, we need to check how much memory is left in the nodes so we can share it across Segment Stores for cache.
+    # In the worst case, we will have [math.ceil(vms/segment_stores)] Segment Store instances on a single node. Also,
+    # in the worst case, this could be the node with the least available memory available. For this reason, the
+    # in-memory cache size for a Segment Store would be as follows:
+    min_vm_mem_available = min(mem for (cpu, mem) in the_cluster)
+    max_segment_stores_per_vm = math.ceil(vms / segment_stores)
+    new_direct_memory = Constants.segment_store_direct_memory_in_gb + int(min_vm_mem_available/max_segment_stores_per_vm)
+    print("--------- Segment Store In-Memory Cache Size (Pravega +0.7) ---------")
+    print("Segment Store direct memory : ", new_direct_memory)
+    # We leave 1GB extra of direct memory for non-caching purposes
+    print("Segment Store cache size (pravegaservice.cacheMaxSize): ", (new_direct_memory - 1) * 1024 * 1024 * 1024,
+          " (", new_direct_memory - 1, "GB)")
+    print("Buffering time that Pravega tolerates with Tier 2 unavailable given a (well distributed) write workload:")
+    for w in range(100, 1000, 200):
+        print("Write throughput: ", w, "(MBps) -> buffering time: ", ((segment_stores * (new_direct_memory - 1) * 1024) / w), " seconds")
+
     return zookeeper_servers, bookkeeper_servers, segment_stores, controllers
 
 
