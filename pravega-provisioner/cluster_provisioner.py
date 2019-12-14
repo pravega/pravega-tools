@@ -140,7 +140,7 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, book
     max_segment_stores_per_vm = math.ceil(vms / segment_stores)
     new_direct_memory = Constants.segment_store_direct_memory_in_gb + int(min_vm_mem_available/max_segment_stores_per_vm)
     print("--------- Segment Store In-Memory Cache Size (Pravega +0.7) ---------")
-    print("Segment Store pod memory limit: ", Constants.segment_store_jvm_size_in_gb, "GB")
+    print("Segment Store pod memory limit: ", Constants.segment_store_jvm_size_in_gb + new_direct_memory, "GB")
     print("Segment Store JVM Size (-Xmx JVM Option) : ", Constants.segment_store_jvm_size_in_gb, "GB")
     print("Segment Store direct memory (-DirectMemory JVM Option): ", new_direct_memory, "GB")
     # We leave 1GB extra of direct memory for non-caching purposes
