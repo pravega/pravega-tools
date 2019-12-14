@@ -47,7 +47,7 @@ class Constants:
         zk_instances = math.ceil(bookies / 4)
         if zk_instances < Constants.min_zookeeper_servers:
             return Constants.min_zookeeper_servers
-        elif zk_instances / 2 == 0:
+        elif zk_instances % 2 == 0:
             # We should keep an odd number of Zookeeper servers.
             return zk_instances + 1
         else:

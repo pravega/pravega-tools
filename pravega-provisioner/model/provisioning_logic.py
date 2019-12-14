@@ -176,10 +176,9 @@ def can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers, b
     return True, the_cluster
 
 
-def _subtract_resources_from_cluster(the_cluster, num_instances, cpu_per_instance, ram_per_instance):
+def _subtract_resources_from_cluster(the_cluster, num_instances, cpu_per_instance, ram_per_instance, enforce_load_balancing=True):
     finish_allocation = False
     completed_allocations = retries = 0
-    perfect_instance_distribution_across_nodes = True
     while not finish_allocation:
         for x in range(num_instances - completed_allocations):
             [old_cpu, old_ram] = the_cluster[x % len(the_cluster)]
@@ -192,15 +191,9 @@ def _subtract_resources_from_cluster(the_cluster, num_instances, cpu_per_instanc
 
         if num_instances == completed_allocations:
             finish_allocation = True
-        if retries > 0:
-            perfect_instance_distribution_across_nodes = False
-        if retries >= len(the_cluster):
+        if retries > 0 and enforce_load_balancing or retries >= len(the_cluster):
             return False
         retries += 1
-
-    if not perfect_instance_distribution_across_nodes:
-        print("WARNING: It is not possible to perfectly distribute instances across nodes, which will impact on the"
-              " failure tolerance of the cluster.")
 
     return True
 

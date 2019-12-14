@@ -81,9 +81,8 @@ def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
 
 
 def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
-    can_allocate_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers,
-                                                          segment_stores, controllers)[0]
-    the_cluster = None
+    can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers,
+                                                          segment_stores, controllers)
 
     # First, make sure that whatever initial number of instances can be allocated, otherwise just throw an error.
     assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources"
@@ -123,10 +122,15 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, book
             tentative_zookeeper_servers = Constants.zookeeper_to_bookies_ratio(bookkeeper_servers)
             can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
                                                                                bookkeeper_servers, segment_stores, controllers)
+        else: continue
+
         if can_allocate_cluster:
             zookeeper_servers = tentative_zookeeper_servers
+            print("Allocation possible (round robin placement):", the_cluster)
 
-    print(the_cluster)
+    # Get the resources used for the last possible allocation
+    the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers,
+                                                 segment_stores, controllers)[1]
 
     # Finally, we need to check how much memory is left in the nodes so we can share it across Segment Stores for cache.
     # In the worst case, we will have [math.ceil(vms/segment_stores)] Segment Store instances on a single node. Also,
@@ -136,13 +140,15 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, book
     max_segment_stores_per_vm = math.ceil(vms / segment_stores)
     new_direct_memory = Constants.segment_store_direct_memory_in_gb + int(min_vm_mem_available/max_segment_stores_per_vm)
     print("--------- Segment Store In-Memory Cache Size (Pravega +0.7) ---------")
-    print("Segment Store direct memory : ", new_direct_memory)
+    print("Segment Store pod memory limit: ", Constants.segment_store_jvm_size_in_gb, "GB")
+    print("Segment Store JVM Size (-Xmx JVM Option) : ", Constants.segment_store_jvm_size_in_gb, "GB")
+    print("Segment Store direct memory (-DirectMemory JVM Option): ", new_direct_memory, "GB")
     # We leave 1GB extra of direct memory for non-caching purposes
     print("Segment Store cache size (pravegaservice.cacheMaxSize): ", (new_direct_memory - 1) * 1024 * 1024 * 1024,
           " (", new_direct_memory - 1, "GB)")
     print("Buffering time that Pravega tolerates with Tier 2 unavailable given a (well distributed) write workload:")
     for w in range(100, 1000, 200):
-        print("Write throughput: ", w, "(MBps) -> buffering time: ", ((segment_stores * (new_direct_memory - 1) * 1024) / w), " seconds")
+        print("- Write throughput: ", w, "(MBps) -> buffering time: ", ((segment_stores * (new_direct_memory - 1) * 1024) / w), " seconds")
 
     return zookeeper_servers, bookkeeper_servers, segment_stores, controllers
 
@@ -265,11 +271,11 @@ def main():
 
     # Output the cluster estimation result.
     print("--------- Cluster Provisioning ---------")
-    print("Minimum number of VMs required: ", vms)
-    print("Minimum number of Zookeeper servers required: ", zookeeper_servers)
-    print("Minimum number of Bookkeeper servers required: ", bookkeeper_servers)
-    print("Minimum number of Segment Stores servers required: ", segment_stores)
-    print("Minimum number of Controller servers required: ", controllers)
+    print("Number of VMs required: ", vms)
+    print("Number of Zookeeper servers required: ", zookeeper_servers)
+    print("Number of Bookkeeper servers required: ", bookkeeper_servers)
+    print("Number of Segment Stores servers required: ", segment_stores)
+    print("Number of Controller servers required: ", controllers)
     print("--------- Cluster Config Params ---------")
     print("Number of Segment Containers in config: ", num_containers)
     print("Number of Stream Buckets in config: ", num_buckets)
