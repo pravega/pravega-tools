@@ -41,12 +41,15 @@ def get_int_input(msg, valid_values):
 def get_vm_flavor():
     """
     Asks the user for the resources that each VM in the cluster will have.
-    :return: Amount of CPU cores and GBs of RAM per VM.
+    :return: Amount of CPU cores, GBs of RAM and local drives (if applies) per VM.
     """
     print("Please, introduce the resource information about the VMs used int cluster:")
     vm_cpus = int(input("How many CPU cores has each VM/node?"))
     vm_ram_gb = int(input("How much memory in GB has each VM/node?"))
-    return vm_cpus, vm_ram_gb
+    vm_local_drives = 0
+    if get_bool_input("Is your cluster using local drives?"):
+        vm_local_drives = int(input("How many local drives has each VM/node?"))
+    return vm_cpus, vm_ram_gb, vm_local_drives
 
 
 def provision_for_availability():
@@ -80,12 +83,24 @@ def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
     return requested_cpus, requested_ram_gb
 
 
-def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
-    can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers,
-                                                          segment_stores, controllers)
-
+def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
+    can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
+                                                    zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
     # First, make sure that whatever initial number of instances can be allocated, otherwise just throw an error.
     assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources"
+
+    # Ask to the user the number of node failures he/she wants to tolerate.
+    failures_to_tolerate = get_int_input("How many node failures you want to tolerate?", range(0, 100))
+    if failures_to_tolerate >= vms:
+        assert False, "You have not enough nodes to tolerate such amount of failures"
+    elif vms - failures_to_tolerate < Constants.min_bookkeeper_servers or vms - failures_to_tolerate < Constants.min_zookeeper_servers:
+        print("WARNING: In the case of experiencing all the failures specified, IOs may be interrupted until "
+              "some processes are reallocated to alive nodes to reach the minimum quorum (e.g., Bookies, ZK servers).")
+
+    # The nodes used for calculating Pravega cluster size are the nodes left in the worst case of failures. If we don't
+    # do this and define the Pravega cluster based on all the nodes, then it won't be possible to reallocate pods to
+    # remaining nodes as they would be full already. 
+    vms = vms - failures_to_tolerate
 
     # Ask to the user whether this is a metadata-intensive workload or not.
     metadata_heavy_workload = get_bool_input("Is the workload metadata-heavy (i.e., many clients, small transactions)?")
@@ -96,47 +111,46 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, book
         # Increase the number of Bookies first, if they keep a 1 to 1 relationship with Segment Stores.
         if bookkeeper_servers <= segment_stores:
             tentative_bookkeeper_servers = bookkeeper_servers + 1
-            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
-                                                                  tentative_bookkeeper_servers, segment_stores, controllers)
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
+                                                zookeeper_servers, tentative_bookkeeper_servers, segment_stores, controllers)
         else: tentative_bookkeeper_servers = bookkeeper_servers
 
         # Try to increase the number of Segment Stores if possible.
         if can_allocate_cluster:
             bookkeeper_servers = tentative_bookkeeper_servers
             tentative_segment_stores = Constants.segment_stores_to_bookies_ratio(bookkeeper_servers)
-            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
-                                                                  bookkeeper_servers, tentative_segment_stores, controllers)
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
+                                                zookeeper_servers, bookkeeper_servers, tentative_segment_stores, controllers)
         else: continue
 
         # Try to increase the number of Controllers if possible.
         if can_allocate_cluster:
             segment_stores = tentative_segment_stores
             tentative_controllers = Constants.controllers_to_segment_stores_ratio(segment_stores, metadata_heavy_workload)
-            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
-                                                                  bookkeeper_servers, segment_stores, tentative_controllers)
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
+                                                zookeeper_servers, bookkeeper_servers, segment_stores, tentative_controllers)
         else: continue
 
         # Try to increase the number of Zookeeper servers if possible.
         if can_allocate_cluster:
             controllers = tentative_controllers
             tentative_zookeeper_servers = Constants.zookeeper_to_bookies_ratio(bookkeeper_servers)
-            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers,
-                                                                               bookkeeper_servers, segment_stores, controllers)
+            can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
+                                                            zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
         else: continue
 
         if can_allocate_cluster:
             zookeeper_servers = tentative_zookeeper_servers
-            print("Allocation possible (round robin placement):", the_cluster)
 
     # Get the resources used for the last possible allocation
-    the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, zookeeper_servers, bookkeeper_servers,
-                                                 segment_stores, controllers)[1]
-
+    the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookeeper_servers,
+                                                 bookkeeper_servers, segment_stores, controllers)[1]
+    print("Allocation of pods on nodes: ", the_cluster)
     # Finally, we need to check how much memory is left in the nodes so we can share it across Segment Stores for cache.
     # In the worst case, we will have [math.ceil(vms/segment_stores)] Segment Store instances on a single node. Also,
     # in the worst case, this could be the node with the least available memory available. For this reason, the
     # in-memory cache size for a Segment Store would be as follows:
-    min_vm_mem_available = min(mem for (cpu, mem) in the_cluster)
+    min_vm_mem_available = min(mem for (cpu, mem, disks, processes_in_vm) in the_cluster)
     max_segment_stores_per_vm = math.ceil(vms / segment_stores)
     new_direct_memory = Constants.segment_store_direct_memory_in_gb + int(min_vm_mem_available/max_segment_stores_per_vm)
     print("--------- Segment Store In-Memory Cache Size (Pravega +0.7) ---------")
@@ -149,6 +163,13 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, zookeeper_servers, book
     print("Buffering time that Pravega tolerates with Tier 2 unavailable given a (well distributed) write workload:")
     for w in range(100, 1000, 200):
         print("- Write throughput: ", w, "(MBps) -> buffering time: ", ((segment_stores * (new_direct_memory - 1) * 1024) / w), " seconds")
+
+    # Add a warning if the number of Bookies is higher than the number of nodes, as Pravega may need to enable rack-
+    # aware placement in Bookkeeper so it tries to write to Bookies in different nodes (data availability).
+    if bookkeeper_servers > vms:
+        print("WARNING: To guarantee data availability and durability, consider enabling rack-aware placement in "
+              "Pravega to write to Bookkeeper. Otherwise, Segment Stores may be writing to Bookies on the same node,"
+              "which make the system more vulnerable to node failures.")
 
     return zookeeper_servers, bookkeeper_servers, segment_stores, controllers
 
@@ -209,7 +230,7 @@ def main():
     print("### Provisioning model for Pravega clusters ###")
 
     # First, get the type of VMs/nodes that will be used in the cluster.
-    vm_cpus, vm_ram_gb = get_vm_flavor()
+    vm_cpus, vm_ram_gb, vm_local_drives = get_vm_flavor()
 
     # Initialize the number of instances with the minimum defaults.
     zookeeper_servers = Constants.min_zookeeper_servers
@@ -229,7 +250,7 @@ def main():
     if provisioning_model == 0:
         vms = int(input("How many VMs/nodes do you want to devote for a Pravega cluster?"))
         zookeeper_servers, bookkeeper_servers, segment_stores, controllers = resource_based_provisioning(vms, vm_cpus,
-                                        vm_ram_gb, zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
+                        vm_ram_gb, vm_local_drives, zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
     elif provisioning_model > 0:
         # Provision for data availability.
         if get_bool_input("Do you want to provision redundant instances to tolerate failures?"):

@@ -36,6 +36,13 @@ class Constants:
     segment_store_jvm_size_in_gb = 4
     segment_store_direct_memory_in_gb = segment_store_ram_gb - segment_store_jvm_size_in_gb
 
+    # Number of local drives per Bookie:
+    #   i)   1 drive means that Journal, Ledger and Index are located on the same drive.
+    #   ii)  2 drives means that Journal is on one drive, whereas Ledger and Index are on the same drive.
+    #   iii) 3 drives means that Journal, Ledger and Index are on independent disks.
+    # By default, we assume that at least each Bookie has 2 drives to separate Journal from Ledger/Index IOs.
+    drives_per_bookie = 2
+
 
     @staticmethod
     def zookeeper_to_bookies_ratio(bookies):
