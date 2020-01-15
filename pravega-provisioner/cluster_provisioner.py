@@ -168,8 +168,7 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
     # aware placement in Bookkeeper so it tries to write to Bookies in different nodes (data availability).
     if bookkeeper_servers > vms:
         print("WARNING: To guarantee data availability and durability, consider enabling rack-aware placement in "
-              "Pravega to write to Bookkeeper. Otherwise, Segment Stores may be writing to Bookies on the same node,"
-              "which make the system more vulnerable to node failures.")
+              "Pravega to write to Bookkeeper.")
 
     return zookeeper_servers, bookkeeper_servers, segment_stores, controllers
 
