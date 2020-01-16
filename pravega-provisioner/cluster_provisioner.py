@@ -84,23 +84,31 @@ def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
 
 
 def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
-    can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
-                                                    zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
-    # First, make sure that whatever initial number of instances can be allocated, otherwise just throw an error.
-    assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources"
-
     # Ask to the user the number of node failures he/she wants to tolerate.
     failures_to_tolerate = get_int_input("How many node failures you want to tolerate?", range(0, 100))
     if failures_to_tolerate >= vms:
         assert False, "You have not enough nodes to tolerate such amount of failures"
     elif vms - failures_to_tolerate < Constants.min_bookkeeper_servers or vms - failures_to_tolerate < Constants.min_zookeeper_servers:
-        print("WARNING: In the case of experiencing all the failures specified, IOs may be interrupted until "
-              "some processes are reallocated to alive nodes to reach the minimum quorum (e.g., Bookies, ZK servers).")
+        # If we are collocating more than 1 Zookeeper or Bookie per node, we need an additional instance. Otherwise, we
+        # lead in a situation like the following: 3 VM/nodes with 4 Bookie/Zookeeper servers. This means that there is
+        # one node with 2 instances, and if this node crashes, then we fall below the min number of replicas defined.
+        zookeeper_servers += 1
+        bookkeeper_servers += 1
 
-    # The nodes used for calculating Pravega cluster size are the nodes left in the worst case of failures. If we don't
-    # do this and define the Pravega cluster based on all the nodes, then it won't be possible to reallocate pods to
-    # remaining nodes as they would be full already. 
-    vms = vms - failures_to_tolerate
+    # Given that we want to tolerate failures, we need to increase the minimum number of instances of each type defined
+    # with the number of failures we want to tolerate. This will be the baseline for the Pravega cluster.
+    zookeeper_servers += failures_to_tolerate
+    # We need an even number of Zookeeper instances.
+    if zookeeper_servers % 2 == 0:
+        zookeeper_servers += 1
+    bookkeeper_servers += failures_to_tolerate
+    segment_stores += failures_to_tolerate
+    controllers += failures_to_tolerate
+
+    can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
+                                                    zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
+    # First, make sure that whatever initial number of instances can be allocated, otherwise just throw an error.
+    assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources"
 
     # Ask to the user whether this is a metadata-intensive workload or not.
     metadata_heavy_workload = get_bool_input("Is the workload metadata-heavy (i.e., many clients, small transactions)?")
@@ -118,7 +126,7 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
         # Try to increase the number of Segment Stores if possible.
         if can_allocate_cluster:
             bookkeeper_servers = tentative_bookkeeper_servers
-            tentative_segment_stores = Constants.segment_stores_to_bookies_ratio(bookkeeper_servers)
+            tentative_segment_stores = max(segment_stores, Constants.segment_stores_to_bookies_ratio(bookkeeper_servers))
             can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
                                                 zookeeper_servers, bookkeeper_servers, tentative_segment_stores, controllers)
         else: continue
@@ -126,7 +134,7 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
         # Try to increase the number of Controllers if possible.
         if can_allocate_cluster:
             segment_stores = tentative_segment_stores
-            tentative_controllers = Constants.controllers_to_segment_stores_ratio(segment_stores, metadata_heavy_workload)
+            tentative_controllers = max(controllers, Constants.controllers_to_segment_stores_ratio(segment_stores, metadata_heavy_workload))
             can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
                                                 zookeeper_servers, bookkeeper_servers, segment_stores, tentative_controllers)
         else: continue
@@ -134,7 +142,7 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
         # Try to increase the number of Zookeeper servers if possible.
         if can_allocate_cluster:
             controllers = tentative_controllers
-            tentative_zookeeper_servers = Constants.zookeeper_to_bookies_ratio(bookkeeper_servers)
+            tentative_zookeeper_servers = max(zookeeper_servers, Constants.zookeeper_to_bookies_ratio(bookkeeper_servers))
             can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
                                                             zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
         else: continue
