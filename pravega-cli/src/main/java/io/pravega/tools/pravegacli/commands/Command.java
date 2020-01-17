@@ -37,6 +37,7 @@ import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroup
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.cluster.GetClusterNodesCommand;
+import io.pravega.tools.pravegacli.commands.disasterrecovery.StorageListSegmentsCommand;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -239,6 +240,7 @@ public abstract class Command {
                         .put(ListContainersCommand::descriptor, ListContainersCommand::new)
                         .put(GetSegmentStoreByContainerCommand::descriptor, GetSegmentStoreByContainerCommand::new)
                         .put(PasswordFileCreatorCommand::descriptor, PasswordFileCreatorCommand::new)
+                        .put(StorageListSegmentsCommand::descriptor, StorageListSegmentsCommand::new)
                         .build());
 
         /**
