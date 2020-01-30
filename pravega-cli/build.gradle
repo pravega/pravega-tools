@@ -67,6 +67,7 @@ dependencies {
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage-impl', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-shared-cluster', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-shared-protocol', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-test-integration', version: pravegaVersion
     compile group: 'javax.ws.rs', name: 'javax.ws.rs-api', version: javaxwsrsApiVersion
     compile group: 'com.googlecode.json-simple', name: 'json-simple', version: jsonSimpleVersion
@@ -77,6 +78,7 @@ tasks
 
 task startPravegaCLI(type: JavaExec){
     main = "io.pravega.tools.pravegacli.AdminRunner"
+    jvmArgs "-Xdebug", "-Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
     classpath = sourceSets.main.runtimeClasspath
 }
 

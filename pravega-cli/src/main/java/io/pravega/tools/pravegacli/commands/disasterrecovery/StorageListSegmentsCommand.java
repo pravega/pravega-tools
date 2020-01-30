@@ -1,8 +1,13 @@
 package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
+import io.pravega.shared.segment.SegmentToContainerMapper;
+import io.pravega.shared.segment.StreamSegmentNameUtils;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -14,17 +19,25 @@ import io.pravega.segmentstore.storage.Storage;
 import io.pravega.segmentstore.storage.rolling.RollingStorage;
 import io.pravega.storage.filesystem.FileSystemStorage;
 import io.pravega.storage.filesystem.FileSystemStorageConfig;
+import io.pravega.tools.pravegacli.commands.controller.ControllerCommand;
+import lombok.AccessLevel;
+import lombok.Cleanup;
+import lombok.RequiredArgsConstructor;
+import lombok.val;
 
 
 public class StorageListSegmentsCommand extends Command {
 
-    public StorageListSegmentsCommand(CommandArgs args) {
-        super(args);
-    }
+
     protected static final String APPEND_FORMAT = "Segment_%s_Append_%d";
     protected static final long DEFAULT_ROLLING_SIZE = (int) (APPEND_FORMAT.length() * 1.5);
-    private static Storage tier2 = null;
+    private Storage tier2 = null;
+    private SegmentToContainerMapper segToConMapper;
 
+    public StorageListSegmentsCommand(CommandArgs args) {
+        super(args);
+        segToConMapper = new SegmentToContainerMapper(getServiceConfig().getContainerCount());
+    }
     @Override
     public void execute() throws Exception {
         ensureArgCount(1);
@@ -34,19 +47,30 @@ public class StorageListSegmentsCommand extends Command {
                 .build();
         tier2 = new AsyncStorageWrapper(new RollingStorage(new FileSystemStorage(fsConfig), new SegmentRollingPolicy(DEFAULT_ROLLING_SIZE)), createExecutorService(1));
 
-        //TODO: write output about storage
-        System.out.println("segments from tier-2");
-        System.out.println("======================================================");
+        int containerCount = segToConMapper.getTotalContainerCount();
+        FileWriter[] writers = new FileWriter[containerCount];
+        for (int containerId=0; containerId < containerCount; containerId++) {
+            File f = new File(String.valueOf(containerId));
+            f.delete();
+            f.createNewFile();
+            writers[containerId] = new FileWriter(f.getName());
+        }
+        System.out.println("Generating container files with the segments they own...");
         Iterator<SegmentProperties> it = tier2.listSegments().get();
-        System.out.println("Length\t\t\tisSealed\t\t\tPath");
-        System.out.println("======================================================");
         while(it.hasNext()) {
             SegmentProperties curr = it.next();
-            System.out.println(curr.getLength()+"\t\t\t"+ curr.isSealed()+"\t\t\t"+curr.getName());
+            //TODO: move this to server side?
+            if(StreamSegmentNameUtils.isAttributeSegment(curr.getName()))
+                continue;
+            int containerId = segToConMapper.getContainerId(curr.getName());
+            writers[containerId].write(curr.getLength()+"\t"+ curr.isSealed()+"\t"+curr.getName()+"\n");
         }
-        System.out.println("======================================================");
+        for (int containerId=0; containerId < containerCount; containerId++) {
+            writers[containerId].close();
+        }
+        System.out.println("Done!");
     }
-    static ScheduledExecutorService createExecutorService(int threadPoolSize) {
+    public static ScheduledExecutorService createExecutorService(int threadPoolSize) {
         ScheduledThreadPoolExecutor es = new ScheduledThreadPoolExecutor(threadPoolSize);
         es.setContinueExistingPeriodicTasksAfterShutdownPolicy(false);
         es.setExecuteExistingDelayedTasksAfterShutdownPolicy(false);
