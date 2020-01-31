@@ -1,7 +1,6 @@
 package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
 import com.google.common.base.Charsets;
-import io.pravega.client.segment.impl.SegmentInfo;
 import io.pravega.common.concurrent.Services;
 import io.pravega.common.util.ArrayView;
 import io.pravega.common.util.ByteArraySegment;
@@ -9,7 +8,6 @@ import io.pravega.segmentstore.contracts.AttributeUpdate;
 import io.pravega.segmentstore.contracts.AttributeUpdateType;
 import io.pravega.segmentstore.contracts.SegmentProperties;
 import io.pravega.segmentstore.contracts.tables.TableEntry;
-import io.pravega.segmentstore.contracts.tables.TableKey;
 import io.pravega.segmentstore.server.*;
 import io.pravega.segmentstore.server.attributes.AttributeIndexConfig;
 import io.pravega.segmentstore.server.attributes.AttributeIndexFactory;
@@ -31,8 +29,6 @@ import io.pravega.segmentstore.storage.DurableDataLogFactory;
 import io.pravega.segmentstore.storage.StorageFactory;
 import io.pravega.segmentstore.storage.cache.CacheStorage;
 import io.pravega.segmentstore.storage.cache.DirectMemoryCache;
-import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
-import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
 import io.pravega.segmentstore.storage.mocks.InMemoryDurableDataLogFactory;
 import io.pravega.segmentstore.storage.mocks.InMemoryStorageFactory;
 import io.pravega.shared.segment.StreamSegmentNameUtils;
@@ -41,12 +37,11 @@ import io.pravega.tools.pravegacli.commands.CommandArgs;
 import lombok.val;
 
 import java.io.File;
-import java.nio.charset.Charset;
+import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-
-import static io.pravega.segmentstore.contracts.Attributes.*;
 
 public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private final StreamSegmentContainerFactory containerFactory;
@@ -87,13 +82,15 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         val config = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
         //TODO: which storageFactory to instantiate?
         this.storageFactory = new InMemoryStorageFactory(executorService);
+        /*
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
                 .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, getServiceConfig().getZkURL()))
                 .build().getConfig(BookKeeperConfig::builder);
 
         val zkClient = createZKClient();
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
-
+        */
+        this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
         try {
             this.dataLogFactory.initialize();
         } catch (DurableDataLogException e) {
@@ -111,17 +108,30 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     }
 
 
-    private DebugStreamSegmentContainer debugStreamSegmentContainer = null;
     private static final String BACKUP_PREFIX = "backup";
-    public void execute() throws Exception {
-        ensureArgCount(1);
+    public void execute(){
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
-            debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(0);
-            //TODO: wait for container to start
-            Services.startAsync(debugStreamSegmentContainer, executorService);
-            System.out.format("Recovery started for container# %s", containerId);
-            String containerFile = getCommandArgs().getArgs().get(containerId);
-            Scanner s = new Scanner(new File(containerFile));
+            DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
+            Services.startAsync(debugStreamSegmentContainer, executorService).thenRun(new Worker(debugStreamSegmentContainer, containerId));
+        }
+    }
+    private static class Worker implements Runnable {
+        private final int containerId;
+        private final DebugStreamSegmentContainer container;
+        public Worker(DebugStreamSegmentContainer container, int containerId){
+            this.container = container;
+            this.containerId = containerId;
+        }
+        @Override
+        public void run() {
+            container.awaitRunning();
+            System.out.format("Recovery started for container# %s\n", containerId);
+            Scanner s = null;
+            try {
+                s = new Scanner(new File(String.valueOf(containerId)));
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
             List<ArrayView> segments = new ArrayList<>();
             while (s.hasNextLine()) {
                 String[] fields = s.nextLine().split("\t");
@@ -130,31 +140,42 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 boolean isSealed = Boolean.parseBoolean(fields[1]);
                 String segmentName = fields[2];
                 //TODO: verify the return status
-                debugStreamSegmentContainer.createStreamSegment(segmentName, len, isSealed).get();
-                System.out.format("Segment created for %s", segmentName);
+                try {
+                    container.createStreamSegment(segmentName, len, isSealed).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
+                System.out.format("Segment created for %s\n", segmentName);
                 segments.add(getTableKey(segmentName));
             }
             String mFileName = StreamSegmentNameUtils.getMetadataSegmentName(containerId);
             File metadataFile = new File(mFileName);
             boolean isRenamed = metadataFile.renameTo(new File(getBackupMetadataFileName(mFileName)));
-            if (!isRenamed)
-                throw new Exception("Rename failed for %s" + mFileName);
-            System.out.format("Renamed %s to %s", mFileName, getBackupMetadataFileName(mFileName));
-            ContainerTableExtension ext = debugStreamSegmentContainer.getExtension(ContainerTableExtension.class);
-            List<TableEntry> entries = ext.get(getBackupMetadataFileName(mFileName), segments, Duration.ofSeconds(10)).get();
+            if (!isRenamed) {
+                System.out.println("Rename failed for " + mFileName);
+                return;
+            }
+            System.out.format("Renamed %s to %s\n", mFileName, getBackupMetadataFileName(mFileName));
+            ContainerTableExtension ext = container.getExtension(ContainerTableExtension.class);
+            List<TableEntry> entries = null;
+            try {
+                entries = ext.get(getBackupMetadataFileName(mFileName), segments, Duration.ofSeconds(10)).get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
             for (int i = 0; i < entries.size(); i++) {
                 TableEntry entry = entries.get(i);
                 String segmentName = new String(segments.get(i).array(), Charsets.UTF_8);
-                System.out.format("Adjusting the metadata for segment %s in container# %s", segmentName, containerId);
+                System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
                 SegmentProperties segProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
                 if (segProp.isSealed())
-                    debugStreamSegmentContainer.sealStreamSegment(segmentName, Duration.ofSeconds(10));
+                    container.sealStreamSegment(segmentName, Duration.ofSeconds(10));
                 List<AttributeUpdate> updates = new ArrayList<>();
                 for (Map.Entry<UUID, Long> e : segProp.getAttributes().entrySet())
                     updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
-                debugStreamSegmentContainer.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
+                container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
             }
-            System.out.format("Recovery done for container# %s", containerId);
+            System.out.format("Recovery done for container# %s\n", containerId);
         }
     }
     private static String getBackupMetadataFileName(String metadataFileName){
@@ -164,7 +185,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             SegmentContainer container, ScheduledExecutorService executor) {
         return Collections.singletonMap(ContainerTableExtension.class, new ContainerTableExtensionImpl(container, this.cacheManager, executor));
     }
-    private ArrayView getTableKey(String segmentName) {
+    private static ArrayView getTableKey(String segmentName) {
         return new ByteArraySegment(segmentName.getBytes(Charsets.UTF_8));
     }
 
