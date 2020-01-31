@@ -85,17 +85,15 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     public DisasterRecoveryCommand(CommandArgs args) {
         super(args);
         val config = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
+        //TODO: which storageFactory to instantiate?
         this.storageFactory = new InMemoryStorageFactory(executorService);
-        /*
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
                 .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, getServiceConfig().getZkURL()))
                 .build().getConfig(BookKeeperConfig::builder);
 
         val zkClient = createZKClient();
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
-        */
 
-        this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
         try {
             this.dataLogFactory.initialize();
         } catch (DurableDataLogException e) {
@@ -133,6 +131,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 String segmentName = fields[2];
                 //TODO: verify the return status
                 debugStreamSegmentContainer.createStreamSegment(segmentName, len, isSealed).get();
+                System.out.println("Segment created for {}" + segmentName);
                 segments.add(getTableKey(segmentName));
             }
             String mFileName = StreamSegmentNameUtils.getMetadataSegmentName(containerId);
@@ -140,11 +139,13 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             boolean isRenamed = metadataFile.renameTo(new File(getBackupMetadataFileName(mFileName)));
             if (!isRenamed)
                 throw new Exception("Rename failed for {}" + mFileName);
+            System.out.println("Renamed {} to {}", mFileName, getBackupMetadataFileName(mFileName));
             ContainerTableExtension ext = debugStreamSegmentContainer.getExtension(ContainerTableExtension.class);
             List<TableEntry> entries = ext.get(getBackupMetadataFileName(mFileName), segments, Duration.ofSeconds(10)).get();
             for (int i = 0; i < entries.size(); i++) {
                 TableEntry entry = entries.get(i);
                 String segmentName = new String(segments.get(i).array(), Charsets.UTF_8);
+                System.out.println("Adjusting the metadata for segment {} in container# {}", segmentName, containerId)
                 SegmentProperties segProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
                 if (segProp.isSealed())
                     debugStreamSegmentContainer.sealStreamSegment(segmentName, Duration.ofSeconds(10));
