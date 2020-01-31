@@ -145,7 +145,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             for (int i = 0; i < entries.size(); i++) {
                 TableEntry entry = entries.get(i);
                 String segmentName = new String(segments.get(i).array(), Charsets.UTF_8);
-                System.out.println("Adjusting the metadata for segment {} in container# {}", segmentName, containerId)
+                System.out.println("Adjusting the metadata for segment {} in container# {}", segmentName, containerId);
                 SegmentProperties segProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
                 if (segProp.isSealed())
                     debugStreamSegmentContainer.sealStreamSegment(segmentName, Duration.ofSeconds(10));
