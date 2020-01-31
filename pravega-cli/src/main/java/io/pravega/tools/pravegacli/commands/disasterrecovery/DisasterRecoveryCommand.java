@@ -119,7 +119,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(0);
             //TODO: wait for container to start
             Services.startAsync(debugStreamSegmentContainer, executorService);
-            System.out.println("Recovery started for container# " + containerId);
+            System.out.format("Recovery started for container# %s", containerId);
             String containerFile = getCommandArgs().getArgs().get(containerId);
             Scanner s = new Scanner(new File(containerFile));
             List<ArrayView> segments = new ArrayList<>();
@@ -131,21 +131,21 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 String segmentName = fields[2];
                 //TODO: verify the return status
                 debugStreamSegmentContainer.createStreamSegment(segmentName, len, isSealed).get();
-                System.out.println("Segment created for {}" + segmentName);
+                System.out.format("Segment created for %s", segmentName);
                 segments.add(getTableKey(segmentName));
             }
             String mFileName = StreamSegmentNameUtils.getMetadataSegmentName(containerId);
             File metadataFile = new File(mFileName);
             boolean isRenamed = metadataFile.renameTo(new File(getBackupMetadataFileName(mFileName)));
             if (!isRenamed)
-                throw new Exception("Rename failed for {}" + mFileName);
-            System.out.println("Renamed {} to {}", mFileName, getBackupMetadataFileName(mFileName));
+                throw new Exception("Rename failed for %s" + mFileName);
+            System.out.format("Renamed %s to %s", mFileName, getBackupMetadataFileName(mFileName));
             ContainerTableExtension ext = debugStreamSegmentContainer.getExtension(ContainerTableExtension.class);
             List<TableEntry> entries = ext.get(getBackupMetadataFileName(mFileName), segments, Duration.ofSeconds(10)).get();
             for (int i = 0; i < entries.size(); i++) {
                 TableEntry entry = entries.get(i);
                 String segmentName = new String(segments.get(i).array(), Charsets.UTF_8);
-                System.out.println("Adjusting the metadata for segment {} in container# {}", segmentName, containerId);
+                System.out.format("Adjusting the metadata for segment %s in container# %s", segmentName, containerId);
                 SegmentProperties segProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
                 if (segProp.isSealed())
                     debugStreamSegmentContainer.sealStreamSegment(segmentName, Duration.ofSeconds(10));
@@ -154,7 +154,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                     updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
                 debugStreamSegmentContainer.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
             }
-            System.out.println("Recovery done for container# " + containerId);
+            System.out.format("Recovery done for container# %s", containerId);
         }
     }
     private static String getBackupMetadataFileName(String metadataFileName){
