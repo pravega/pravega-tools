@@ -1,6 +1,7 @@
 package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
 import com.google.common.base.Charsets;
+import io.pravega.common.concurrent.ExecutorServiceHelpers;
 import io.pravega.common.concurrent.Services;
 import io.pravega.common.util.ArrayView;
 import io.pravega.common.util.ByteArraySegment;
@@ -75,7 +76,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             .with(WriterConfig.MIN_READ_TIMEOUT_MILLIS, 10L)
             .with(WriterConfig.MAX_READ_TIMEOUT_MILLIS, 250L)
             .build();
-    ScheduledExecutorService executorService = getCommandArgs().getState().getExecutor();
+    ScheduledExecutorService executorService = StorageListSegmentsCommand.createExecutorService(1);
 
     public DisasterRecoveryCommand(CommandArgs args) {
         super(args);
@@ -114,6 +115,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService).thenRun(new Worker(debugStreamSegmentContainer, containerId));
         }
+
     }
     private static class Worker implements Runnable {
         private final int containerId;
@@ -140,11 +142,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 boolean isSealed = Boolean.parseBoolean(fields[1]);
                 String segmentName = fields[2];
                 //TODO: verify the return status
-                try {
-                    container.createStreamSegment(segmentName, len, isSealed).get();
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
-                }
+                container.createStreamSegment(segmentName, len, isSealed);
                 System.out.format("Segment created for %s\n", segmentName);
                 segments.add(getTableKey(segmentName));
             }
