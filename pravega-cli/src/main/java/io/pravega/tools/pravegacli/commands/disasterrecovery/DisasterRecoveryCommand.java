@@ -137,7 +137,9 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         System.out.format("Renamed %s to %s\n", _system.getAbsolutePath(), backup_system.getAbsolutePath());
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
-            Services.startAsync(debugStreamSegmentContainer, executorService).thenRun(new Worker(debugStreamSegmentContainer, containerId));
+            Services.startAsync(debugStreamSegmentContainer, executorService)
+                    .thenRun(new Worker(debugStreamSegmentContainer, containerId))
+                    .whenComplete((v, ex) -> Services.stopAsync(debugStreamSegmentContainer, executorService));
         }
 
     }
