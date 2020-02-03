@@ -1,6 +1,7 @@
 package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Preconditions;
 import io.pravega.common.concurrent.ExecutorServiceHelpers;
 import io.pravega.common.concurrent.Services;
 import io.pravega.common.util.ArrayView;
@@ -30,9 +31,13 @@ import io.pravega.segmentstore.storage.DurableDataLogFactory;
 import io.pravega.segmentstore.storage.StorageFactory;
 import io.pravega.segmentstore.storage.cache.CacheStorage;
 import io.pravega.segmentstore.storage.cache.DirectMemoryCache;
+import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
+import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
 import io.pravega.segmentstore.storage.mocks.InMemoryDurableDataLogFactory;
 import io.pravega.segmentstore.storage.mocks.InMemoryStorageFactory;
 import io.pravega.shared.segment.StreamSegmentNameUtils;
+import io.pravega.storage.filesystem.FileSystemStorageConfig;
+import io.pravega.storage.filesystem.FileSystemStorageFactory;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import lombok.val;
@@ -46,6 +51,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private final StreamSegmentContainerFactory containerFactory;
+    private final String root;
     private final StorageFactory storageFactory;
     private final DurableDataLogFactory dataLogFactory;
     private final OperationLogFactory operationLogFactory;
@@ -80,18 +86,23 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
 
     public DisasterRecoveryCommand(CommandArgs args) {
         super(args);
+        ensureArgCount(1);
+        root = getCommandArgs().getArgs().get(0);
+
         val config = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
         //TODO: which storageFactory to instantiate?
-        this.storageFactory = new InMemoryStorageFactory(executorService);
-        /*
+        FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
+                .with(FileSystemStorageConfig.ROOT, getCommandArgs().getArgs().get(0))
+                .build();
+        this.storageFactory = new FileSystemStorageFactory(fsConfig, executorService);
+        //this.storageFactory = new InMemoryStorageFactory();
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
                 .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, getServiceConfig().getZkURL()))
                 .build().getConfig(BookKeeperConfig::builder);
 
         val zkClient = createZKClient();
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
-        */
-        this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
+        //this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
         try {
             this.dataLogFactory.initialize();
         } catch (DurableDataLogException e) {
@@ -111,13 +122,28 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
 
     private static final String BACKUP_PREFIX = "backup";
     public void execute(){
+        File _system = new File(root+"/_system"), backup_system = new File(root+"/backup_system");
+        if(!_system.exists()) {
+            if (!backup_system.exists()) {
+                System.err.println("No " + _system.getAbsolutePath() + " and no " + backup_system.getAbsolutePath());
+            }
+        }else{
+            boolean isRenamed = _system.renameTo(backup_system);
+            if (!isRenamed) {
+                System.out.println("Rename failed for " + _system.getAbsolutePath());
+                return;
+            }
+        }
+        System.out.format("Renamed %s to %s\n", _system.getAbsolutePath(), backup_system.getAbsolutePath());
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService).thenRun(new Worker(debugStreamSegmentContainer, containerId));
         }
 
     }
-    private static class Worker implements Runnable {
+    private static final String METADATA_SEGMENT_NAME_FORMAT = "backup_system/containers/metadata_%d";
+
+    private class Worker implements Runnable {
         private final int containerId;
         private final DebugStreamSegmentContainer container;
         public Worker(DebugStreamSegmentContainer container, int containerId){
@@ -142,22 +168,19 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 boolean isSealed = Boolean.parseBoolean(fields[1]);
                 String segmentName = fields[2];
                 //TODO: verify the return status
-                container.createStreamSegment(segmentName, len, isSealed);
+                try {
+                    container.createStreamSegment(segmentName, len, isSealed).get();
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
+                }
                 System.out.format("Segment created for %s\n", segmentName);
                 segments.add(getTableKey(segmentName));
             }
-            String mFileName = StreamSegmentNameUtils.getMetadataSegmentName(containerId);
-            File metadataFile = new File(mFileName);
-            boolean isRenamed = metadataFile.renameTo(new File(getBackupMetadataFileName(mFileName)));
-            if (!isRenamed) {
-                System.out.println("Rename failed for " + mFileName);
-                return;
-            }
-            System.out.format("Renamed %s to %s\n", mFileName, getBackupMetadataFileName(mFileName));
+
             ContainerTableExtension ext = container.getExtension(ContainerTableExtension.class);
             List<TableEntry> entries = null;
             try {
-                entries = ext.get(getBackupMetadataFileName(mFileName), segments, Duration.ofSeconds(10)).get();
+                entries = ext.get(getBackupMetadataSegmentName(containerId), segments, Duration.ofSeconds(10)).get();
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
@@ -176,8 +199,9 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             System.out.format("Recovery done for container# %s\n", containerId);
         }
     }
-    private static String getBackupMetadataFileName(String metadataFileName){
-        return BACKUP_PREFIX+metadataFileName;
+    public static String getBackupMetadataSegmentName(int containerId) {
+        Preconditions.checkArgument(containerId >= 0, "containerId must be a non-negative number.");
+        return String.format(BACKUP_PREFIX+METADATA_SEGMENT_NAME_FORMAT, containerId);
     }
     private Map<Class<? extends SegmentContainerExtension>, SegmentContainerExtension> createContainerExtensions(
             SegmentContainer container, ScheduledExecutorService executor) {
@@ -193,6 +217,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     }
     public static CommandDescriptor descriptor() {
         final String component = "dr";
-        return new CommandDescriptor(component, "recover", "reconcile segments from container");
+        return new CommandDescriptor(component, "recover", "reconcile segments from container",
+                new ArgDescriptor("root", "root of the file system"));
     }
 }
