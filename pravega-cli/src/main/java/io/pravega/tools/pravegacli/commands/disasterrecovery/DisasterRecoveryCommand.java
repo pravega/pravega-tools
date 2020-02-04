@@ -101,8 +101,8 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 .build().getConfig(BookKeeperConfig::builder);
 
         val zkClient = createZKClient();
-        this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
-        //this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
+        //this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
+        this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
         try {
             this.dataLogFactory.initialize();
         } catch (DurableDataLogException e) {
@@ -154,7 +154,6 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         }
         @Override
         public void run() {
-            container.awaitRunning();
             System.out.format("Recovery started for container# %s\n", containerId);
             Scanner s = null;
             try {
@@ -163,6 +162,8 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 e.printStackTrace();
             }
             List<ArrayView> segments = new ArrayList<>();
+            ContainerTableExtension ext = container.getExtension(ContainerTableExtension.class);
+
             while (s.hasNextLine()) {
                 String[] fields = s.nextLine().split("\t");
                 System.out.println("Creating segment for :\t" + Arrays.toString(fields));
@@ -170,33 +171,27 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 boolean isSealed = Boolean.parseBoolean(fields[1]);
                 String segmentName = fields[2];
                 //TODO: verify the return status
-                try {
-                    container.createStreamSegment(segmentName, len, isSealed).get();
-                } catch (InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
-                }
+                container.createStreamSegment(segmentName, len, isSealed).whenComplete((v, ex) -> {
+                    System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
+                    List<TableEntry> entries = null;
+                    try {
+                        entries = ext.get(getBackupMetadataSegmentName(containerId), segments, Duration.ofSeconds(10)).get();
+                    } catch (InterruptedException | ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                    if(entries == null || entries.size() == 0){
+                        System.out.println("Segment "+ segmentName+ " not found in the Tier-2 metadata");
+                    }
+                    TableEntry entry = entries.get(0);
+                    SegmentProperties segProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
+                    if (segProp.isSealed())
+                        container.sealStreamSegment(segmentName, Duration.ofSeconds(10));
+                    List<AttributeUpdate> updates = new ArrayList<>();
+                    for (Map.Entry<UUID, Long> e : segProp.getAttributes().entrySet())
+                        updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
+                    container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
+                });
                 System.out.format("Segment created for %s\n", segmentName);
-                segments.add(getTableKey(segmentName));
-            }
-
-            ContainerTableExtension ext = container.getExtension(ContainerTableExtension.class);
-            List<TableEntry> entries = null;
-            try {
-                entries = ext.get(getBackupMetadataSegmentName(containerId), segments, Duration.ofSeconds(10)).get();
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
-            }
-            for (int i = 0; i < entries.size(); i++) {
-                TableEntry entry = entries.get(i);
-                String segmentName = new String(segments.get(i).array(), Charsets.UTF_8);
-                System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
-                SegmentProperties segProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
-                if (segProp.isSealed())
-                    container.sealStreamSegment(segmentName, Duration.ofSeconds(10));
-                List<AttributeUpdate> updates = new ArrayList<>();
-                for (Map.Entry<UUID, Long> e : segProp.getAttributes().entrySet())
-                    updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
-                container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
             }
             System.out.format("Recovery done for container# %s\n", containerId);
         }
