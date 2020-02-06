@@ -12,16 +12,22 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 import io.pravega.client.netty.impl.ConnectionFactory;
 import io.pravega.client.netty.impl.ConnectionFactoryImpl;
 import io.pravega.client.stream.impl.DefaultCredentials;
+import io.pravega.common.cluster.Host;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
+import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.host.HostControllerStore;
 import io.pravega.controller.store.host.HostMonitorConfig;
 import io.pravega.controller.store.host.HostStoreFactory;
 import io.pravega.controller.store.host.impl.HostMonitorConfigImpl;
+import io.pravega.controller.store.stream.StreamMetadataStore;
+import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.util.Config;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.AccessLevel;
+import lombok.Cleanup;
 import lombok.RequiredArgsConstructor;
 import org.apache.curator.framework.CuratorFramework;
 import org.glassfish.jersey.client.ClientConfig;
@@ -33,6 +39,11 @@ import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
@@ -40,18 +51,19 @@ import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 /**
  * Base for any Troubleshoot-related commands.
  */
-public abstract class TroubleshootCommand extends Command{
+public abstract class TroubleshootCommandHelper extends Command{
     static final String COMPONENT = "troubleshoot";
-
+    protected StreamMetadataStore store;
+    protected ScheduledExecutorService executor ;
     /**
      * Creates a new instance of the Command class.
      *
      * @param args The arguments for the command.
      */
-    TroubleshootCommand(CommandArgs args) {
+    public TroubleshootCommandHelper(CommandArgs args) {
         super(args);
-    }
 
+    }
     /**
      * Creates a context for child classes consisting of a REST client to execute calls against the Troubleshooter.
      *
@@ -100,11 +112,14 @@ public abstract class TroubleshootCommand extends Command{
     }
 
     public SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
-
+        HashMap<Host, Set<Integer>> hostContainerMap = new HashMap<>();
+        hostContainerMap.put(new Host("localhost", 6000, null), IntStream.range(0, 4).boxed().collect(Collectors.toSet()));
+        System.out.println(hostContainerMap);
         HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
                 .hostMonitorEnabled(true)
                 .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
                 .containerCount(getServiceConfig().getContainerCount())
+                .hostContainerMap(hostContainerMap)
                 .build();
         HostControllerStore hostStore = HostStoreFactory.createInMemoryStore(hostMonitorConfig);
         io.pravega.client.ClientConfig clientConfig = io.pravega.client.ClientConfig.builder()
@@ -115,6 +130,36 @@ public abstract class TroubleshootCommand extends Command{
         ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
         return new SegmentHelper(connectionFactory, hostStore);
 
+        /*        HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
+                .hostMonitorEnabled(true)
+                .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
+                .containerCount(getServiceConfig().getContainerCount())
+                .build();
+        HostControllerStore hostStore = HostStoreFactory.createStore(hostMonitorConfig, StoreClientFactory.createZKStoreClient(zkClient));
+        io.pravega.client.ClientConfig clientConfig = io.pravega.client.ClientConfig.builder()
+                .controllerURI(URI.create((getCLIControllerConfig().getControllerGrpcURI())))
+                .validateHostName(getCLIControllerConfig().isAuthEnabled())
+                .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
+                .build();
+        ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
+        return new SegmentHelper(connectionFactory, hostStore);*/
+    }
+
+    public StreamMetadataStore createMetadataStore(ScheduledExecutorService executor)
+    {
+        StreamMetadataStore store;
+        @Cleanup
+        CuratorFramework zkClient = createZKClient();
+        SegmentHelper segmentHelper;
+        if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
+            store = StreamStoreFactory.createZKStore(zkClient, executor);
+        } else {
+            segmentHelper = instantiateSegmentHelper(zkClient);
+            GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
+            store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
+            System.out.println("store is here = " +store);
+        }
+        return store;
     }
 
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)

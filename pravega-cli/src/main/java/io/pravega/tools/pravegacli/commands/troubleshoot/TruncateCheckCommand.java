@@ -29,7 +29,7 @@ import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMa
 /**
  * A helper class that checks the stream with respect to the truncate case.
  */
-public class TruncateCheckCommand extends TroubleshootCommand implements Check {
+public class TruncateCheckCommand extends TroubleshootCommandHelper implements Check {
 
     /**
      * Creates a new instance of the Command class.

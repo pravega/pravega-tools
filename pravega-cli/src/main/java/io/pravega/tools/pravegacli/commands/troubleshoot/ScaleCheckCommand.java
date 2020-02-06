@@ -35,7 +35,7 @@ import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMa
 /**
  * A helper class that checks the stream with respect to the scale case.
  */
-public class ScaleCheckCommand extends TroubleshootCommand implements Check {
+public class ScaleCheckCommand extends TroubleshootCommandHelper implements Check {
 
     /**
      * Creates a new instance of the Command class.

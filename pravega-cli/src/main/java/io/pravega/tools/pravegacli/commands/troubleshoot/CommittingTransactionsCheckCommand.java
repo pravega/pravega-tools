@@ -34,7 +34,7 @@ import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMa
 /**
  * A helper class that checks the stream with respect to the committing_txn case.
  */
-public class CommittingTransactionsCheckCommand extends TroubleshootCommand implements Check{
+public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelper implements Check{
 
     /**
      * Creates a new instance of the Command class.

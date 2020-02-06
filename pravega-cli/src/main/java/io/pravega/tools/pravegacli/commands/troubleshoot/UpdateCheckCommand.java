@@ -34,7 +34,7 @@ import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFault
 /**
  * A helper class that checks the stream with respect to the update case.
  */
-public class UpdateCheckCommand extends TroubleshootCommand implements Check {
+public class UpdateCheckCommand extends TroubleshootCommandHelper implements Check {
 
     protected StreamMetadataStore store;
 

@@ -31,9 +31,8 @@ import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFault
 /**
  * Runs a diagnosis of the stream while providing pointers and highlighting faults when found.
  */
-public class TroubleshootCheckCommand extends TroubleshootCommand {
+public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
 
-    protected StreamMetadataStore store;
 
     /**
      * Creates a new instance of the Command class.
@@ -46,42 +45,34 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
 
     @Override
     public void execute() {
+
+
         ensureArgCount(2);
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
-
         try {
-            @Cleanup
-            CuratorFramework zkClient = createZKClient();
-            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-
-            SegmentHelper segmentHelper;
-            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
-                store = StreamStoreFactory.createZKStore(zkClient, executor);
-            } else {
-                segmentHelper = instantiateSegmentHelper(zkClient);
-                GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
-                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
-            }
-
-            GeneralCheckCommand general = new GeneralCheckCommand(getCommandArgs());
+            executor = getCommandArgs().getState().getExecutor();
+            store=getStreamMetaDataStore(executor);
             ScaleCheckCommand scale = new ScaleCheckCommand(getCommandArgs());
             CommittingTransactionsCheckCommand committingTransactions = new CommittingTransactionsCheckCommand(getCommandArgs());
             TruncateCheckCommand truncate = new TruncateCheckCommand(getCommandArgs());
             UpdateCheckCommand update = new UpdateCheckCommand(getCommandArgs());
+            GeneralCheckCommand general = new GeneralCheckCommand(getCommandArgs());
 
             // The Update Checkup.
             Map<Record, Set<Fault>> updateFaults = update.check(store, executor);
-
+            System.out.println("check 4");
             // The General Checkup.
             if (runCheckup(faults, updateFaults, general::check, executor, "General Checkup")) {
                 return;
             }
-
+            System.out.println("check 5");
             // Check for viability of workflow check up.
             int currentEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
             int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, streamName, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().getEpoch();
+            System.out.println("historyCurrentEpoch" + historyCurrentEpoch);
+            System.out.println("check 6");
 
             if (currentEpoch != historyCurrentEpoch) {
                 // The Scale Checkup.
@@ -90,6 +81,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 }
 
                 // The Committing Transactions Checkup.
+                System.out.println("check 7");
                 if (runCheckup(faults, updateFaults, committingTransactions::check, executor, "Committing_txn Checkup")) {
                     return;
                 }
@@ -100,12 +92,20 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
                 return;
             }
 
+
             output(outputFaults(updateFaults));
             output("Everything seems OK.\n");
 
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
+    }
+
+    public ScheduledExecutorService  getExcecutor(){
+        return getCommandArgs().getState().getExecutor();
+    }
+    public StreamMetadataStore getStreamMetaDataStore(ScheduledExecutorService executor){
+        return createMetadataStore(executor);
     }
 
     public static CommandDescriptor descriptor() {
@@ -115,8 +115,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
     }
 
     private boolean runCheckup(final Map<Record, Set<Fault>> faults, final Map<Record, Set<Fault>> updateFaults,
-                            final BiFunction<StreamMetadataStore, ScheduledExecutorService, Map<Record, Set<Fault>>> check,
-                            final ScheduledExecutorService executor, final String checkupName) {
+                               final BiFunction<StreamMetadataStore, ScheduledExecutorService, Map<Record, Set<Fault>>> check,
+                               final ScheduledExecutorService executor, final String checkupName ) {
         try {
             putAllInFaultMap(faults, check.apply(store, executor));
 
@@ -133,4 +133,6 @@ public class TroubleshootCheckCommand extends TroubleshootCommand {
             return false;
         }
     }
+
+
 }

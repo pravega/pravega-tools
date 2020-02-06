@@ -81,7 +81,12 @@ public class ScaleCheckTest {
         //checking for unavailability of epochtransitionrecord
         VersionedMetadata<EpochTransitionRecord> currentEpochTransitionVersionMetadata = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
         String result=unvalabilityCheck(currentEpochTransitionVersionMetadata);
-        Assert.assertTrue("StreamConfigurationRecord is corrupted or unavailable".equalsIgnoreCase(result));
+        System.out.println("value of fault = " + result);
+        Assert.assertTrue("EpochTransitionRecord is corrupted or unavailable".equalsIgnoreCase(result));
+
+        System.out.println("value = " +sc.check(store,executor));
+
+
 
     }
 
