@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
+import io.pravega.common.Exceptions;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StreamMetadataStore;
@@ -24,6 +25,7 @@ import org.apache.curator.framework.CuratorFramework;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
@@ -74,26 +76,31 @@ public class UpdateCheckCommand extends TroubleshootCommand implements Check {
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
-        StreamConfigurationRecord configurationRecord=null;
+        StreamConfigurationRecord configurationRecord = null;
 
         try {
             configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
                     .thenApply(VersionedMetadata::getObject).join();
 
-        } catch (StoreException.DataNotFoundException e) {
-            Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(null, StreamConfigurationRecord.class);
-            putInFaultMap(faults, streamConfigurationRecord,
-                    Fault.unavailable("StreamConfigurationRecord is corrupted or unavailable"));
+        } catch (CompletionException completionException) {
+            if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException) {
+                StoreException.DataNotFoundException e = (StoreException.DataNotFoundException) Exceptions.unwrap(completionException);
+                Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(null, StreamConfigurationRecord.class);
+                putInFaultMap(faults, streamConfigurationRecord,
+                        Fault.unavailable("StreamConfigurationRecord is corrupted or unavailable"));
 
-            return faults;
+                return faults;
+            }
         }
-        catch (Exception e){
+        catch (Exception e)
+        {
             Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(configurationRecord, StreamConfigurationRecord.class);
             putInFaultMap(faults, streamConfigurationRecord,
                     Fault.inconsistent(streamConfigurationRecord, "StreamConfigurationRecord consistency check requires human intervention"));
 
             return faults;
         }
+
         return faults;
     }
 

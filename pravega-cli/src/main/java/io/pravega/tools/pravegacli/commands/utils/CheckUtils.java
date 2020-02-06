@@ -59,7 +59,8 @@ public class CheckUtils {
         Record<EpochRecord> epochRecord = new Record<>(record, EpochRecord.class);
         Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(history, HistoryTimeSeriesRecord.class);
         boolean exists;
-
+        System.out.println("value of history = "+ historyTimeSeriesRecord);
+        System.out.println("value of epoch record = "+ epochRecord);
         // Similar fields should have similar values.
         // Epoch.
         exists = checkField(record, history, "epoch value", EpochRecord::getEpoch, HistoryTimeSeriesRecord::getEpoch, faults);

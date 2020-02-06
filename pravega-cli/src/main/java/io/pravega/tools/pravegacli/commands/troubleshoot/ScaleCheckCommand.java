@@ -10,6 +10,7 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableMap;
+import io.micrometer.shaded.reactor.core.Exceptions;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.VersionedMetadata;
@@ -22,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
@@ -55,24 +57,21 @@ public class ScaleCheckCommand extends TroubleshootCommand implements Check {
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
         // Check for the existence of an EpochTransitionRecord.
-        EpochTransitionRecord transitionRecord;
+        EpochTransitionRecord transitionRecord=EpochTransitionRecord.EMPTY;
 
         // To obtain the EpochTransitionRecord and check if it is corrupted or not.
         try {
             transitionRecord = store.getEpochTransition(scope, streamName, null, executor)
                     .thenApply(VersionedMetadata::getObject).join();
 
-        } catch (StoreException.DataNotFoundException e) {
-            Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(null, EpochTransitionRecord.class);
-            putInFaultMap(faults, epochTransitionRecord,
-                    Fault.unavailable("EpochTransitionRecord is corrupted or unavailable"));
+        } catch (CompletionException completionException) {
+            if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException || transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
+                Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(null, EpochTransitionRecord.class);
+                putInFaultMap(faults, epochTransitionRecord,
+                        Fault.unavailable("EpochTransitionRecord is corrupted or unavailable"));
 
-            return faults;
-        }
-
-        // If the EpochTransitionRecord is EMPTY then there's no need to check further.
-        if (transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
-            return faults;
+                return faults;
+            }
         }
 
         EpochRecord neededEpochRecord = null;

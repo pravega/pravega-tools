@@ -16,7 +16,6 @@ import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.Timeout;
-import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;

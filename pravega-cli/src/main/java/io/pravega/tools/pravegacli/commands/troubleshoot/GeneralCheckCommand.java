@@ -46,8 +46,12 @@ public class GeneralCheckCommand extends TroubleshootCommand implements Check {
     @Override
     public Map<Record, Set<Fault>> check(StreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
-        final String scope = getCommandArgs().getArgs().get(0);
-        final String streamName = getCommandArgs().getArgs().get(1);
+        String scope = getCommandArgs().getArgs().get(0);
+        String streamName = getCommandArgs().getArgs().get(1);
+
+
+
+
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
         HistoryTimeSeries history;
