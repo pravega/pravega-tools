@@ -90,7 +90,7 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
         assert False, "You have not enough nodes to tolerate such amount of failures"
     elif vms - failures_to_tolerate < Constants.min_bookkeeper_servers or vms - failures_to_tolerate < Constants.min_zookeeper_servers:
         # If we are collocating more than 1 Zookeeper or Bookie per node, we need an additional instance. Otherwise, we
-        # lead in a situation like the following: 3 VM/nodes with 4 Bookie/Zookeeper servers. This means that there is
+        # lead into a situation like the following: 3 VM/nodes with 4 Bookie/Zookeeper servers. This means that there is
         # one node with 2 instances, and if this node crashes, then we fall below the min number of replicas defined.
         zookeeper_servers += 1
         bookkeeper_servers += 1
@@ -108,7 +108,8 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
     can_allocate_cluster, the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives,
                                                     zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
     # First, make sure that whatever initial number of instances can be allocated, otherwise just throw an error.
-    assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources"
+    assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources. " + \
+                                 "Please, check the Constants file to see the resources requested per instance."
 
     # Ask to the user whether this is a metadata-intensive workload or not.
     metadata_heavy_workload = get_bool_input("Is the workload metadata-heavy (i.e., many clients, small transactions)?")
