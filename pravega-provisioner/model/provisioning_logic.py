@@ -151,3 +151,54 @@ def calc_controllers_for_workload(num_streams, heavy_operations_per_second, ligh
                heavy_operations_per_second / performance_profile.controller_max_heavy_operations_per_second + 1,
                light_operations_per_second / performance_profile.controller_max_light_operations_per_second + 1))
 
+
+def can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
+    the_cluster = list()
+    # Initialize the cluster modelling the resources available (VM_CPUS, VM_RAM).
+    for i in range(vms):
+        the_cluster.append((vm_cpus, vm_ram_gb, vm_local_drives, []))
+
+    # Allocate the different instances in a round robin fashion across nodes to maximize failure tolerance.
+    # Start allocating Bookies
+    drives_per_bookie = 0
+    if vm_local_drives > 0:
+        drives_per_bookie = Constants.drives_per_bookie
+    if not _subtract_resources_from_cluster(the_cluster, bookkeeper_servers, Constants.bookie_cpus, Constants.bookie_ram_gb, drives_per_bookie, "bk"):
+        return False, the_cluster
+    # Then, attempt to allocate Segment Stores
+    if not _subtract_resources_from_cluster(the_cluster, segment_stores, Constants.segment_store_cpus, Constants.segment_store_ram_gb, 0, "ss"):
+        return False, the_cluster
+    # Attempt to allocate Controllers
+    if not _subtract_resources_from_cluster(the_cluster, controllers, Constants.controller_cpus, Constants.controller_ram_gb, 0, "c"):
+        return False, the_cluster
+    # Attempt to allocate Zookeeper servers
+    if not _subtract_resources_from_cluster(the_cluster, zookeeper_servers, Constants.zk_server_cpus, Constants.zk_server_ram_gb, 0, "zk"):
+        return False, the_cluster
+
+    # Allocation of all the instances has been possible.
+    return True, the_cluster
+
+
+def _subtract_resources_from_cluster(the_cluster, num_instances, cpu_per_instance, ram_per_instance, drives_per_instance, node_type, enforce_load_balancing=True):
+    finish_allocation = False
+    completed_allocations = retries = 0
+    while not finish_allocation:
+        for x in range(num_instances - completed_allocations):
+            [old_cpu, old_ram, old_drives, processes_in_vm] = the_cluster[x % len(the_cluster)]
+            # Only allocate when there are enough resources
+            if (old_cpu - cpu_per_instance) >= 0 and (old_ram - ram_per_instance) >= 0 and (old_drives - drives_per_instance) >= 0:
+                processes_in_vm.append(node_type)
+                the_cluster[x % len(the_cluster)] = (old_cpu - cpu_per_instance, old_ram - ram_per_instance, old_drives - drives_per_instance, processes_in_vm)
+                completed_allocations += 1
+        # After allocating instances, sort nodes based on available resources.
+        the_cluster.sort(key=lambda tup: tup[0], reverse=True)
+
+        if num_instances == completed_allocations:
+            finish_allocation = True
+        if retries > 0 and enforce_load_balancing or retries >= len(the_cluster):
+            return False
+        retries += 1
+
+    return True
+
+
