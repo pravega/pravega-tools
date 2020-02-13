@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import io.pravega.common.concurrent.ExecutorServiceHelpers;
 import io.pravega.common.concurrent.Services;
+import io.pravega.common.io.StreamHelpers;
 import io.pravega.common.util.ArrayView;
 import io.pravega.common.util.ByteArraySegment;
 import io.pravega.segmentstore.contracts.AttributeUpdate;
@@ -40,9 +41,12 @@ import io.pravega.storage.filesystem.FileSystemStorageConfig;
 import io.pravega.storage.filesystem.FileSystemStorageFactory;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import lombok.Cleanup;
 import lombok.val;
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
+import org.junit.Assert;
+import sun.jvm.hotspot.debugger.ReadResult;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -52,6 +56,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Stream;
@@ -128,27 +133,26 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
 
 
     private static final String BACKUP_PREFIX = "backup_";
-    public void execute() throws IOException {
+    public void execute() throws Exception {
 
         //generate segToContainer files
 
         StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
-        try {
-            lsCmd.execute();
-        }catch(Exception e){
-            e.printStackTrace();
-        }
-        System.out.println("Successfully generated segmentToContainer files!");
+        lsCmd.execute();
 
         File[] dirs = new File(root).listFiles(File::isDirectory);
         if (dirs != null) {
             for(File d : dirs) {
-                File target = new File(d.getParent()+"/"+BACKUP_PREFIX + d.getName());
-                if(!target.exists() && !d.renameTo(target)) {
-                    System.err.println("Rename failed for " + d.getAbsolutePath());
-                    System.exit(1);
+                if(d.getName().startsWith(BACKUP_PREFIX)){
+                    System.err.println("Backup file exists already!");
+                }else {
+                    File target = new File(d.getParent() + "/" + BACKUP_PREFIX + d.getName());
+                    if (!target.exists() && !d.renameTo(target)) {
+                        System.err.println("Rename failed for " + d.getAbsolutePath());
+                        System.exit(1);
+                    }
+                    System.out.format("Renamed %s to %s\n", d.getAbsolutePath(), target.getAbsolutePath());
                 }
-                System.out.format("Renamed %s to %s\n", d.getAbsolutePath(), target.getAbsolutePath());
             }
         }else{
             System.err.println("There are no scopes found in " + root);
@@ -175,6 +179,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         }
         @Override
         public void run() {
+            System.out.println("=================================================");
             System.out.format("Recovery started for container# %s\n", containerId);
             Scanner s = null;
             try {
@@ -201,20 +206,39 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                         e.printStackTrace();
                     }
                     if(entries == null || entries.size() == 0){
-                        System.out.println("Segment "+ segmentName+ " not found in the Tier-2 metadata");
+                        System.out.println("Segment "+ segmentName+ " not found in the old container metadata files on Tier-2");
                     }
                     TableEntry entry = entries.get(0);
-                    SegmentProperties segProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
-                    if (segProp.isSealed())
+                    SegmentProperties oldContainerSegProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
+                    if (oldContainerSegProp.isSealed())
                         container.sealStreamSegment(segmentName, Duration.ofSeconds(10));
                     List<AttributeUpdate> updates = new ArrayList<>();
-                    for (Map.Entry<UUID, Long> e : segProp.getAttributes().entrySet())
+                    for (Map.Entry<UUID, Long> e : oldContainerSegProp.getAttributes().entrySet())
                         updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
                     container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
                 });
                 System.out.format("Segment created for %s\n", segmentName);
+                /*
+                container.getStreamSegmentInfo(segmentName, Duration.ofSeconds(10)).whenComplete( (segInfo, ex) -> {
+                    Assert.assertEquals("segInfo doesn't match.", segInfo.getLength(), len);
+                });
+
+                byte[] readBuffer = new byte[len];
+                container.read(segmentName, 0, len, Duration.ofSeconds(10)).whenComplete( (res, ex) -> {
+                    val firstEntry = res.next();
+                    firstEntry.requestContent(Duration.ofSeconds(10));
+                    firstEntry.getContent().whenComplete( (entryContents , ex1) -> {
+                    Assert.assertEquals("Unexpected number of bytes read.", readBuffer.length, len);
+                    try {
+                        StreamHelpers.readAll(entryContents.getData(), readBuffer, 0, readBuffer.length);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }});
+                });
+                 */
             }
             System.out.format("Recovery done for container# %s\n", containerId);
+            System.out.println("=================================================");
         }
     }
     public static String getBackupMetadataSegmentName(int containerId) {
