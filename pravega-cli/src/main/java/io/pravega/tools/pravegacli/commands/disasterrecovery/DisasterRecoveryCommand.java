@@ -131,7 +131,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     public void execute() throws IOException {
 
         //generate segToContainer files
-        /*
+
         StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
         try {
             lsCmd.execute();
@@ -140,7 +140,6 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         }
         System.out.println("Successfully generated segmentToContainer files!");
 
-         */
         File[] dirs = new File(root).listFiles(File::isDirectory);
         if (dirs != null) {
             for(File d : dirs) {
@@ -171,7 +170,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         }
 
     }
-    private static final String METADATA_SEGMENT_NAME_FORMAT = "backup_system/containers/metadata_%d";
+    private static final String METADATA_SEGMENT_NAME_FORMAT = "_system/containers/metadata_%d";
 
     private class Worker implements Runnable {
         private final int containerId;

@@ -51,7 +51,7 @@ public class StorageListSegmentsCommand extends Command {
         FileWriter[] writers = new FileWriter[containerCount];
         for (int containerId=0; containerId < containerCount; containerId++) {
             File f = new File(String.valueOf(containerId));
-            if(!f.delete()){
+            if(f.exists() && !f.delete()){
                 System.err.println("Failed to delete "+ f.getAbsolutePath());
                 System.exit(1);
             }
