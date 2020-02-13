@@ -182,7 +182,6 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             }
-            List<ArrayView> segments = new ArrayList<>();
             ContainerTableExtension ext = container.getExtension(ContainerTableExtension.class);
 
             while (s.hasNextLine()) {
@@ -194,9 +193,10 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 //TODO: verify the return status
                 container.createStreamSegment(segmentName, len, isSealed).whenComplete((v, ex) -> {
                     System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
+
                     List<TableEntry> entries = null;
                     try {
-                        entries = ext.get(getBackupMetadataSegmentName(containerId), segments, Duration.ofSeconds(10)).get();
+                        entries = ext.get(getBackupMetadataSegmentName(containerId), Collections.singletonList(getTableKey(segmentName)), Duration.ofSeconds(10)).get();
                     } catch (InterruptedException | ExecutionException e) {
                         e.printStackTrace();
                     }
@@ -225,7 +225,9 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             SegmentContainer container, ScheduledExecutorService executor) {
         return Collections.singletonMap(ContainerTableExtension.class, new ContainerTableExtensionImpl(container, this.cacheManager, executor));
     }
-
+    private static ArrayView getTableKey(String segmentName) {
+        return new ByteArraySegment(segmentName.getBytes(Charsets.UTF_8));
+    }
     @Override
     public void close() throws Exception {
 
