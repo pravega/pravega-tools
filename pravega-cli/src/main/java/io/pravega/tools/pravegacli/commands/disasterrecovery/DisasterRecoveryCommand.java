@@ -108,8 +108,8 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 .build().getConfig(BookKeeperConfig::builder);
 
         val zkClient = createZKClient();
-        //this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
-        this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
+        this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
+        //this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
         try {
             this.dataLogFactory.initialize();
         } catch (DurableDataLogException e) {
