@@ -144,13 +144,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         if (dirs != null) {
             for(File d : dirs) {
                 File target = new File(d.getParent()+"/"+BACKUP_PREFIX + d.getName());
-                if(target.exists()) {
-                    if (!target.delete()) {
-                        System.err.println("Failed to delete " + d.getAbsolutePath());
-                        System.exit(1);
-                    }
-                }
-                if(!d.renameTo(target)) {
+                if(!target.exists() && !d.renameTo(target)) {
                     System.err.println("Rename failed for " + d.getAbsolutePath());
                     System.exit(1);
                 }
