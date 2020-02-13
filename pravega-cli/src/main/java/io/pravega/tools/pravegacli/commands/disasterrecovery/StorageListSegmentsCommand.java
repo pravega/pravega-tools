@@ -66,7 +66,7 @@ public class StorageListSegmentsCommand extends Command {
         while(it.hasNext()) {
             SegmentProperties curr = it.next();
             //TODO: move this to server side?
-            if(StreamSegmentNameUtils.isAttributeSegment(curr.getName()))
+            if(curr.getName().startsWith("/_system") || StreamSegmentNameUtils.isAttributeSegment(curr.getName()))
                 continue;
             int containerId = segToConMapper.getContainerId(curr.getName());
             writers[containerId].write(curr.getLength()+"\t"+ curr.isSealed()+"\t"+curr.getName()+"\n");
