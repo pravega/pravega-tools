@@ -51,8 +51,14 @@ public class StorageListSegmentsCommand extends Command {
         FileWriter[] writers = new FileWriter[containerCount];
         for (int containerId=0; containerId < containerCount; containerId++) {
             File f = new File(String.valueOf(containerId));
-            f.delete();
-            f.createNewFile();
+            if(!f.delete()){
+                System.err.println("Failed to delete "+ f.getAbsolutePath());
+                System.exit(1);
+            }
+            if(!f.createNewFile()){
+                System.err.println("Failed to create "+ f.getAbsolutePath());
+                System.exit(1);
+            }
             writers[containerId] = new FileWriter(f.getName());
         }
         System.out.println("Generating container files with the segments they own...");

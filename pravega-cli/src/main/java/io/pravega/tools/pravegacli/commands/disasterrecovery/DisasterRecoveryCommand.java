@@ -41,13 +41,20 @@ import io.pravega.storage.filesystem.FileSystemStorageFactory;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import lombok.val;
+import org.apache.bookkeeper.client.BKException;
+import org.apache.bookkeeper.client.BookKeeper;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Stream;
 
 public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private final StreamSegmentContainerFactory containerFactory;
@@ -120,21 +127,42 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     }
 
 
-    private static final String BACKUP_PREFIX = "backup";
-    public void execute(){
-        File _system = new File(root+"/_system"), backup_system = new File(root+"/backup_system");
-        if(!_system.exists()) {
-            if (!backup_system.exists()) {
-                System.err.println("No " + _system.getAbsolutePath() + " and no " + backup_system.getAbsolutePath());
+    private static final String BACKUP_PREFIX = "backup_";
+    public void execute() throws IOException {
+
+        //generate segToContainer files
+        /*
+        StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
+        try {
+            lsCmd.execute();
+        }catch(Exception e){
+            e.printStackTrace();
+        }
+        System.out.println("Successfully generated segmentToContainer files!");
+
+         */
+        File[] dirs = new File(root).listFiles(File::isDirectory);
+        if (dirs != null) {
+            for(File d : dirs) {
+                File target = new File(d.getParent()+"/"+BACKUP_PREFIX + d.getName());
+                if(target.exists()) {
+                    if (!target.delete()) {
+                        System.err.println("Failed to delete " + d.getAbsolutePath());
+                        System.exit(1);
+                    }
+                }
+                if(!d.renameTo(target)) {
+                    System.err.println("Rename failed for " + d.getAbsolutePath());
+                    System.exit(1);
+                }
+                System.out.format("Renamed %s to %s\n", d.getAbsolutePath(), target.getAbsolutePath());
             }
         }else{
-            boolean isRenamed = _system.renameTo(backup_system);
-            if (!isRenamed) {
-                System.out.println("Rename failed for " + _system.getAbsolutePath());
-                return;
-            }
+            System.err.println("There are no scopes found in " + root);
+            System.exit(1);
         }
-        System.out.format("Renamed %s to %s\n", _system.getAbsolutePath(), backup_system.getAbsolutePath());
+
+
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService)
@@ -203,9 +231,6 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private Map<Class<? extends SegmentContainerExtension>, SegmentContainerExtension> createContainerExtensions(
             SegmentContainer container, ScheduledExecutorService executor) {
         return Collections.singletonMap(ContainerTableExtension.class, new ContainerTableExtensionImpl(container, this.cacheManager, executor));
-    }
-    private static ArrayView getTableKey(String segmentName) {
-        return new ByteArraySegment(segmentName.getBytes(Charsets.UTF_8));
     }
 
     @Override
