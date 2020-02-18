@@ -8,8 +8,6 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
-
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.micrometer.shaded.reactor.core.Exceptions;
 import io.pravega.controller.store.stream.StreamMetadataStore;
@@ -17,7 +15,6 @@ import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.*;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,7 +24,6 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
-
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;

@@ -6,7 +6,6 @@ import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.*;
-import io.pravega.controller.store.stream.records.StreamSegmentRecord;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
@@ -18,11 +17,9 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 public class TruncateCheckTest {
     private SegmentHelper segmentHelper;
@@ -137,8 +134,6 @@ public class TruncateCheckTest {
         changingBackToOrginalState(newStreamTruncationRecord1,oldRecord);
         return(SETUP_UTILS.faultvalue(faults));
     }
-
-
     private void changingBackToOrginalState(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata,StreamTruncationRecord oldStreamTruncationRecord )
     {
         Version version = currentStreamTruncationRecordMetadata.getVersion();

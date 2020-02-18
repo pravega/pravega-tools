@@ -1,16 +1,8 @@
 package io.pravega.tools.pravegacli.unitTest.troubleshot;
 
 import com.google.common.collect.ImmutableList;
-import io.pravega.client.stream.StreamConfiguration;
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
-import io.pravega.controller.store.stream.PravegaTablesStoreHelper;
 import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.Version;
-import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.EpochRecord;
-import io.pravega.controller.store.stream.records.HistoryTimeSeries;
-import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.controller.store.stream.records.StreamSegmentRecord;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
@@ -23,9 +15,7 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.mockito.Mock;
 import org.mockito.Mockito;
-
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -77,7 +67,6 @@ public class GeneralCheckTest {
 
     @Test
     public void executeCommand() throws Exception {
-
         testStream="testStream";
         initialsetup_commands();
         initialsetup_store();

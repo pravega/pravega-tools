@@ -7,11 +7,9 @@ import io.pravega.common.Exceptions;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.*;
-import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.EpochTransitionRecord;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.test.common.AssertExtensions;
-import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
@@ -21,16 +19,11 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.w3c.dom.events.MutationEvent;
-
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class ScaleCheckTest {
     private SegmentHelper segmentHelper;
@@ -89,11 +82,9 @@ public class ScaleCheckTest {
         final ScalingPolicy policy = ScalingPolicy.fixed(2);
         final StreamConfiguration configuration = StreamConfiguration.builder().scalingPolicy(policy).build();
         long start = System.currentTimeMillis();
-
         store.createStream(scope, stream, configuration, start, null, executor).get();
         store.setState(scope, stream, State.ACTIVE, null, executor).get();
         tablename = SETUP_UTILS.getMetadataTable(testStream,storeHelper).join();
-
         VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata= do_scale();
 
         //checking for unavalability
@@ -105,13 +96,11 @@ public class ScaleCheckTest {
         String result1 =unvalabilityCheck(currentEpochTransitionRecordMetadata1);
         Assert.assertEquals(result1,"EpochTransitionRecord is corrupted or unavailable");
 
-
         //checking for inconsistency
         VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata2= storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
         String result2=Inconsistency_check(currentEpochTransitionRecordMetadata2);
         System.out.println("value of result2 = "+result2);
         Assert.assertEquals(result2,"HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments");
-
     }
 
     public  VersionedMetadata<EpochTransitionRecord>  do_scale()

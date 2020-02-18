@@ -8,15 +8,13 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
-
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import io.micrometer.shaded.reactor.core.Exceptions;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.*;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,8 +24,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
@@ -101,6 +97,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
 
                     epochExists = false;
                 }
+
                 try {
                     int chunkNumber=committingRecord.getNewTxnEpoch()/HistoryTimeSeries.HISTORY_CHUNK_SIZE;
                     duplicateTxnHistoryRecord = store.getHistoryTimeSeriesChunk(scope, streamName,
@@ -109,7 +106,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
                 } catch (StoreException.DataNotFoundException e) {
                     Record<HistoryTimeSeriesRecord> duplicateTxnHistory = new Record<>(null, HistoryTimeSeriesRecord.class);
                     putInFaultMap(faults, duplicateTxnHistory,
-                            Fault.unavailable("Duplicate txn history: " + committingRecord.getNewTxnEpoch() + " is corrupted or does not exist."));
+                            Fault.unavailable("Duplicate txn history: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
 
                     historyExists = false;
                 }
@@ -133,7 +130,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
                     duplicateActiveEpochRecord = store.getEpoch(scope, streamName, committingRecord.getNewActiveEpoch(),
                             null, executor).join();
 
-                } catch (StoreException.DataNotFoundException e) {
+                }  catch (CompletionException completionException ) {
                     Record<EpochRecord> duplicateActiveRecord = new Record<>(null, EpochRecord.class);
                     putInFaultMap(faults, duplicateActiveRecord,
                             Fault.unavailable("Duplicate active epoch: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
@@ -269,5 +266,10 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
             putInFaultMap(faults, duplicateRecord,
                     Fault.inconsistent(originalRecord, "Fault in the reference epochs"));
         }
+    }
+    public static long computeSegmentId(int segmentNumber, int epoch) {
+        Preconditions.checkArgument(segmentNumber >= 0);
+        Preconditions.checkArgument(epoch >= 0);
+        return (long) epoch << 32 | (segmentNumber & 0xFFFFFFFFL);
     }
 }

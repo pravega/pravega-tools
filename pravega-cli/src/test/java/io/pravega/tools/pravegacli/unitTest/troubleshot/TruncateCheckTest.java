@@ -6,8 +6,6 @@ import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.*;
-import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
-import io.pravega.controller.store.stream.records.StreamSegmentRecord;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
@@ -21,7 +19,6 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
-
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Properties;
@@ -29,7 +26,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 public class TruncateCheckTest {
     private SegmentHelper segmentHelper;
@@ -106,9 +102,7 @@ public class TruncateCheckTest {
 
         //check for segment count inconsistency
         String result3=segment_count_inconsistency_check();
-        System.out.println("value of result3 = "+result3);
         Assert.assertTrue(result3.equalsIgnoreCase("Fault in the StreamTruncationRecord in regards to segments deletion, segments ahead of stream cut being deleted"));
-
     }
 
     private String unavailability_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata)

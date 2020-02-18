@@ -57,7 +57,6 @@ public class TroubleshootCheckCommandTest{
         SETUP_UTILS.stopAllServices();
     }
 
-
     public void initialsetup_commands()
     {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
@@ -66,6 +65,7 @@ public class TroubleshootCheckCommandTest{
         executor = commandArgs.getState().getExecutor();
 
     }
+
     public void initialsetup_store()
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
@@ -73,7 +73,6 @@ public class TroubleshootCheckCommandTest{
         authHelper=SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
-
 
     @Test
     public void executeCommand() throws Exception {

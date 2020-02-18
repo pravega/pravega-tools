@@ -75,18 +75,20 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
 
         // Check the relation between each EpochRecord and its corresponding HistoryTimeSeriesRecord.
         for (HistoryTimeSeriesRecord historyRecord : historyRecords.reverse()) {
-            EpochRecord correspondingEpochRecord;
+            EpochRecord correspondingEpochRecord=null;
 
             try {
                 correspondingEpochRecord = store.getEpoch(scope, streamName, historyRecord.getEpoch(),
                         null, executor).join();
 
-            } catch (StoreException.DataNotFoundException e) {
-                Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
-                putInFaultMap(faults, epochRecord,
-                        Fault.unavailable("Epoch: "+ historyRecord.getEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
+            }  catch (CompletionException completionException ) {
+                if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException) {
+                    Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
+                    putInFaultMap(faults, epochRecord,
+                            Fault.unavailable("Epoch: " + historyRecord.getEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
 
-                continue;
+                    continue;
+                }
             }
 
             putAllInFaultMap(faults, checkConsistency(correspondingEpochRecord, historyRecord, scope, streamName, store, executor));

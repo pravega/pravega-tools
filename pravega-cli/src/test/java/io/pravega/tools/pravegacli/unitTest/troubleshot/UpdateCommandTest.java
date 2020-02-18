@@ -1,13 +1,9 @@
 package io.pravega.tools.pravegacli.unitTest.troubleshot;
-import io.micrometer.shaded.org.reactorstreams.Publisher;
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
-import io.pravega.controller.store.stream.PravegaTablesStoreHelper;
+
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.Version;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
-import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
@@ -24,12 +20,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.micrometer.shaded.reactor.core.publisher.Mono.when;
-
-
 public class UpdateCommandTest {
     // Setup utility.
-
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
@@ -39,7 +31,6 @@ public class UpdateCommandTest {
     private UpdateCheckCommand updatecheck;
     private  String tablename;
     private String testStream ;
-
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -57,12 +48,11 @@ public class UpdateCommandTest {
         SETUP_UTILS.stopAllServices();
     }
 
-
     public void initialsetup_store()
     {
+
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
     }
-
     public void initialsetup_commands()
     {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
@@ -92,8 +82,5 @@ public class UpdateCommandTest {
         Mockito.when(mystoremock.getConfigurationRecord("scope",testStream,null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
         String result2 = SETUP_UTILS.faultvalue(updatecheck.check(mystoremock, executor));
         Assert.assertTrue("".equalsIgnoreCase(result2));
-
     }
-
-
 }

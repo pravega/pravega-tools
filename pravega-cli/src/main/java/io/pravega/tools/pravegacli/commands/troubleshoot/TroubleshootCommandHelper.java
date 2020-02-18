@@ -12,7 +12,6 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 import io.pravega.client.netty.impl.ConnectionFactory;
 import io.pravega.client.netty.impl.ConnectionFactoryImpl;
 import io.pravega.client.stream.impl.DefaultCredentials;
-import io.pravega.common.cluster.Host;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
@@ -33,19 +32,13 @@ import lombok.RequiredArgsConstructor;
 import org.apache.curator.framework.CuratorFramework;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
-
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
@@ -113,7 +106,6 @@ public abstract class TroubleshootCommandHelper extends Command{
     }
 
     public SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
-
         HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
                 .hostMonitorEnabled(true)
                 .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)

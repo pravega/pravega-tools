@@ -44,7 +44,6 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.curator.test.TestingServer;
-
 import javax.annotation.concurrent.NotThreadSafe;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -58,7 +57,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import static io.pravega.shared.NameUtils.INTERNAL_SCOPE_NAME;
-import static io.pravega.shared.segment.StreamSegmentNameUtils.getQualifiedTableName;
 
 /**
  * Utility functions for creating the test setup.
@@ -67,6 +65,7 @@ import static io.pravega.shared.segment.StreamSegmentNameUtils.getQualifiedTable
 @NotThreadSafe
 
 public class ToolSetupUtils {
+
     // The different services.
     @Getter
     private ConnectionFactory connectionFactory = null;
@@ -368,5 +367,21 @@ public class ToolSetupUtils {
     public URI getControllerRestUri() {
         return URI.create("http://localhost:" + String.valueOf(controllerRESTPort));
     }
+    public static long computeSegmentId(int segmentNumber, int epoch) {
+        Preconditions.checkArgument(segmentNumber >= 0);
+        Preconditions.checkArgument(epoch >= 0);
+        return (long) epoch << 32 | (segmentNumber & 0xFFFFFFFFL);
+    }
 
+    public static String getQualifiedTableName(String scope, String... tokens) {
+        String TABLES = "_tables";
+        Preconditions.checkArgument(tokens != null && tokens.length > 0);
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("%s/%s", scope, TABLES));
+        for (String token : tokens) {
+            sb.append('/');
+            sb.append(token);
+        }
+        return sb.toString();
+    }
 }

@@ -1,6 +1,5 @@
 package io.pravega.tools.pravegacli.unitTest.troubleshot;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.pravega.client.stream.ScalingPolicy;
 import io.pravega.client.stream.StreamConfiguration;
@@ -22,14 +21,11 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
-
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import static io.pravega.shared.segment.StreamSegmentNameUtils.computeSegmentId;
 import static org.junit.Assert.assertEquals;
 
 public class ScaleCheckTest {
@@ -121,9 +117,9 @@ public class ScaleCheckTest {
         EpochRecord newEpochRecord=new EpochRecord(4,currentEpochRecord.getReferenceEpoch(),currentEpochRecord.getSegments()
         ,currentEpochRecord.getCreationTime());
 
-        HistoryTimeSeriesRecord newHistoryTimeSeriesRecord=new HistoryTimeSeriesRecord(currentHistoryRecord.epoch,
-                currentHistoryRecord.referenceEpoch,currentHistoryRecord.segmentsSealed,
-                currentHistoryRecord.segmentsCreated,currentHistoryRecord.scaleTime);
+        HistoryTimeSeriesRecord newHistoryTimeSeriesRecord=new HistoryTimeSeriesRecord(currentHistoryRecord.getEpoch(),
+                currentHistoryRecord.getReferenceEpoch(),currentHistoryRecord.getSegmentsSealed(),
+                currentHistoryRecord.getSegmentsCreated(),currentHistoryRecord.getScaleTime());
 
         Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
         VersionedMetadata<EpochTransitionRecord> mockVersionRecord=new VersionedMetadata<>(newEpochTransitionRecord,ver);
@@ -141,7 +137,6 @@ public class ScaleCheckTest {
         Mockito.when(storeMock.getSegmentSealedEpoch("scope", testStream, 1, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(0));
 
-
         //checking inconsistency between the epochrecord and Historyrecord
         String result1=inconsistency_check1(currentEpochTransitionRecord,newEpochRecord);
         Assert.assertEquals(result1,"Epoch mismatch : May or may not be the correct record.");
@@ -152,8 +147,6 @@ public class ScaleCheckTest {
         //checking inconsistency between the transitionrecord and the history record
         String result2 =inconsistency_check2(currentEpochTransitionRecord, ver);
         Assert.assertEquals(result2, "HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments");
-
-
     }
 
     public  VersionedMetadata<EpochTransitionRecord>  do_scale()

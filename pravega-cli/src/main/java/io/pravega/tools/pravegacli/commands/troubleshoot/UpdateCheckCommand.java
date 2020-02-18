@@ -21,13 +21,11 @@ import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
-
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 

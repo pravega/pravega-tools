@@ -15,7 +15,6 @@ import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +23,6 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
-
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
 

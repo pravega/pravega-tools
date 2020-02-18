@@ -1,9 +1,6 @@
 package io.pravega.tools.pravegacli.integarationTest.troubleshoot;
 
-
 import com.google.common.collect.ImmutableList;
-import io.pravega.client.stream.ScalingPolicy;
-import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.*;
@@ -13,20 +10,15 @@ import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.troubleshoot.CommittingTransactionsCheckCommand;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
-import io.pravega.tools.pravegacli.commands.troubleshoot.GeneralCheckCommand;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 
 public class CommitingTransactionsCheckCommandTest {
     // Setup utility.
@@ -79,8 +71,6 @@ public class CommitingTransactionsCheckCommandTest {
 
     @Test
     public void executeCommand() throws Exception {
-        final String scope = "scope";
-        final String stream = "testStream";
         testStream="testStream";
         initialsetup_commands();
         initialsetup_store();
@@ -91,7 +81,6 @@ public class CommitingTransactionsCheckCommandTest {
         VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata1=storeHelper.getEntry(tablename,"committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
         String result1 = unavaliblity_check(committingVersionMetadata1);
         Assert.assertEquals(result1,"CommittingTransactionsRecord is corrupted or unavailable");
-
 
         //checking for inconsistency
         VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata2=storeHelper.getEntry(tablename,"committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
@@ -119,11 +108,11 @@ public class CommitingTransactionsCheckCommandTest {
         CommittingTransactionsRecord newTransactionRecord = new CommittingTransactionsRecord(0, list, 0);
         storeHelper.addNewEntry(tablename, "committingTxns", newTransactionRecord.toBytes()).join();
         faults = ct.check(store, executor);
+
         //returning to orignal value
         VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata1=storeHelper.getEntry(tablename,"committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
         storeHelper.removeEntry(tablename,"committingTxns",committingVersionMetadata1.getVersion()).join();
         storeHelper.addNewEntry(tablename,"committingTxns", committingVersionMetadata.getObject().toBytes()).join();
         return SETUP_UTILS.faultvalue(faults);
-
     }
 }

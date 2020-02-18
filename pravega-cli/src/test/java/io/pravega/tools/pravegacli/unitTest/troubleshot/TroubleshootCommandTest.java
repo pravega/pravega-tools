@@ -22,13 +22,11 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.mockito.Mockito;
-
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
 import static org.junit.Assert.assertEquals;
 
 public class TroubleshootCommandTest {
@@ -64,7 +62,6 @@ public class TroubleshootCommandTest {
         SETUP_UTILS.stopAllServices();
     }
 
-
     public void initialsetup_commands(String testStream)
     {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
@@ -73,6 +70,7 @@ public class TroubleshootCommandTest {
         executor = commandArgs.getState().getExecutor();
 
     }
+
     public void initialsetup_store()
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
@@ -80,7 +78,6 @@ public class TroubleshootCommandTest {
         authHelper=SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
-
 
     @Test
     public void executeCommand() throws Exception {
@@ -175,7 +172,6 @@ public class TroubleshootCommandTest {
     {
         // set minimum number of segments to 1 so that we can also test scale downs
         // region idempotent
-
         long scaleTs = System.currentTimeMillis();
         AbstractMap.SimpleEntry<Double, Double> segment1 = new AbstractMap.SimpleEntry<>(0.5, 0.75);
         AbstractMap.SimpleEntry<Double, Double> segment2 = new AbstractMap.SimpleEntry<>(0.75, 1.0);
@@ -262,9 +258,9 @@ public class TroubleshootCommandTest {
         EpochRecord newEpochRecord=new EpochRecord(4,currentEpochRecord.getReferenceEpoch(),currentEpochRecord.getSegments()
                 ,currentEpochRecord.getCreationTime());
 
-        HistoryTimeSeriesRecord newHistoryTimeSeriesRecord=new HistoryTimeSeriesRecord(currentHistoryRecord.epoch,
-                currentHistoryRecord.referenceEpoch,currentHistoryRecord.segmentsSealed,
-                currentHistoryRecord.segmentsCreated,currentHistoryRecord.scaleTime);
+        HistoryTimeSeriesRecord newHistoryTimeSeriesRecord=new HistoryTimeSeriesRecord(currentHistoryRecord.getEpoch(),
+                currentHistoryRecord.getReferenceEpoch(),currentHistoryRecord.getSegmentsSealed(),
+                currentHistoryRecord.getSegmentsCreated(),currentHistoryRecord.getScaleTime());
 
         Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
         VersionedMetadata<EpochTransitionRecord> mockVersionRecord=new VersionedMetadata<>(newEpochTransitionRecord,ver);
@@ -290,7 +286,7 @@ public class TroubleshootCommandTest {
                 thenReturn(CompletableFuture.completedFuture(newEpochRecord));
 
         int currentEpoch = store.getActiveEpoch(scope, stream, null, true, executor).join().getEpoch();
-        int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().epoch;
+        int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().getEpoch();
 
         System.out.println("value  of history current = "+historyCurrentEpoch);
 
@@ -305,7 +301,6 @@ public class TroubleshootCommandTest {
         Mockito.when(mystoremock.getEpoch("scope",stream,currentEpochTransitionRecord.getNewEpoch()
                 ,null,executor)).thenReturn(CompletableFuture.completedFuture(currentEpochRecord));
         return result;
-
     }
     public String commiting_check(StreamMetadataStore mockstore)
     {
@@ -339,8 +334,6 @@ public class TroubleshootCommandTest {
                 thenReturn(store.getVersionedCommittingTransactionsRecord("scope", testStream, null, executor));
 
         return result;
-
-
     }
 
 }

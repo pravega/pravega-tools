@@ -17,7 +17,6 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
@@ -75,8 +74,7 @@ public class GeneralCheckTest {
 
     @Test
     public void executeCommand() throws Exception {
-
-        testStream="testStream1";
+        testStream="testStream";
         initialsetup_commands();
         initialsetup_store();
         SETUP_UTILS.createTestStream(testStream, 1);
@@ -178,7 +176,6 @@ public class GeneralCheckTest {
         Version version = currentEpochVersionMetadata.getVersion();
         storeHelper.removeEntry(tablename, "epochRecord-0", version).join();
         storeHelper.addNewEntry(tablename, "epochRecord-0", oldEpoch.toBytes()).join();
-
     }
 
 }

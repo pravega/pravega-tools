@@ -9,16 +9,9 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.records.HistoryTimeSeries;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import org.apache.curator.framework.CuratorFramework;
-
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -86,7 +79,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
 
        // Check for viability of workflow check up.
        int currentEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
-       int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, streamName, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().epoch;
+       int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, streamName, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().getEpoch();
        if (currentEpoch != historyCurrentEpoch) {
            // The Scale Checkup.
            if (runCheckup(faults, updateFaults, scale::check, executor, "Scale Checkup")) {
