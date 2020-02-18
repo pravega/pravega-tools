@@ -71,6 +71,7 @@ dependencies {
     compile group: 'javax.ws.rs', name: 'javax.ws.rs-api', version: javaxwsrsApiVersion
     compile group: 'com.googlecode.json-simple', name: 'json-simple', version: jsonSimpleVersion
     compile group: 'com.google.code.gson', name: 'gson', version: gsonVersion
+    testImplementation 'org.mockito:mockito-core:2.7.22'
 }
 
 tasks
