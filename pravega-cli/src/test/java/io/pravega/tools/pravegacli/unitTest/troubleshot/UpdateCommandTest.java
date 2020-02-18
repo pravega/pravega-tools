@@ -1,37 +1,45 @@
-package io.pravega.tools.pravegacli.integarationTest;
-
+package io.pravega.tools.pravegacli.unitTest.troubleshot;
+import io.micrometer.shaded.org.reactorstreams.Publisher;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
-import io.pravega.controller.store.stream.PravegaTablesScope;
 import io.pravega.controller.store.stream.PravegaTablesStoreHelper;
 import io.pravega.controller.store.stream.StreamMetadataStore;
+import io.pravega.controller.store.stream.Version;
+import io.pravega.controller.store.stream.VersionedMetadata;
+import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
+import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.segmentstore.server.store.ServiceConfig;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.troubleshoot.UpdateCheckCommand;
+import io.pravega.tools.pravegacli.integarationTest.troubleshoot.ToolSetupUtils;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-
+import org.mockito.Mockito;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
-public class TruncateCheckTest {
-    private SegmentHelper segmentHelper;
-    private GrpcAuthHelper authHelper;
-    private PravegaTablesStoreHelper storeHelper;
+import static io.micrometer.shaded.reactor.core.publisher.Mono.when;
+
+
+public class UpdateCommandTest {
+    // Setup utility.
+
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
     private CommandArgs commandArgs;
-    private AtomicReference<String> idRef=new AtomicReference<>(null);;
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
-    private UpdateCheckCommand uc;
+    private UpdateCheckCommand updatecheck;
     private  String tablename;
     private String testStream ;
+
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -48,28 +56,44 @@ public class TruncateCheckTest {
     public static void tearDown() throws Exception {
         SETUP_UTILS.stopAllServices();
     }
+
+
     public void initialsetup_store()
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-        segmentHelper=SETUP_UTILS.getSegmentHelper();
-        authHelper=SETUP_UTILS.getAuthHelper();
-        storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
     public void initialsetup_commands()
     {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
-        uc= new UpdateCheckCommand(commandArgs);
+        updatecheck= new UpdateCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
-
     }
+
     @Test
     public void executeCommand() throws Exception {
-        testStream = "testStream";
-        SETUP_UTILS.createTestStream(testStream, 1);
+        testStream="testStream";
+        SETUP_UTILS.createTestStream(testStream,1);
         initialsetup_commands();
         initialsetup_store();
-        tablename = SETUP_UTILS.getMetadataTable(testStream,storeHelper).join();
+
+        //mocking the store
+        StreamMetadataStore mystoremock = Mockito.mock(StreamMetadataStore.class);
+        //checking for fault if configurationRecord is null
+        String result = SETUP_UTILS.faultvalue(updatecheck.check(mystoremock, executor));
+        Assert.assertTrue("StreamConfigurationRecord consistency check requires human intervention".equalsIgnoreCase(result));
+
+        //checking for correct case
+        StreamConfigurationRecord presentStreamConfigurationRecord= store.getConfigurationRecord("scope",testStream,null,executor).join().getObject();
+        StreamConfigurationRecord mockStreamConfigurationRecord=new StreamConfigurationRecord(presentStreamConfigurationRecord.getScope(),presentStreamConfigurationRecord.getStreamName(),presentStreamConfigurationRecord.getStreamConfiguration(),true);
+        Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
+        VersionedMetadata<StreamConfigurationRecord> mockVersionRecord=new VersionedMetadata<>(mockStreamConfigurationRecord,ver);
+        Mockito.when(mystoremock.getConfigurationRecord("scope",testStream,null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
+        String result2 = SETUP_UTILS.faultvalue(updatecheck.check(mystoremock, executor));
+        Assert.assertTrue("".equalsIgnoreCase(result2));
+
     }
+
+
 }

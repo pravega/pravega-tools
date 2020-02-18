@@ -10,6 +10,7 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableList;
+import io.micrometer.shaded.reactor.core.Exceptions;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.VersionedMetadata;
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -70,12 +72,12 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
             committingRecord = store.getVersionedCommittingTransactionsRecord(scope, streamName, null, executor)
                     .thenApply(VersionedMetadata::getObject).join();
 
-        } catch (StoreException.DataNotFoundException e) {
-            Record<CommittingTransactionsRecord> committingTransactionsRecord = new Record<>(null, CommittingTransactionsRecord.class);
-            putInFaultMap(faults, committingTransactionsRecord,
-                    Fault.unavailable("CommittingTransactionsRecord is corrupted or unavailable"));
+        } catch (CompletionException completionException ) {
+                Record<CommittingTransactionsRecord> committingTransactionsRecord = new Record<>(null, CommittingTransactionsRecord.class);
+                putInFaultMap(faults, committingTransactionsRecord,
+                        Fault.unavailable("CommittingTransactionsRecord is corrupted or unavailable"));
 
-            return faults;
+                return faults;
         }
 
         // Check if its a rolling transaction.
@@ -92,14 +94,13 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
                     duplicateTxnEpochRecord = store.getEpoch(scope, streamName, committingRecord.getNewTxnEpoch(),
                             null, executor).join();
 
-                } catch (StoreException.DataNotFoundException e) {
+                } catch (CompletionException completionException ) {
                     Record<EpochRecord> duplicateTxnRecord = new Record<>(null, EpochRecord.class);
                     putInFaultMap(faults, duplicateTxnRecord,
-                            Fault.unavailable("Duplicate txn epoch: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
+                            Fault.unavailable("Duplicate txn epoch: " + committingRecord.getNewTxnEpoch() + " is corrupted or does not exist."));
 
                     epochExists = false;
                 }
-
                 try {
                     int chunkNumber=committingRecord.getNewTxnEpoch()/HistoryTimeSeries.HISTORY_CHUNK_SIZE;
                     duplicateTxnHistoryRecord = store.getHistoryTimeSeriesChunk(scope, streamName,
@@ -108,7 +109,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
                 } catch (StoreException.DataNotFoundException e) {
                     Record<HistoryTimeSeriesRecord> duplicateTxnHistory = new Record<>(null, HistoryTimeSeriesRecord.class);
                     putInFaultMap(faults, duplicateTxnHistory,
-                            Fault.unavailable("Duplicate txn history: " + committingRecord.getNewTxnEpoch() + "is corrupted or does not exist."));
+                            Fault.unavailable("Duplicate txn history: " + committingRecord.getNewTxnEpoch() + " is corrupted or does not exist."));
 
                     historyExists = false;
                 }

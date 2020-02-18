@@ -1,4 +1,4 @@
-package io.pravega.tools.pravegacli.integarationTest;
+package io.pravega.tools.pravegacli.integarationTest.troubleshoot;
 
 import com.google.common.base.Preconditions;
 import io.pravega.client.ClientConfig;
@@ -31,6 +31,8 @@ import io.pravega.shared.NameUtils;
 import io.pravega.test.common.TestUtils;
 import io.pravega.test.common.TestingServerStarter;
 import io.pravega.tools.pravegacli.ControllerWrapper;
+import io.pravega.tools.pravegacli.commands.AdminCommandState;
+import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
@@ -44,7 +46,10 @@ import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.curator.test.TestingServer;
 
 import javax.annotation.concurrent.NotThreadSafe;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -190,6 +195,20 @@ public class ToolSetupUtils {
         log.info("Created stream: " + streamName);
     }
 
+    public void createTestStream_withconfig(final String streamName, final int numSegments, StreamConfiguration configuration)
+            throws Exception {
+        Preconditions.checkState(this.started.get(), "Services not yet started");
+        Preconditions.checkNotNull(streamName);
+        Preconditions.checkArgument(numSegments > 0);
+        long start = System.currentTimeMillis();
+        @Cleanup
+        StreamManager streamManager = StreamManager.create(clientConfig);
+        streamManager.createScope(scope);
+        streamManager.createStream(scope, streamName,
+                configuration);
+        log.info("Created stream: " + streamName);
+    }
+
     /**
      * Create a stream writer for writing Integer events.
      *
@@ -325,12 +344,29 @@ public class ToolSetupUtils {
         return getScopeId(storeHelper).thenApply(id ->
                 getQualifiedTableName(INTERNAL_SCOPE_NAME, getScope(), String.format(STREAMS_IN_SCOPE_TABLE_FORMAT, id.toString())));
     }
-
-    public URI getControllerUri() {
-        return clientConfig.getControllerURI();
+    /**
+     * Invoke any command and get the result by using a mock PrintStream object (instead of System.out). The returned
+     * String is the output written by the Command that can be check in any test.
+     *
+     * @param inputCommand Command to execute.
+     * @param state        Configuration to execute the command.
+     * @return             Output of the command.
+     * @throws Exception   If a problem occurs.
+     */
+    static String executeCommand(String inputCommand, AdminCommandState state) throws Exception {
+        Parser.Command pc = Parser.parse(inputCommand);
+        CommandArgs args = new CommandArgs(pc.getArgs(), state);
+        Command cmd = Command.Factory.get(pc.getComponent(), pc.getName(), args);
+        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (PrintStream ps = new PrintStream(baos, true, "UTF-8")) {
+            cmd.setOut(ps);
+            cmd.execute();
+        }
+        return new String(baos.toByteArray(), StandardCharsets.UTF_8);
     }
 
     public URI getControllerRestUri() {
         return URI.create("http://localhost:" + String.valueOf(controllerRESTPort));
     }
+
 }

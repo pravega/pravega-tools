@@ -7,7 +7,7 @@
  *
  *     http://www.apache.org/licenses/LICENSE-2.0
  */
-package io.pravega.tools.pravegacli.integarationTest;
+package io.pravega.tools.pravegacli.integarationTest.troubleshoot;
 
 import io.pravega.client.stream.Serializer;
 

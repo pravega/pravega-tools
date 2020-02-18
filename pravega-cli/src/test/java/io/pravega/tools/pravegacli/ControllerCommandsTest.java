@@ -36,7 +36,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import io.pravega.tools.pravegacli.integarationTest.ToolSetupUtils;
+import io.pravega.tools.pravegacli.integarationTest.troubleshoot.ToolSetupUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.test.TestingServer;
 import org.junit.*;

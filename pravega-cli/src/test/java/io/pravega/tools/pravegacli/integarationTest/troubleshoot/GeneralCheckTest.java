@@ -1,55 +1,28 @@
-package io.pravega.tools.pravegacli.integarationTest;
+package io.pravega.tools.pravegacli.integarationTest.troubleshoot;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import io.pravega.client.netty.impl.ConnectionFactory;
-import io.pravega.client.netty.impl.ConnectionFactoryImpl;
 import io.pravega.client.stream.StreamConfiguration;
-import io.pravega.client.stream.impl.DefaultCredentials;
-import io.pravega.common.cluster.Host;
-import io.pravega.common.util.BitConverter;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
-import io.pravega.controller.store.host.HostControllerStore;
-import io.pravega.controller.store.host.HostMonitorConfig;
-import io.pravega.controller.store.host.HostStoreFactory;
-import io.pravega.controller.store.host.impl.HostMonitorConfigImpl;
 import io.pravega.controller.store.stream.*;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.StreamSegmentRecord;
-import io.pravega.controller.util.Config;
 import io.pravega.segmentstore.server.store.ServiceConfig;
-import io.pravega.test.integration.utils.SetupUtils;
 import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
 import io.pravega.tools.pravegacli.commands.troubleshoot.GeneralCheckCommand;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import lombok.val;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.CuratorFrameworkFactory;
-import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.net.URI;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
-import static io.pravega.shared.NameUtils.INTERNAL_SCOPE_NAME;
-import static io.pravega.shared.segment.StreamSegmentNameUtils.getQualifiedTableName;
-
-public class GenralCheckTest {
+public class GeneralCheckTest {
 
     // Setup utility.
     private Map<Record, Set<Fault>> faults;
@@ -134,7 +107,6 @@ public class GenralCheckTest {
         initialsetup_store();
         VersionedMetadata<EpochRecord> currentEpochVersionMetadata4= storeHelper.getEntry(tablename, "epochRecord-0", x -> EpochRecord.fromBytes(x)).get();
         String result4 =checkingSegmentsMissmatch(currentEpochVersionMetadata4);
-        System.out.println("value of fault = "+result4);
         Assert.assertTrue(result4.equalsIgnoreCase("Segment data mismatch."));
 
     }
@@ -204,7 +176,6 @@ public class GenralCheckTest {
     public void changingBackToOrginalState(VersionedMetadata<EpochRecord> currentEpochVersionMetadata,EpochRecord oldEpoch )
     {
         Version version = currentEpochVersionMetadata.getVersion();
-        EpochRecord currentEpoch=currentEpochVersionMetadata.getObject();
         storeHelper.removeEntry(tablename, "epochRecord-0", version).join();
         storeHelper.addNewEntry(tablename, "epochRecord-0", oldEpoch.toBytes()).join();
 

@@ -43,7 +43,10 @@ public class UpdateCheckCommand extends TroubleshootCommandHelper implements Che
      *
      * @param args The arguments for the command.
      */
-    public UpdateCheckCommand(CommandArgs args) { super(args); }
+    public UpdateCheckCommand(CommandArgs args) {
+        super(args);
+    }
+
 
     @Override
     public void execute() {
@@ -63,6 +66,8 @@ public class UpdateCheckCommand extends TroubleshootCommandHelper implements Che
 
             Map<Record, Set<Fault>> faults = check(store, executor);
             output(outputFaults(faults));
+            if (faults.size()==0)
+                output("Everything is fine no update faults");
 
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
@@ -79,8 +84,8 @@ public class UpdateCheckCommand extends TroubleshootCommandHelper implements Che
         StreamConfigurationRecord configurationRecord = null;
 
         try {
-            configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
-                    .thenApply(VersionedMetadata::getObject).join();
+            configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor).
+                    thenApply(VersionedMetadata::getObject).join();
 
         } catch (CompletionException completionException) {
             if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException) {
@@ -91,16 +96,13 @@ public class UpdateCheckCommand extends TroubleshootCommandHelper implements Che
 
                 return faults;
             }
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             Record<StreamConfigurationRecord> streamConfigurationRecord = new Record<>(configurationRecord, StreamConfigurationRecord.class);
             putInFaultMap(faults, streamConfigurationRecord,
                     Fault.inconsistent(streamConfigurationRecord, "StreamConfigurationRecord consistency check requires human intervention"));
 
             return faults;
         }
-
         return faults;
     }
 

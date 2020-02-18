@@ -16,6 +16,7 @@ import io.pravega.common.cluster.Host;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
+import io.pravega.controller.store.client.StoreClientFactory;
 import io.pravega.controller.store.host.HostControllerStore;
 import io.pravega.controller.store.host.HostMonitorConfig;
 import io.pravega.controller.store.host.HostStoreFactory;
@@ -112,25 +113,8 @@ public abstract class TroubleshootCommandHelper extends Command{
     }
 
     public SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
-        HashMap<Host, Set<Integer>> hostContainerMap = new HashMap<>();
-        hostContainerMap.put(new Host("localhost", 6000, null), IntStream.range(0, 4).boxed().collect(Collectors.toSet()));
-        System.out.println(hostContainerMap);
-        HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
-                .hostMonitorEnabled(true)
-                .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
-                .containerCount(getServiceConfig().getContainerCount())
-                .hostContainerMap(hostContainerMap)
-                .build();
-        HostControllerStore hostStore = HostStoreFactory.createInMemoryStore(hostMonitorConfig);
-        io.pravega.client.ClientConfig clientConfig = io.pravega.client.ClientConfig.builder()
-                .controllerURI(URI.create((getCLIControllerConfig().getControllerGrpcURI())))
-                .validateHostName(getCLIControllerConfig().isAuthEnabled())
-                .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
-                .build();
-        ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
-        return new SegmentHelper(connectionFactory, hostStore);
 
-        /*        HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
+        HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
                 .hostMonitorEnabled(true)
                 .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
                 .containerCount(getServiceConfig().getContainerCount())
@@ -142,7 +126,7 @@ public abstract class TroubleshootCommandHelper extends Command{
                 .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
                 .build();
         ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
-        return new SegmentHelper(connectionFactory, hostStore);*/
+        return new SegmentHelper(connectionFactory, hostStore);
     }
 
     public StreamMetadataStore createMetadataStore(ScheduledExecutorService executor)

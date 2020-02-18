@@ -20,6 +20,7 @@ import lombok.Cleanup;
 import org.apache.curator.framework.CuratorFramework;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -43,67 +44,82 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
         super(args);
     }
 
+
     @Override
     public void execute() {
-
-
-        ensureArgCount(2);
-        final String scope = getCommandArgs().getArgs().get(0);
-        final String streamName = getCommandArgs().getArgs().get(1);
-        Map<Record, Set<Fault>> faults = new HashMap<>();
         try {
-            executor = getCommandArgs().getState().getExecutor();
+            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
             store=getStreamMetaDataStore(executor);
-            ScaleCheckCommand scale = new ScaleCheckCommand(getCommandArgs());
-            CommittingTransactionsCheckCommand committingTransactions = new CommittingTransactionsCheckCommand(getCommandArgs());
-            TruncateCheckCommand truncate = new TruncateCheckCommand(getCommandArgs());
-            UpdateCheckCommand update = new UpdateCheckCommand(getCommandArgs());
-            GeneralCheckCommand general = new GeneralCheckCommand(getCommandArgs());
-
-            // The Update Checkup.
-            Map<Record, Set<Fault>> updateFaults = update.check(store, executor);
-            System.out.println("check 4");
-            // The General Checkup.
-            if (runCheckup(faults, updateFaults, general::check, executor, "General Checkup")) {
-                return;
-            }
-            System.out.println("check 5");
-            // Check for viability of workflow check up.
-            int currentEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
-            int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, streamName, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().getEpoch();
-            System.out.println("historyCurrentEpoch" + historyCurrentEpoch);
-            System.out.println("check 6");
-
-            if (currentEpoch != historyCurrentEpoch) {
-                // The Scale Checkup.
-                if (runCheckup(faults, updateFaults, scale::check, executor, "Scale Checkup")) {
-                    return;
-                }
-
-                // The Committing Transactions Checkup.
-                System.out.println("check 7");
-                if (runCheckup(faults, updateFaults, committingTransactions::check, executor, "Committing_txn Checkup")) {
-                    return;
-                }
-            }
-
-            // The Truncate Checkup.
-            if (runCheckup(faults, updateFaults, truncate::check, executor, "Truncate Checkup")) {
-                return;
-            }
-
-
-            output(outputFaults(updateFaults));
-            output("Everything seems OK.\n");
-
+            check(store, executor);
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
     }
+   public String check(StreamMetadataStore store2, ScheduledExecutorService executor2) {
+      String result ="";
+      store=store2;
+      executor=executor2;
+      try{
+       ensureArgCount(2);
+       final String scope = getCommandArgs().getArgs().get(0);
+       final String streamName = getCommandArgs().getArgs().get(1);
+       Map<Record, Set<Fault>> faults = new HashMap<>();
+       ScaleCheckCommand scale = new ScaleCheckCommand(getCommandArgs());
+       CommittingTransactionsCheckCommand committingTransactions = new CommittingTransactionsCheckCommand(getCommandArgs());
+       TruncateCheckCommand truncate = new TruncateCheckCommand(getCommandArgs());
+       UpdateCheckCommand update = new UpdateCheckCommand(getCommandArgs());
+       GeneralCheckCommand general = new GeneralCheckCommand(getCommandArgs());
 
-    public ScheduledExecutorService  getExcecutor(){
-        return getCommandArgs().getState().getExecutor();
+       // The Update Checkup.
+       Map<Record, Set<Fault>> updateFaults = update.check(store, executor);
+       if(updateFaults.size()!=0) {
+           outputFaults(updateFaults);
+           result=faultvalue(updateFaults);
+           return result;
+       }
+       // The General Checkup.
+       if (runCheckup(faults, updateFaults, general::check, executor, "General Checkup")) {
+           outputFaults(updateFaults);
+           result=faultvalue(faults);
+           return result;
+       }
+
+       // Check for viability of workflow check up.
+       int currentEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
+       int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, streamName, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().epoch;
+       if (currentEpoch != historyCurrentEpoch) {
+           // The Scale Checkup.
+           if (runCheckup(faults, updateFaults, scale::check, executor, "Scale Checkup")) {
+               outputFaults(updateFaults);
+               result=faultvalue(faults);
+               return result;
+           }
+
+           // The Committing Transactions Checkup.
+           if (runCheckup(faults, updateFaults, committingTransactions::check, executor, "Committing_txn Checkup")) {
+               outputFaults(updateFaults);
+               result=faultvalue(faults);
+               return result;
+           }
+       }
+
+       // The Truncate Checkup.
+       if (runCheckup(faults, updateFaults, truncate::check, executor, "Truncate Checkup")) {
+           outputFaults(updateFaults);
+           result=faultvalue(faults);
+           return result;
+       }
+
+       result="Everything seems OK.";
+       output(result+"\n");
+        }
+      catch (Exception e) {
+        System.err.println("Exception accessing metadata store: " + e.getMessage());
+
     }
+       return result;
+    }
+
     public StreamMetadataStore getStreamMetaDataStore(ScheduledExecutorService executor){
         return createMetadataStore(executor);
     }
@@ -119,7 +135,7 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
                                final ScheduledExecutorService executor, final String checkupName ) {
         try {
             putAllInFaultMap(faults, check.apply(store, executor));
-
+            ;
             if (!faults.isEmpty()) {
                 putAllInFaultMap(faults, updateFaults);
                 output(outputFaults(faults));
@@ -133,6 +149,17 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
             return false;
         }
     }
-
+    public String faultvalue( Map<Record, Set<Fault>> fault)
+    {
+        String error = "";
+        Iterator iterator =  fault.keySet().iterator();
+        while (iterator.hasNext()) {
+            Record k = (Record) iterator.next();
+            Set<Fault> f = fault.get(k);
+            Iterator<Fault> itr = f.iterator();
+            error = error + itr.next().getErrorMessage();
+        }
+        return error;
+    }
 
 }

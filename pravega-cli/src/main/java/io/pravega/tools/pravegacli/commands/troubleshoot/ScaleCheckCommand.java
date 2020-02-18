@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.micrometer.shaded.reactor.core.Exceptions;
 import io.pravega.controller.store.stream.StreamMetadataStore;
@@ -61,8 +62,8 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
 
         // To obtain the EpochTransitionRecord and check if it is corrupted or not.
         try {
-            transitionRecord = store.getEpochTransition(scope, streamName, null, executor)
-                    .thenApply(VersionedMetadata::getObject).join();
+            transitionRecord = store.getEpochTransition(scope, streamName, null, executor).
+                    thenApply(VersionedMetadata::getObject).join();
 
         } catch (CompletionException completionException) {
             if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException || transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
@@ -114,7 +115,6 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
 
         // Check the EpochRecord and HistoryTimeSeriesRecord.
         putAllInFaultMap(faults, checkConsistency(neededEpochRecord, neededHistoryRecord, scope, streamName, store, executor));
-
         Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(transitionRecord, EpochTransitionRecord.class);
         Record<EpochRecord> epochRecord = new Record<>(neededEpochRecord, EpochRecord.class);
         Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(neededHistoryRecord, HistoryTimeSeriesRecord.class);
@@ -128,23 +128,26 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
             ImmutableMap<Long, Map.Entry<Double, Double>> newSegments = transitionRecord.getNewSegmentsWithRange();
 
             for (Long id : segmentIds) {
-                SimpleEntry<Double, Double> segmentRange = new SimpleEntry<>(neededEpochRecord.getSegment(id).getKeyStart(),
-                        neededEpochRecord.getSegment(id).getKeyEnd());
+                if(neededEpochRecord.getSegment(id).getCreationEpoch()==neededEpochRecord.getEpoch()) {
+                    SimpleEntry<Double, Double> segmentRange = new SimpleEntry<>(neededEpochRecord.getSegment(id).getKeyStart(),
+                            neededEpochRecord.getSegment(id).getKeyEnd());
 
-                if (!segmentRange.equals(newSegments.get(id))) {
-                    putInFaultMap(faults, epochTransitionRecord,
-                            Fault.inconsistent(epochRecord, "EpochRecord and the EpochTransitionRecord mismatch in the segments"));
-                    break;
+                    if (!segmentRange.equals(newSegments.get(id))) {
+                        putInFaultMap(faults, epochTransitionRecord,
+                                Fault.inconsistent(epochRecord, "EpochRecord and the EpochTransitionRecord mismatch in the segments"));
+                        break;
+                    }
                 }
             }
         }
 
+
         // Cross check the sealed segments.
         boolean getSealedSegmentsExists = checkCorrupted(transitionRecord, EpochTransitionRecord::getSegmentsToSeal,
                 "segments to be sealed", "EpochTransitionRecord", faults);
+
         if (getSealedSegmentsExists) {
             List<Long> sealedSegmentTransition = new ArrayList<>(transitionRecord.getSegmentsToSeal());
-
             List<Long> sealedSegmentsHistory = neededHistoryRecord.getSegmentsSealed().stream()
                     .map(StreamSegmentRecord::getSegmentNumber)
                     .mapToLong(Integer::longValue)

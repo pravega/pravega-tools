@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.utils;
 
+import com.google.common.collect.ImmutableList;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.records.EpochRecord;
@@ -59,8 +60,6 @@ public class CheckUtils {
         Record<EpochRecord> epochRecord = new Record<>(record, EpochRecord.class);
         Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(history, HistoryTimeSeriesRecord.class);
         boolean exists;
-        System.out.println("value of history = "+ historyTimeSeriesRecord);
-        System.out.println("value of epoch record = "+ epochRecord);
         // Similar fields should have similar values.
         // Epoch.
         exists = checkField(record, history, "epoch value", EpochRecord::getEpoch, HistoryTimeSeriesRecord::getEpoch, faults);
@@ -80,10 +79,23 @@ public class CheckUtils {
 
         // Segment data
         boolean segmentExists = checkField(record, history, "segment data", EpochRecord::getSegments, HistoryTimeSeriesRecord::getSegmentsCreated, faults);
+        ImmutableList<StreamSegmentRecord> immutableList=null;
+        if (segmentExists)
+        {
+            List<StreamSegmentRecord> newSegmentsList = new ArrayList<>();
+            for(StreamSegmentRecord streamSegmentRecord :record.getSegments())
+            {
+                if (record.getEpoch()==streamSegmentRecord.getCreationEpoch()) {
+                    newSegmentsList.add(streamSegmentRecord);
+                }
+            }
 
-        if (segmentExists && !record.getSegments().equals(history.getSegmentsCreated())) {
-            putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
-                    "Segment data mismatch."));
+            immutableList = ImmutableList.copyOf(newSegmentsList);
+
+            if(immutableList.size()!=0 && !immutableList.equals(history.getSegmentsCreated())) {
+                putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
+                        "Segment data mismatch."));
+            }
         }
 
         // Creation time
@@ -107,6 +119,7 @@ public class CheckUtils {
                     .boxed()
                     .collect(Collectors.toList());
 
+
             for (Long id : sealedSegmentsHistory) {
                 Integer isSealed = store.getSegmentSealedEpoch(scope, streamName, id, null, executor).join();
                 if (isSealed<0) {
@@ -118,8 +131,8 @@ public class CheckUtils {
         }
 
         // Segments created in epoch should be ahead of the sealed segments.
-        if (sealedExists && segmentExists) {
-            Long epochMinSegment = Collections.min(record.getSegments().stream()
+        if (immutableList.size()!=0 && sealedExists && segmentExists) {
+            Long epochMinSegment = Collections.min(immutableList.stream()
                     .map(StreamSegmentRecord::getSegmentNumber)
                     .mapToLong(Integer::longValue)
                     .boxed()

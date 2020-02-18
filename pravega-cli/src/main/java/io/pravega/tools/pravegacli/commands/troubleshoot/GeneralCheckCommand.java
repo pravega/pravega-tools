@@ -10,6 +10,7 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableList;
+import io.pravega.common.Exceptions;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.records.EpochRecord;
@@ -20,6 +21,7 @@ import io.pravega.tools.pravegacli.commands.CommandArgs;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkConsistency;
@@ -49,12 +51,9 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
         String scope = getCommandArgs().getArgs().get(0);
         String streamName = getCommandArgs().getArgs().get(1);
 
-
-
-
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
-        HistoryTimeSeries history;
+        HistoryTimeSeries history=null;
 
         // Get the HistoryTimeSeries chunk.
         try {
@@ -62,12 +61,14 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
             int chuckNumber=currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE;
             history = store.getHistoryTimeSeriesChunk(scope, streamName, chuckNumber,null, executor).join();
 
-        } catch (StoreException.DataNotFoundException e) {
-            Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
-            putInFaultMap(faults, historySeriesRecord,
-                    Fault.unavailable("HistoryTimeSeries chunk is corrupted or unavailable"));
+        } catch (CompletionException completionException ) {
+            if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException) {
+                Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
+                putInFaultMap(faults, historySeriesRecord,
+                        Fault.unavailable("HistoryTimeSeries chunk is corrupted or unavailable"));
 
-            return faults;
+                return faults;
+            }
         }
 
         ImmutableList<HistoryTimeSeriesRecord> historyRecords = history.getHistoryRecords();
