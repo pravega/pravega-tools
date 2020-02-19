@@ -1,25 +1,27 @@
 ## Purpose
 The following document summarizes the recovery procedure to be followed in the following disaster scenarios. 
 In all the scenarios below, it is assumed that Tier-2 data is accessible and intact.
-1. Lost Tier-1 data completely. This includes the data stored by bookies and the data stored by ZooKeeper.
-2. Lost Tier-1 data partially. 
- (a) Partial data loss of bookies and the complete loss of ZooKeeper data.
- (b) Partial data loss of bookies and the partial loss of ZooKeeper data.
-3. Lost only ZooKeeper Tier-1 data.
+
+1. Lost Tier-1 data completely.\
+ (a) Complete loss of BK data and complete loss of ZK data.\
+ (b) Complete loss of BK data and No loss of ZK data.
+2. Lost Tier-1 data partially.\
+ (a) Partial loss of BK data and complete loss of ZK data.\
+ (b) Partial loss of BK data and partial loss of ZK data.
+3. Lost only ZK data.
 
 ### Scenario #1: Tier-1 data is lost completely
 #### Prerequites
 1. Service Pod should have a volume mount for Tier-2
-2. Service Pod should have a volume mount for Tier-1
-3. The BK and ZK services must have been restored prior to starting the recovery procedure.
+2. The BK and ZK services must have been restored/available prior to starting the recovery procedure below.
 
-#### Commands
-`dr recover <root>`   
+#### Running Recovery Command
+1. Follow https://github.com/pravega/pravega-tools/tree/master/pravega-cli to get the pravega-cli executable.
+2. Run `dr recover <root>` 
 This command will spin up the SegmentContainers in the CLI and make the necessary operations such as creating segments, updating attributes etc to reflect in Tier-1 and Tier-2 and then shutdowns these containers.
 After this process when the containers boot up in the production cluster, they will be able to see these persisted changes. 
 
 #### Design
-
 In CLI,
 1. Rename container metadata files in Tier-2. (_system/containers/metadata_$<containerId>)
 2. Spin up the segment containers
