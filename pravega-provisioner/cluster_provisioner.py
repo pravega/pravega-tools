@@ -156,12 +156,12 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
                                                  bookkeeper_servers, segment_stores, controllers)[1]
     print("Allocation of pods on nodes: ", the_cluster)
     # Finally, we need to check how much memory is left in the nodes so we can share it across Segment Stores for cache.
-    # In the worst case, we will have [math.ceil(vms/segment_stores)] Segment Store instances on a single node. Also,
+    # In the worst case, we will have [math.ceil(segment_stores/vms)] Segment Store instances on a single node. Also,
     # in the worst case, this could be the node with the least available memory available. For this reason, the
     # in-memory cache size for a Segment Store would be as follows:
     min_vm_mem_available = min(mem for (cpu, mem, disks, processes_in_vm) in the_cluster)
-    max_segment_stores_per_vm = math.ceil(vms / segment_stores)
-    new_direct_memory = Constants.segment_store_direct_memory_in_gb + int(min_vm_mem_available/max_segment_stores_per_vm)
+    max_segment_stores_per_vm = math.ceil(segment_stores / vms)
+    new_direct_memory = Constants.segment_store_direct_memory_in_gb + int(min_vm_mem_available / max_segment_stores_per_vm)
     print("--------- Segment Store In-Memory Cache Size (Pravega +0.7) ---------")
     print("Segment Store pod memory limit: ", Constants.segment_store_jvm_size_in_gb + new_direct_memory, "GB")
     print("Segment Store JVM Size (-Xmx JVM Option) : ", Constants.segment_store_jvm_size_in_gb, "GB")
