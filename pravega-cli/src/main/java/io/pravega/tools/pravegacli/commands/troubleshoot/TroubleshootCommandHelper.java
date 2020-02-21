@@ -140,6 +140,29 @@ public abstract class TroubleshootCommandHelper extends Command {
         return store;
     }
 
+    /**
+     * Method to check if there is a filename argument also provided.
+     *
+     * @return a boolean indicating whether there is a filename argument.
+     */
+    private boolean checkFileNotExists() {
+        try {
+            getCommandArgs().getArgs().get(2);
+            return false;
+        } catch (Exception e) {
+            ensureArgCount(2);
+            return true;
+        }
+    }
+
+    /**
+     * Method to check if the right number of arguments are present.
+     */
+    void checkTroubleshootArgs() {
+        if(checkFileNotExists()) {
+            ensureArgCount(2);
+        }
+    }
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
     protected static class Context implements AutoCloseable {
         final Client client;

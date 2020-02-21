@@ -30,13 +30,10 @@ import io.pravega.tools.pravegacli.commands.cluster.ListContainersCommand;
 import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
 import io.pravega.tools.pravegacli.commands.bookkeeper.ContainerRecoverCommand;
 import io.pravega.tools.pravegacli.commands.config.ConfigSetCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeReaderGroupCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeScopeCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerDescribeStreamCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroupsInScopeCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
-import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
+import io.pravega.tools.pravegacli.commands.controller.*;
+import io.pravega.tools.pravegacli.commands.troubleshoot.*;
 import io.pravega.tools.pravegacli.commands.cluster.GetClusterNodesCommand;
+import io.pravega.tools.pravegacli.commands.troubleshoot.TroubleshootCheckCommand;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -239,6 +236,12 @@ public abstract class Command {
                         .put(ListContainersCommand::descriptor, ListContainersCommand::new)
                         .put(GetSegmentStoreByContainerCommand::descriptor, GetSegmentStoreByContainerCommand::new)
                         .put(PasswordFileCreatorCommand::descriptor, PasswordFileCreatorCommand::new)
+                        .put(TroubleshootCheckCommand::descriptor, TroubleshootCheckCommand::new)
+                        .put(CommittingTransactionsCheckCommand::descriptor, CommittingTransactionsCheckCommand::new)
+                        .put(GeneralCheckCommand::descriptor, GeneralCheckCommand::new)
+                        .put(ScaleCheckCommand::descriptor, ScaleCheckCommand::new)
+                        .put(TruncateCheckCommand::descriptor, TruncateCheckCommand::new)
+                        .put(UpdateCheckCommand::descriptor, UpdateCheckCommand::new)
                         .build());
 
         /**
