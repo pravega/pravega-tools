@@ -66,7 +66,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
                 store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
             Map<Record, Set<Fault>> faults = check(store, executor);
-            output(outputFaults(faults));
+            outputToFile(outputFaults(faults));
 
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());

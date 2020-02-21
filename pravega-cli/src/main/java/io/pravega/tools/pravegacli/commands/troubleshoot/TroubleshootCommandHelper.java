@@ -38,6 +38,7 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
+import java.io.PrintWriter;
 import java.net.URI;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -56,7 +57,7 @@ public abstract class TroubleshootCommandHelper extends Command {
      *
      * @param args The arguments for the command.
      */
-    public TroubleshootCommandHelper(CommandArgs args) {
+     TroubleshootCommandHelper(CommandArgs args) {
         super(args);
 
     }
@@ -65,7 +66,7 @@ public abstract class TroubleshootCommandHelper extends Command {
      *
      * @return REST client.
      */
-    protected Context createContext() {
+    protected TroubleshootCommandHelper.Context createContext() {
 
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.register(JacksonJsonProvider.class);
@@ -140,6 +141,7 @@ public abstract class TroubleshootCommandHelper extends Command {
         return store;
     }
 
+
     /**
      * Method to check if there is a filename argument also provided.
      *
@@ -163,6 +165,24 @@ public abstract class TroubleshootCommandHelper extends Command {
             ensureArgCount(2);
         }
     }
+
+    /**
+     * Method to output data to a file if the filename is given.
+     *
+     * @param data the data as a String
+     */
+    void outputToFile(final String data) {
+        if (checkFileNotExists()) {
+            output(data);
+        } else {
+            try (PrintWriter out = new PrintWriter(getCommandArgs().getArgs().get(2))) {
+                out.println(data);
+            } catch (Exception e) {
+                System.err.println("Error in writing to file: " + e);
+            }
+        }
+    }
+
     @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
     protected static class Context implements AutoCloseable {
         final Client client;
