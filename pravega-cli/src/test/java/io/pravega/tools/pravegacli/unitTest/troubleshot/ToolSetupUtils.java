@@ -301,7 +301,7 @@ public class ToolSetupUtils {
             Record k = (Record) iterator.next();
             Set<Fault> f = fault.get(k);
             Iterator<Fault> itr = f.iterator();
-            error = error + itr.next().getErrorMessage();
+                error = itr.next().getErrorMessage();
         }
         return error;
     }

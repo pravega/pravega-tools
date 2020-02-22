@@ -47,7 +47,7 @@ public class CheckUtils {
      * @param isDuplicate a boolean determining if the epoch is duplicate or not
      * @param scope       stream scope
      * @param streamName  stream name
-     * @param store       an instance of the extended metadata store
+     * @param store       an instance of the Stream metadata store
      * @param executor    callers executor
      * @return A map of Record and Fault.
      */
@@ -87,9 +87,20 @@ public class CheckUtils {
 
         // Segment data
         boolean segmentExists = checkField(record, history, "segment data", EpochRecord::getSegments, HistoryTimeSeriesRecord::getSegmentsCreated, faults);
+        ImmutableList<StreamSegmentRecord> immutableList=null;
+        if (segmentExists)
+        {
+            List<StreamSegmentRecord> newSegmentsList = new ArrayList<>();
+            for(StreamSegmentRecord streamSegmentRecord :record.getSegments())
+            {
+                if (record.getEpoch()==streamSegmentRecord.getCreationEpoch()) {
+                    newSegmentsList.add(streamSegmentRecord);
+                }
+            }
 
-        if (!isDuplicate) {
-            if (segmentExists && !record.getSegments().equals(history.getSegmentsCreated())) {
+            immutableList = ImmutableList.copyOf(newSegmentsList);
+
+            if(immutableList.size()!=0 && !immutableList.equals(history.getSegmentsCreated())) {
                 putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
                         "Segment data mismatch."));
             }
@@ -125,20 +136,18 @@ public class CheckUtils {
         }
 
         // Segments created in epoch should be ahead of the sealed segments.
-        if (sealedExists && segmentExists) {
-            List<Integer> sealedSegments = history.getSegmentsSealed().stream()
+        if (immutableList.size()!=0 && sealedExists && segmentExists) {
+            Long epochMinSegment = Collections.min(immutableList.stream()
                     .map(StreamSegmentRecord::getSegmentNumber)
-                    .collect(Collectors.toList());
-
-            Integer epochMinSegment = Collections.min(record.getSegments().stream()
-                    .map(StreamSegmentRecord::getSegmentNumber)
+                    .mapToLong(Integer::longValue)
+                    .boxed()
                     .collect(Collectors.toList()));
 
-            Integer maxSealedSegment;
+            Long maxSealedSegment;
             if (sealedSegmentsHistory.isEmpty()) {
-                maxSealedSegment = Integer.MIN_VALUE;
+                maxSealedSegment = Long.MIN_VALUE;
             } else {
-                maxSealedSegment = Collections.max(sealedSegments);
+                maxSealedSegment = Collections.max(sealedSegmentsHistory);
             }
 
             if (epochMinSegment < maxSealedSegment) {
@@ -196,7 +205,7 @@ public class CheckUtils {
     /**
      * Method to return an EpochRecord if it exists.
      *
-     * @param store      an instance of the extended metadata store
+     * @param store      an instance of the Stream metadata store
      * @param executor   callers executor
      * @param scope      stream scope
      * @param streamName stream name
@@ -224,7 +233,7 @@ public class CheckUtils {
     /**
      * Method to return an HistoryTimeSeriesRecord if it exists.
      *
-     * @param store      an instance of the extended metadata store
+     * @param store      an instance of the Stream metadata store
      * @param executor   callers executor
      * @param scope      stream scope
      * @param streamName stream name

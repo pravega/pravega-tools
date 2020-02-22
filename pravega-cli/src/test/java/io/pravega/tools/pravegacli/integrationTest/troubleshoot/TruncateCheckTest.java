@@ -154,5 +154,4 @@ public class TruncateCheckTest {
         storeHelper.addNewEntry(tablename, "truncation", oldStreamTruncationRecord.toBytes()).join();
     }
 
-
 }

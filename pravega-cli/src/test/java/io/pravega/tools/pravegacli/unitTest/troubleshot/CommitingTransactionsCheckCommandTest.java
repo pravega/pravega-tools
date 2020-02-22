@@ -85,7 +85,7 @@ public class CommitingTransactionsCheckCommandTest {
 
         //checking for inconsistency
         String result= inconsistency_check();
-        Assert.assertEquals(result,"Duplicate txn epoch: 1 is corrupted or does not exist.");
+        Assert.assertTrue(result.contains("The corresponding EpochRecord is corrupted or does not exist."));
     }
 
     public String inconsistency_check() {

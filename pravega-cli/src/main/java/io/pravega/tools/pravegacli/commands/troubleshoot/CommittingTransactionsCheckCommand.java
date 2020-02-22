@@ -52,22 +52,10 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
      */
     @Override
     public void execute() {
-        checkTroubleshootArgs();
         try {
-            @Cleanup
-            CuratorFramework zkClient = createZKClient();
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-            SegmentHelper segmentHelper;
-            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
-                store = StreamStoreFactory.createZKStore(zkClient, executor);
-            } else {
-                segmentHelper = instantiateSegmentHelper(zkClient);
-                GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
-                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
-            }
-            Map<Record, Set<Fault>> faults = check(store, executor);
-            outputToFile(outputFaults(faults));
-
+            store=createMetadataStore(executor);
+            check(store, executor);
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {

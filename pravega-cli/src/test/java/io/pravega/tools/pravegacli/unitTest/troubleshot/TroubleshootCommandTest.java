@@ -24,6 +24,7 @@ import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
+import io.pravega.tools.pravegacli.commands.troubleshoot.ScaleCheckCommand;
 import io.pravega.tools.pravegacli.commands.troubleshoot.TroubleshootCheckCommand;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -119,7 +120,7 @@ public class TroubleshootCommandTest {
 
         //checking for commiting Error
         String result5 = commiting_check(mystoremock);
-        Assert.assertEquals(result5,"Duplicate txn epoch: 2 is corrupted or does not exist.");
+        Assert.assertEquals(result5,"Epoch: 2, The corresponding EpochRecord is corrupted or does not exist.");
 
         //if there's no Error
         String result6 = tc.check(mystoremock,executor);
@@ -337,7 +338,7 @@ public class TroubleshootCommandTest {
                 thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream,
                         chunkNumber, null, executor));
 
-        String result = tc.check(mockstore, executor);
+          String result = tc.check(mockstore, executor);
 
         //changng back to orignal state
         Mockito.when(mockstore.getVersionedCommittingTransactionsRecord("scope", testStream, null, executor)).

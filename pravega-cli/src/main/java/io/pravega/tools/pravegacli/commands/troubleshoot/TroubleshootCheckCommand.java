@@ -94,6 +94,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
                result=faultvalue(faults);
                return result;
            }
+
+
        }
 
        // The Truncate Checkup.

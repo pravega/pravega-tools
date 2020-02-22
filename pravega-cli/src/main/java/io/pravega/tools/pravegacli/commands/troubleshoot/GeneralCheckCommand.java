@@ -48,24 +48,10 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
     @Override
     public void execute() {
         checkTroubleshootArgs();
-
         try {
-            @Cleanup
-            CuratorFramework zkClient = createZKClient();
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-
-            SegmentHelper segmentHelper;
-            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
-                store = StreamStoreFactory.createZKStore(zkClient, executor);
-            } else {
-                segmentHelper = instantiateSegmentHelper(zkClient);
-                GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
-                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
-            }
-
-            Map<Record, Set<Fault>> faults = check(store, executor);
-            outputToFile(outputFaults(faults));
-
+            store=createMetadataStore(executor);
+            check(store, executor);
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {
@@ -88,7 +74,7 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
      *
      * Any faults which are noticed are immediately recorded and then finally returned.
      *
-     * @param store     an instance of the extended metadata store
+     * @param store     an instance of the StreamMetadataStore
      * @param executor  callers executor
      * @return A map of Record and a set of Faults associated with it.
      */

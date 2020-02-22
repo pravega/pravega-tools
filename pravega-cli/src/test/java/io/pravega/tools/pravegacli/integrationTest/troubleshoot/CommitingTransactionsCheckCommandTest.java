@@ -98,7 +98,7 @@ public class CommitingTransactionsCheckCommandTest {
         //checking for inconsistency
         VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata2=storeHelper.getEntry(tablename,"committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
         String result2= inconsistency_check(committingVersionMetadata2);
-        Assert.assertEquals(result2,"Duplicate txn epoch: 1 is corrupted or does not exist.");
+        Assert.assertTrue(result2.contains("The corresponding EpochRecord is corrupted or does not exist."));
 
     }
 

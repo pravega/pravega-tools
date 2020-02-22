@@ -23,7 +23,7 @@ public interface Check {
     /**
      * Method to check the consistency of a given case of records
      *
-     * @param store     an instance of the extended metadata store
+     * @param store     an instance of the Stream metadata store
      * @param executor  callers executor
      * @return A map of Record and Fault.
      */

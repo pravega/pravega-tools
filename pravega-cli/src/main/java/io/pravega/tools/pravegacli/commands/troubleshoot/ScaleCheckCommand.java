@@ -11,11 +11,17 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableMap;
 import io.micrometer.shaded.reactor.core.Exceptions;
+import io.pravega.controller.server.SegmentHelper;
+import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
+import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.*;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
+import lombok.Cleanup;
+import org.apache.curator.framework.CuratorFramework;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.*;
@@ -24,6 +30,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.*;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
  * A helper class that checks the stream with respect to the scale case.
@@ -37,11 +44,44 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
      */
     public ScaleCheckCommand(CommandArgs args) { super(args); }
 
+    /**
+     * The method to execute the check method as part of the execution of the command.
+     */
     @Override
     public void execute() {
-
+        checkTroubleshootArgs();
+        try {
+            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
+            store=createMetadataStore(executor);
+            check(store, executor);
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Exception accessing metadata store: " + e.getMessage());
+        }
     }
 
+    /**
+     * Method to check the consistency of the stream with respect to scaling workflow. We first obtain the EpochTransitionRecord
+     * and then run the following checks:
+     *
+     * - If the EpochTransitionRecord is not empty then we try to obtain the new epoch record as dictated by the EpochTransitionRecord.
+     *
+     * - Once we have the epoch record, we also obtain the corresponding history record and then run the desired consistency
+     *   checks among them. If any one of the record is not available then we stop and return all the faults upto this point.
+     *
+     * - We check whether the segments created list in the epoch record is in line with the segments described by the new
+     *   ranges in the EpochTransitionRecord.
+     *
+     * - We check if the segments sealed as mentioned in the HistoryTimeSeriesRecord are equivalent to the segments to be sealed
+     *   as described in the EpochTransitionRecord.
+     *
+     * Any faults which are noticed are immediately recorded and then finally returned.
+     *
+     * @param store     an instance of the Stream metadata store
+     * @param executor  callers executor
+     * @return A map of Record and a set of Faults associated with it.
+     */
     @Override
     public Map<Record, Set<Fault>> check(StreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
@@ -106,7 +146,8 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
         }
 
         // Check the EpochRecord and HistoryTimeSeriesRecord.
-        putAllInFaultMap(faults, checkConsistency(neededEpochRecord, neededHistoryRecord, scope, streamName, store, executor));
+        putAllInFaultMap(faults, checkConsistency(neededEpochRecord, neededHistoryRecord, false, scope, streamName, store, executor));
+
         Record<EpochTransitionRecord> epochTransitionRecord = new Record<>(transitionRecord, EpochTransitionRecord.class);
         Record<EpochRecord> epochRecord = new Record<>(neededEpochRecord, EpochRecord.class);
         Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(neededHistoryRecord, HistoryTimeSeriesRecord.class);
@@ -127,7 +168,7 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
                     if (!segmentRange.equals(newSegments.get(id))) {
                         putInFaultMap(faults, epochTransitionRecord,
                                 Fault.inconsistent(epochRecord, "EpochRecord and the EpochTransitionRecord mismatch in the segments"));
-                        break;
+                        return faults;
                     }
                 }
             }
@@ -149,9 +190,17 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
             if (!sealedSegmentTransition.equals(sealedSegmentsHistory)) {
                 putInFaultMap(faults, epochTransitionRecord,
                         Fault.inconsistent(historyTimeSeriesRecord, "HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments"));
+                return faults;
             }
         }
 
         return faults;
+    }
+
+    public static CommandDescriptor descriptor() {
+        return new CommandDescriptor(COMPONENT, "scale-check", "check health of the scale workflow",
+                new ArgDescriptor("scope-name", "Name of the scope"),
+                new ArgDescriptor("stream-name", "Name of the stream"),
+                new ArgDescriptor("output-file", "(OPTIONAL) The file to output the results to"));
     }
 }

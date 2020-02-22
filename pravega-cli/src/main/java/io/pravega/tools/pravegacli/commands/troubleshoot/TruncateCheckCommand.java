@@ -10,11 +10,17 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import io.pravega.common.Exceptions;
+import io.pravega.controller.server.SegmentHelper;
+import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
+import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
+import lombok.Cleanup;
+import org.apache.curator.framework.CuratorFramework;
 
 import java.util.*;
 import java.util.concurrent.CompletionException;
@@ -23,6 +29,7 @@ import java.util.stream.Collectors;
 
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.checkCorrupted;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putInFaultMap;
+import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFaults;
 
 /**
  * A helper class that checks the stream with respect to the truncate case.
@@ -36,11 +43,55 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
      */
     public TruncateCheckCommand(CommandArgs args) { super(args); }
 
+    /**
+     * The method to execute the check method as part of the execution of the command.
+     */
     @Override
     public void execute() {
+        checkTroubleshootArgs();
+        try {
+            @Cleanup
+            CuratorFramework zkClient = createZKClient();
+            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
 
+            SegmentHelper segmentHelper;
+            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
+                store = StreamStoreFactory.createZKStore(zkClient, executor);
+            } else {
+                segmentHelper = instantiateSegmentHelper(zkClient);
+                GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
+                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
+            }
+
+            Map<Record, Set<Fault>> faults = check(store, executor);
+            outputToFile(outputFaults(faults));
+
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Exception accessing metadata store: " + e.getMessage());
+        }
     }
 
+    /**
+     * Method to check the consistency of the stream with respect to truncating workflow. We first obtain the StreamTruncationRecord
+     * and then run the following checks:
+     *
+     * - If the StreamTruncationRecord is not EMPTY then we check for the internal consistency of the StreamTruncationRecord.
+     *
+     * - Firstly the updating flag cannot be set to false if the segments to delete list is not empty because the updating
+     *   flag being false indicates the completion of the truncation workflow during which the segments to delete should be
+     *   empty as the workflow has ended.
+     *
+     * - We run a check to make sure that there are no segments deleted ahead of the stream cut. This includes checking both
+     *   the deleted segments and the segments to delete.
+     *
+     * Any faults which are noticed are immediately recorded and then finally returned.
+     *
+     * @param store     an instance of the Stream metadata store
+     * @param executor  callers executor
+     * @return A map of Record and a set of Faults associated with it.
+     */
     @Override
     public Map<Record, Set<Fault>> check(StreamMetadataStore store, ScheduledExecutorService executor) {
         ensureArgCount(2);
@@ -119,5 +170,12 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
         }
 
         return faults;
+    }
+
+    public static CommandDescriptor descriptor() {
+        return new CommandDescriptor(COMPONENT, "truncate-check", "check health of the truncate workflow",
+                new ArgDescriptor("scope-name", "Name of the scope"),
+                new ArgDescriptor("stream-name", "Name of the stream"),
+                new ArgDescriptor("output-file", "(OPTIONAL) The file to output the results to"));
     }
 }

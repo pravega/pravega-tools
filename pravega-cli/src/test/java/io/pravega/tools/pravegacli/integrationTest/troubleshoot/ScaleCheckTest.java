@@ -105,13 +105,14 @@ public class ScaleCheckTest {
         storeHelper.addNewEntry(tablename, "epochTransition", currentEpochTransitionRecordMetadata.getObject().toBytes()).join();
         currentEpochTransitionRecordMetadata1 = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
         String result1 =unvalabilityCheck(currentEpochTransitionRecordMetadata1);
+        System.out.println("result1 = "+result1);
         Assert.assertEquals(result1,"EpochTransitionRecord is corrupted or unavailable");
 
         //checking for inconsistency
         VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata2= storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
         String result2=Inconsistency_check(currentEpochTransitionRecordMetadata2);
-        System.out.println("value of result2 = "+result2);
-        Assert.assertEquals(result2,"HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments");
+        System.out.println("result2 = "+result2);
+        Assert.assertTrue(result2.contains("HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments"));
     }
 
     public VersionedMetadata<EpochTransitionRecord> do_scale()
