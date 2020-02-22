@@ -54,6 +54,8 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
             store=createMetadataStore(executor);
             check(store, executor);
+            Map<Record, Set<Fault>> faults = check(store, executor);
+            outputToFile(outputFaults(faults));
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {
@@ -84,7 +86,7 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
      */
     @Override
     public Map<Record, Set<Fault>> check(StreamMetadataStore store, ScheduledExecutorService executor) {
-        ensureArgCount(2);
+        checkTroubleshootArgs();
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();

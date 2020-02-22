@@ -51,33 +51,23 @@ public class UpdateCheckCommand extends TroubleshootCommandHelper implements Che
 
     @Override
     public void execute() {
+        checkTroubleshootArgs();
         try {
-            @Cleanup
-            CuratorFramework zkClient = createZKClient();
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-
-            SegmentHelper segmentHelper;
-            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
-                store = StreamStoreFactory.createZKStore(zkClient, executor);
-            } else {
-                segmentHelper = instantiateSegmentHelper(zkClient);
-                GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
-                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
-            }
-
+            store=createMetadataStore(executor);
+            check(store, executor);
             Map<Record, Set<Fault>> faults = check(store, executor);
-            output(outputFaults(faults));
-            if (faults.size()==0)
-                output("Everything is fine no update faults");
-
-        } catch (Exception e) {
+            outputToFile(outputFaults(faults));
+        } catch (CompletionException e) {
+            System.err.println("Exception during process: " + e.getMessage());
+        }catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
     }
 
     @Override
     public Map<Record, Set<Fault>> check(StreamMetadataStore store, ScheduledExecutorService executor) {
-        ensureArgCount(2);
+        checkTroubleshootArgs();
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
@@ -110,6 +100,7 @@ public class UpdateCheckCommand extends TroubleshootCommandHelper implements Che
     public static Command.CommandDescriptor descriptor() {
         return new Command.CommandDescriptor(COMPONENT, "update-check", "check the update mechanism",
                 new Command.ArgDescriptor("scope-name", "Name of the scope"),
-                new Command.ArgDescriptor("stream-name", "Name of the stream"));
+                new ArgDescriptor("stream-name", "Name of the stream"),
+                new ArgDescriptor("output-file", "(OPTIONAL) The file to output the results to"));
     }
 }

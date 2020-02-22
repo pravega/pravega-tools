@@ -52,6 +52,8 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
             store=createMetadataStore(executor);
             check(store, executor);
+            Map<Record, Set<Fault>> faults = check(store, executor);
+            outputToFile(outputFaults(faults));
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
         } catch (Exception e) {

@@ -50,25 +50,14 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
     public void execute() {
         checkTroubleshootArgs();
         try {
-            @Cleanup
-            CuratorFramework zkClient = createZKClient();
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-
-            SegmentHelper segmentHelper;
-            if (getCLIControllerConfig().getMetadataBackend().equals(CLIControllerConfig.MetadataBackends.ZOOKEEPER.name())) {
-                store = StreamStoreFactory.createZKStore(zkClient, executor);
-            } else {
-                segmentHelper = instantiateSegmentHelper(zkClient);
-                GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
-                store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
-            }
-
+            store=createMetadataStore(executor);
+            check(store, executor);
             Map<Record, Set<Fault>> faults = check(store, executor);
             outputToFile(outputFaults(faults));
-
-        } catch (CompletionException e) {
+          } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
-        } catch (Exception e) {
+          } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
     }
@@ -94,7 +83,7 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
      */
     @Override
     public Map<Record, Set<Fault>> check(StreamMetadataStore store, ScheduledExecutorService executor) {
-        ensureArgCount(2);
+        checkTroubleshootArgs();
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();

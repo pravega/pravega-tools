@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import static io.pravega.tools.pravegacli.commands.utils.CheckUtils.putAllInFaultMap;
@@ -40,10 +41,12 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
 
     @Override
     public void execute() {
+        checkTroubleshootArgs();
         try {
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
             store=getStreamMetaDataStore(executor);
             check(store, executor);
+            
         } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
@@ -66,13 +69,13 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
        // The Update Checkup.
        Map<Record, Set<Fault>> updateFaults = update.check(store, executor);
        if(updateFaults.size()!=0) {
-           outputFaults(updateFaults);
+           output(outputFaults(updateFaults));
            result=faultvalue(updateFaults);
            return result;
        }
        // The General Checkup.
        if (runCheckup(faults, updateFaults, general::check, executor, "General Checkup")) {
-           outputFaults(updateFaults);
+           output(outputFaults(updateFaults));
            result=faultvalue(faults);
            return result;
        }
@@ -83,14 +86,14 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
        if (currentEpoch != historyCurrentEpoch) {
            // The Scale Checkup.
            if (runCheckup(faults, updateFaults, scale::check, executor, "Scale Checkup")) {
-               outputFaults(updateFaults);
+               output(outputFaults(updateFaults));
                result=faultvalue(faults);
                return result;
            }
 
            // The Committing Transactions Checkup.
            if (runCheckup(faults, updateFaults, committingTransactions::check, executor, "Committing_txn Checkup")) {
-               outputFaults(updateFaults);
+               output(outputFaults(updateFaults));
                result=faultvalue(faults);
                return result;
            }
@@ -100,17 +103,16 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
 
        // The Truncate Checkup.
        if (runCheckup(faults, updateFaults, truncate::check, executor, "Truncate Checkup")) {
-           outputFaults(updateFaults);
+           output(outputFaults(updateFaults));
            result=faultvalue(faults);
            return result;
        }
-
        result="Everything seems OK.";
-       output(result+"\n");
-        }
-      catch (Exception e) {
+       output(result);
+      }catch (CompletionException e) {
+          System.err.println("Exception during process: " + e.getMessage());
+      }catch (Exception e) {
         System.err.println("Exception accessing metadata store: " + e.getMessage());
-
     }
        return result;
     }
@@ -122,7 +124,8 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
     public static Command.CommandDescriptor descriptor() {
         return new Command.CommandDescriptor(COMPONENT, "diagnosis", "check health based on stream-specific metadata",
                 new Command.ArgDescriptor("scope-name", "Name of the scope"),
-                new Command.ArgDescriptor("stream-name", "Name of the stream"));
+                new ArgDescriptor("stream-name", "Name of the stream"),
+                new ArgDescriptor("output-file", "(OPTIONAL) The file to output the results to"));
     }
 
     private boolean runCheckup(final Map<Record, Set<Fault>> faults, final Map<Record, Set<Fault>> updateFaults,

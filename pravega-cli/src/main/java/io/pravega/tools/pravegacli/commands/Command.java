@@ -237,6 +237,7 @@ public abstract class Command {
                         .put(GetSegmentStoreByContainerCommand::descriptor, GetSegmentStoreByContainerCommand::new)
                         .put(PasswordFileCreatorCommand::descriptor, PasswordFileCreatorCommand::new)
                         .put(TroubleshootCheckCommand::descriptor, TroubleshootCheckCommand::new)
+                        .put(TroubleshootPrintMetadataCommand::descriptor, TroubleshootPrintMetadataCommand::new)
                         .put(CommittingTransactionsCheckCommand::descriptor, CommittingTransactionsCheckCommand::new)
                         .put(GeneralCheckCommand::descriptor, GeneralCheckCommand::new)
                         .put(ScaleCheckCommand::descriptor, ScaleCheckCommand::new)

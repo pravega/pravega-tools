@@ -9,13 +9,20 @@
  */
 package io.pravega.tools.pravegacli.commands.utils;
 
+import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.controller.store.stream.records.*;
+import io.pravega.shared.NameUtils;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static io.pravega.shared.NameUtils.getSegmentNumber;
 
 /**
  * Class for methods to output various metadata records.
@@ -30,8 +37,10 @@ public class OutputUtils {
      */
     public static String outputFaults(Map<Record, Set<Fault>> faults) {
         StringBuilder responseBuilder = new StringBuilder();
+        AtomicInteger serialNumber = new AtomicInteger(1);
 
         faults.forEach((k, v) -> {
+            responseBuilder.append(serialNumber.get()).append(") ");
             responseBuilder.append(k.toString())
                     .append("-----------------------").append("\n");
 
@@ -39,14 +48,23 @@ public class OutputUtils {
                 responseBuilder.append(f.getInconsistencyType()).append("\n");
 
                 if (f.getInconsistentWith() != null) {
-                    responseBuilder.append(f.getInconsistentWith().toString());
+                    responseBuilder.append(f.getInconsistentWith().toString()).append("\n");
                 }
 
-                responseBuilder.append(f.getErrorMessage()).append("\n\n");
+                responseBuilder.append(f.getErrorMessage()).append("\n\n\n");
             });
 
-            responseBuilder.append("-----------------------").append("\n\n\n");
+            int length = responseBuilder.length();
+            responseBuilder.delete(length-3, length-1);
+
+            responseBuilder.append("-----------------------").append("\n\n");
+            serialNumber.addAndGet(1);
         });
+
+        int length = responseBuilder.length();
+        if (length > 0) {
+            responseBuilder.delete(length - 2, length - 1);
+        }
 
         return responseBuilder.toString();
     }
@@ -66,15 +84,20 @@ public class OutputUtils {
         }
 
         responseBuilder.append("The active epoch: ").append(tryOutputValue(record, EpochTransitionRecord::getActiveEpoch))
-                .append(", creation time: ").append(tryOutputValue(record, EpochTransitionRecord::getTime)).append("\n")
-                .append("Segments to seal: ").append(tryOutputValue(record, EpochTransitionRecord::getSegmentsToSeal)).append("\n");
+                .append(", creation time: ").append(tryOutputValue(record, EpochTransitionRecord::getTime)).append("\n");
 
+        try {
+            List<Integer> segmentsToSeal = record.getSegmentsToSeal().stream().map(NameUtils::getSegmentNumber).collect(Collectors.toList());
+            responseBuilder.append("Segments to seal: ").append(segmentsToSeal).append("\n");
+        } catch (Exception e) {
+            responseBuilder.append("\n");
+        }
 
         responseBuilder.append("New Ranges: ").append("\n");
         try {
             record.getNewSegmentsWithRange().forEach(
                     (id, range) -> {
-                        responseBuilder.append(id).append(" -> ");
+                        responseBuilder.append(getSegmentNumber(id)).append(" -> ");
                         responseBuilder.append("(").append(range.getKey())
                                 .append(", ").append(range.getValue()).append(")").append("\n");
                     });
@@ -190,6 +213,26 @@ public class OutputUtils {
                 .append(tryOutputValue(record, StreamConfigurationRecord::getStreamName)).append("\n");
         responseBuilder.append("Updating: ").append(tryOutputValue(record, StreamConfigurationRecord::isUpdating)).append("\n");
 
+        responseBuilder.append("StreamConfiguration: ").append("\n");
+        try {
+            StreamConfiguration config = record.getStreamConfiguration();
+
+            try {
+                responseBuilder.append(config.getScalingPolicy() == null ? "ScalingPolicy(null)" : config.getScalingPolicy()).append("\n");
+            } catch (Exception e) {
+                responseBuilder.append("\n");
+            }
+
+            try {
+                responseBuilder.append(config.getRetentionPolicy() == null ? "RetentionPolicy(null)" : config.getRetentionPolicy()).append("\n");
+            } catch (Exception e) {
+                responseBuilder.append("\n");
+            }
+
+        } catch (Exception e) {
+            responseBuilder.append("\n");
+        }
+
         return responseBuilder.toString();
     }
 
@@ -223,6 +266,15 @@ public class OutputUtils {
         return responseBuilder.toString();
     }
 
+    /**
+     * Method to see if the field described by the given getter is corrupted or not. If it corrupted then we return an
+     * empty string. If the field is accessible then we return a string with the value of the field in it.
+     *
+     * @param record  the metadata record
+     * @param getFunc the getter function for the field
+     * @param <T>     the type of the metadata record
+     * @return a String containing field information if available.
+     */
     private static <T> String tryOutputValue(final T record, final Function<T, Object> getFunc) {
         StringBuilder responseBuilder = new StringBuilder();
         try {
