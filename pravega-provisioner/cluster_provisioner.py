@@ -83,9 +83,9 @@ def get_requested_resources(zk_servers, bk_servers, ss_servers, cc_servers):
     return requested_cpus, requested_ram_gb
 
 
-def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
-    # Ask to the user the number of node failures he/she wants to tolerate.
-    failures_to_tolerate = get_int_input("How many node failures you want to tolerate?", range(0, 100))
+def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives,
+                                zookeeper_servers, bookkeeper_servers, segment_stores, controllers,
+                                failures_to_tolerate, metadata_heavy_workload):
     if failures_to_tolerate >= vms:
         assert False, "You have not enough nodes to tolerate such amount of failures"
     elif vms - failures_to_tolerate < Constants.min_bookkeeper_servers or vms - failures_to_tolerate < Constants.min_zookeeper_servers:
@@ -110,9 +110,6 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
     # First, make sure that whatever initial number of instances can be allocated, otherwise just throw an error.
     assert can_allocate_cluster, "Not even the minimal Pravega cluster can be allocated with the current resources. " + \
                                  "Please, check the Constants file to see the resources requested per instance."
-
-    # Ask to the user whether this is a metadata-intensive workload or not.
-    metadata_heavy_workload = get_bool_input("Is the workload metadata-heavy (i.e., many clients, small transactions)?")
 
     # Search for the maximum number of instances to saturate the cluster.
     while can_allocate_cluster:
@@ -154,7 +151,8 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
     # Get the resources used for the last possible allocation
     the_cluster = can_allocate_services_on_nodes(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookeeper_servers,
                                                  bookkeeper_servers, segment_stores, controllers)[1]
-    print("Allocation of pods on nodes: ", the_cluster)
+    if Constants.VERBOSE_OUTPUT:
+        print("Allocation of pods on nodes: ", the_cluster)
     # Finally, we need to check how much memory is left in the nodes so we can share it across Segment Stores for cache.
     # In the worst case, we will have [math.ceil(segment_stores/vms)] Segment Store instances on a single node. Also,
     # in the worst case, this could be the node with the least available memory available. For this reason, the
@@ -171,7 +169,7 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
           " (", new_direct_memory - 1, "GB)")
     print("Buffering time that Pravega tolerates with Tier 2 unavailable given a (well distributed) write workload:")
     for w in range(100, 1000, 200):
-        print("- Write throughput: ", w, "(MBps) -> buffering time: ", ((segment_stores * (new_direct_memory - 1) * 1024) / w), " seconds")
+        print("- Write throughput: ", w, "(MBps) -> buffering time: ", str(round((segment_stores * (new_direct_memory - 1) * 1024) / w, 2)), " seconds")
 
     # Add a warning if the number of Bookies is higher than the number of nodes, as Pravega may need to enable rack-
     # aware placement in Bookkeeper so it tries to write to Bookies in different nodes (data availability).
@@ -179,7 +177,23 @@ def resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, zookee
         print("WARNING: To guarantee data availability and durability, consider enabling rack-aware placement in "
               "Pravega to write to Bookkeeper.")
 
-    return zookeeper_servers, bookkeeper_servers, segment_stores, controllers
+    output = dict()
+    output['vms'] = int(vms)
+    output['vm_cpus'] = int(vm_cpus)
+    output['vm_ram_gb'] = int(vm_ram_gb)
+    output['vm_local_drives'] = int(vm_local_drives)
+    output['failures_to_tolerate'] = int(failures_to_tolerate)
+    output['metadata_heavy_workload'] = metadata_heavy_workload
+    output['controller'] = int(controllers)
+    output['segment_store'] = int(segment_stores)
+    output['bookkeeper'] = int(bookkeeper_servers)
+    output['zookeeper'] = int(zookeeper_servers)
+    output['segment_store_jvm_options_mx'] = int(Constants.segment_store_jvm_size_in_gb)
+    if new_direct_memory > 0:
+        output['segment_store_jvm_options_direct_memory'] = int(new_direct_memory)
+        output['segment_store_cache_max_size'] = int((new_direct_memory - 1) * 1024 * 1024 * 1024)
+    
+    return output
 
 
 def workload_based_provisioning(zookeeper_servers, bookkeeper_servers, segment_stores, controllers):
@@ -257,8 +271,21 @@ def main():
 
     if provisioning_model == 0:
         vms = int(input("How many VMs/nodes do you want to devote for a Pravega cluster?"))
-        zookeeper_servers, bookkeeper_servers, segment_stores, controllers = resource_based_provisioning(vms, vm_cpus,
-                        vm_ram_gb, vm_local_drives, zookeeper_servers, bookkeeper_servers, segment_stores, controllers)
+        # Ask to the user the number of node failures he/she wants to tolerate.
+        failures_to_tolerate = get_int_input("How many node failures you want to tolerate?", range(0, 100))
+        # Ask to the user whether this is a metadata-intensive workload or not.
+        metadata_heavy_workload = get_bool_input("Is the workload metadata-heavy (i.e., many clients, small transactions)?")
+        output = resource_based_provisioning(vms, vm_cpus, vm_ram_gb, vm_local_drives, 
+                                                            zookeeper_servers, bookkeeper_servers, segment_stores, controllers, 
+                                                            failures_to_tolerate, metadata_heavy_workload)
+        vm_cpus = output['vm_cpus']
+        vm_ram_gb = output['vm_ram_gb']
+        vm_local_drives = output['vm_local_drives']
+        controllers = output['controller']
+        segment_stores = output['segment_store']
+        bookkeeper_servers = output['bookkeeper']
+        zookeeper_servers = output['zookeeper']
+
     elif provisioning_model > 0:
         # Provision for data availability.
         if get_bool_input("Do you want to provision redundant instances to tolerate failures?"):

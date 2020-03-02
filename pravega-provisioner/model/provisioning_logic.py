@@ -183,7 +183,7 @@ def _subtract_resources_from_cluster(the_cluster, num_instances, cpu_per_instanc
     finish_allocation = False
     completed_allocations = retries = 0
     while not finish_allocation:
-        for x in range(num_instances - completed_allocations):
+        for x in range(int(num_instances) - completed_allocations):
             [old_cpu, old_ram, old_drives, processes_in_vm] = the_cluster[x % len(the_cluster)]
             # Only allocate when there are enough resources
             if (old_cpu - cpu_per_instance) >= 0 and (old_ram - ram_per_instance) >= 0 and (old_drives - drives_per_instance) >= 0:
