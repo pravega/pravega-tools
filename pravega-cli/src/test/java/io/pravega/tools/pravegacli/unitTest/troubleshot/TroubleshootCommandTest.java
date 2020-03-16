@@ -24,7 +24,6 @@ import io.pravega.tools.pravegacli.commands.AdminCommandState;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
-import io.pravega.tools.pravegacli.commands.troubleshoot.ScaleCheckCommand;
 import io.pravega.tools.pravegacli.commands.troubleshoot.TroubleshootCheckCommand;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -44,7 +43,6 @@ public class TroubleshootCommandTest {
     // Setup utility.
     private Map<Record, Set<Fault>> faults;
     SegmentHelper segmentHelper;
-    private GrpcAuthHelper authHelper;
     private PravegaTablesStoreHelper storeHelper;
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
@@ -86,7 +84,7 @@ public class TroubleshootCommandTest {
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
         segmentHelper=SETUP_UTILS.getSegmentHelper();
-        authHelper=SETUP_UTILS.getAuthHelper();
+        GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
@@ -100,7 +98,6 @@ public class TroubleshootCommandTest {
         initialsetup_store();
         StreamMetadataStore mystoremock = Mockito.mock(StreamMetadataStore.class);
         EpochTransitionRecord epRecord=store.getEpochTransition("scope",testStream,null,executor).join().getObject();
-        System.out.println("value of epoch = "+epRecord);
 
         //checking for update Failure
         String result1=update_check(mystoremock);
@@ -298,9 +295,6 @@ public class TroubleshootCommandTest {
 
         int currentEpoch = store.getActiveEpoch(scope, stream, null, true, executor).join().getEpoch();
         int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().getEpoch();
-
-        System.out.println("value  of history current = "+historyCurrentEpoch);
-
         HistoryTimeSeries ht=store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join();
 
         Mockito.when(mystoremock.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor)).

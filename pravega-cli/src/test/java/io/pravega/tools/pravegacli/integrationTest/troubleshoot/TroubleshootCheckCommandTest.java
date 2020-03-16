@@ -38,8 +38,6 @@ public class TroubleshootCheckCommandTest{
     // Setup utility.
     private Map<Record, Set<Fault>> faults;
     SegmentHelper segmentHelper;
-    private GrpcAuthHelper authHelper;
-    private PravegaTablesStoreHelper storeHelper;
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
@@ -78,8 +76,8 @@ public class TroubleshootCheckCommandTest{
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
         segmentHelper=SETUP_UTILS.getSegmentHelper();
-        authHelper=SETUP_UTILS.getAuthHelper();
-        storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
+        GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
+        PravegaTablesStoreHelper storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
     @Test

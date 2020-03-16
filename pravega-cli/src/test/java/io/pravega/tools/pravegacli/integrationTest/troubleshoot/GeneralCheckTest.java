@@ -39,7 +39,6 @@ public class GeneralCheckTest {
     // Setup utility.
     private Map<Record, Set<Fault>> faults;
     SegmentHelper segmentHelper;
-    private GrpcAuthHelper authHelper;
     private PravegaTablesStoreHelper storeHelper;
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
@@ -80,7 +79,7 @@ public class GeneralCheckTest {
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
         segmentHelper=SETUP_UTILS.getSegmentHelper();
-        authHelper=SETUP_UTILS.getAuthHelper();
+        GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 

@@ -31,19 +31,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class UpdateCheckCommandTest {
-    // Setup utility.
-    private SegmentHelper segmentHelper;
-    private GrpcAuthHelper authHelper;
     private PravegaTablesStoreHelper storeHelper;
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
     private CommandArgs commandArgs;
-    private AtomicReference<String> idRef=new AtomicReference<>(null);;
-    private volatile StreamMetadataStore store;
+    private AtomicReference<String> idRef=new AtomicReference<>(null);
     private ScheduledExecutorService executor;
     private UpdateCheckCommand updatecheck;
-    private  String tablename;
     private String testStream ;
 
     @BeforeClass
@@ -63,9 +58,10 @@ public class UpdateCheckCommandTest {
     }
     public void initialsetup_store()
     {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-        segmentHelper=SETUP_UTILS.getSegmentHelper();
-        authHelper=SETUP_UTILS.getAuthHelper();
+        StreamMetadataStore store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
+        // Setup utility.
+        SegmentHelper segmentHelper = SETUP_UTILS.getSegmentHelper();
+        GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
@@ -83,7 +79,7 @@ public class UpdateCheckCommandTest {
         SETUP_UTILS.createTestStream(testStream,1);
         initialsetup_commands();
         initialsetup_store();
-        tablename = SETUP_UTILS.getMetadataTable(testStream,storeHelper).join();
+        String tablename = SETUP_UTILS.getMetadataTable(testStream, storeHelper).join();
         VersionedMetadata<StreamConfigurationRecord> currentstreamEpochVersionMetadata = storeHelper.getEntry(tablename, "configuration", x -> StreamConfigurationRecord.fromBytes(x)).get();
         Version version=currentstreamEpochVersionMetadata.getVersion();
         //removing the configuration record

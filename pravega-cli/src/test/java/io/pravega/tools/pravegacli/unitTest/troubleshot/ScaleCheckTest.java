@@ -42,8 +42,6 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 
 public class ScaleCheckTest {
-    private SegmentHelper segmentHelper;
-    private GrpcAuthHelper authHelper;
     private PravegaTablesStoreHelper storeHelper;
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
@@ -75,8 +73,8 @@ public class ScaleCheckTest {
     public void initialsetup_store()
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-        segmentHelper=SETUP_UTILS.getSegmentHelper();
-        authHelper=SETUP_UTILS.getAuthHelper();
+        SegmentHelper segmentHelper = SETUP_UTILS.getSegmentHelper();
+        GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
@@ -151,7 +149,6 @@ public class ScaleCheckTest {
 
         //checking inconsistency between the epochrecord and Historyrecord
         String result1=inconsistency_check1(currentEpochTransitionRecord,newEpochRecord);
-        System.out.println("value of result1 = "+result1);
         Assert.assertEquals(result1,"Epoch mismatch : May or may not be the correct record.");
 
         Mockito.when(storeMock.getEpoch(scope,testStream,currentEpochTransitionRecord.getNewEpoch()
@@ -159,7 +156,6 @@ public class ScaleCheckTest {
 
         //checking inconsistency between the transitionrecord and the history record
         String result2 =inconsistency_check2(currentEpochTransitionRecord, ver);
-        System.out.println("value of result 2 = "+result2);
         Assert.assertTrue(result2.contains("HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments"));
     }
 

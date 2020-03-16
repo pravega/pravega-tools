@@ -90,7 +90,6 @@ public class UpdateCommandTest {
         VersionedMetadata<StreamConfigurationRecord> mockVersionRecord=new VersionedMetadata<>(mockStreamConfigurationRecord,ver);
         Mockito.when(mystoremock.getConfigurationRecord("scope",testStream,null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
         String result2 = SETUP_UTILS.faultvalue(updatecheck.check(mystoremock, executor));
-        System.out.println("result2 = "+result2);
         Assert.assertTrue("".equalsIgnoreCase(result2));
     }
 }

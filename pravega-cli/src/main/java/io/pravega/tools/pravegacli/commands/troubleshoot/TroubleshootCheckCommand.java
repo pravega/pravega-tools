@@ -133,7 +133,6 @@ public class TroubleshootCheckCommand extends TroubleshootCommandHelper {
                                final ScheduledExecutorService executor, final String checkupName ) {
         try {
             putAllInFaultMap(faults, check.apply(store, executor));
-            ;
             if (!faults.isEmpty()) {
                 putAllInFaultMap(faults, updateFaults);
                 output(outputFaults(faults));

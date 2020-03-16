@@ -17,12 +17,12 @@ import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.config.ConfigListCommand;
 import io.pravega.tools.pravegacli.commands.utils.ConfigUtils;
-
-import java.util.*;
-import java.util.stream.Collectors;
 import lombok.Cleanup;
 import lombok.val;
 import org.slf4j.LoggerFactory;
+
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Main entry point for the Pravega CLI.

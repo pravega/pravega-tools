@@ -33,8 +33,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class CommitingTransactionsCheckCommandTest {
-    // Setup utility.
-    private Map<Record, Set<Fault>> faults;
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
@@ -108,7 +106,8 @@ public class CommitingTransactionsCheckCommandTest {
                 thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream,
                         chunkNumber, null, executor));
          //calling the check
-        faults = ct.check(mockstore, executor);
+        // Setup utility.
+        Map<Record, Set<Fault>> faults = ct.check(mockstore, executor);
         //returning to orignal value
         return SETUP_UTILS.faultvalue(faults);
 

@@ -37,14 +37,12 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 
 public class ScaleCheckTest {
-    private SegmentHelper segmentHelper;
-    private GrpcAuthHelper authHelper;
     private PravegaTablesStoreHelper storeHelper;
     private static final ToolSetupUtils SETUP_UTILS = new ToolSetupUtils();
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
     private CommandArgs commandArgs;
-    private AtomicReference<String> idRef=new AtomicReference<>(null);;
+    private AtomicReference<String> idRef=new AtomicReference<>(null);
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
     private ScaleCheckCommand sc;
@@ -70,8 +68,8 @@ public class ScaleCheckTest {
     public void initialsetup_store()
     {
         store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-        segmentHelper=SETUP_UTILS.getSegmentHelper();
-        authHelper=SETUP_UTILS.getAuthHelper();
+        SegmentHelper segmentHelper = SETUP_UTILS.getSegmentHelper();
+        GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 

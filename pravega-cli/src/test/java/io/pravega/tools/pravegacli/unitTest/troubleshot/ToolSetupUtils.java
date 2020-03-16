@@ -103,15 +103,14 @@ public class ToolSetupUtils {
     private final int controllerRESTPort = TestUtils.getAvailableListenPort();
     @Getter
     private final int servicePort =6000;
-    private final ClientConfig clientConfig = ClientConfig.builder().controllerURI(URI.create("tcp://localhost:" + String.valueOf(controllerRPCPort))).build();
+    private final ClientConfig clientConfig = ClientConfig.builder().controllerURI(URI.create("tcp://localhost:" + controllerRPCPort)).build();
     private String streamName;
     private static final String STREAMS_IN_SCOPE_TABLE_FORMAT = "streamsInScope" + ".#." + "%s";
     private static final String METADATA_TABLE = "metadata" + ".#." + "%s";
     private static final String SCOPES_TABLE = getQualifiedTableName(NameUtils.INTERNAL_SCOPE_NAME, "scopes");
-    private final AtomicReference<UUID> scopeidRef=new AtomicReference<>(null);;
+    private final AtomicReference<UUID> scopeidRef=new AtomicReference<>(null);
     private AtomicReference<String> idRef=new AtomicReference<>(null);
     private CommandArgs commandArgs;
-    private volatile StreamMetadataStore store;
     @Getter
     private SegmentHelper segmentHelper;
     @Getter
@@ -313,7 +312,7 @@ public class ToolSetupUtils {
         commandArgs=cArgs;
         segmentHelper = instantiateSegmentHelper(serviceConfig);
         authHelper = GrpcAuthHelper.getDisabledAuthHelper();
-        store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
+        StreamMetadataStore store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
         return store;
     }
     public SegmentHelper instantiateSegmentHelper(ServiceConfig serviceConfig) {
@@ -378,7 +377,7 @@ public class ToolSetupUtils {
     }
 
     public URI getControllerRestUri() {
-        return URI.create("http://localhost:" + String.valueOf(controllerRESTPort));
+        return URI.create("http://localhost:" + controllerRESTPort);
     }
     public static long computeSegmentId(int segmentNumber, int epoch) {
         Preconditions.checkArgument(segmentNumber >= 0);
