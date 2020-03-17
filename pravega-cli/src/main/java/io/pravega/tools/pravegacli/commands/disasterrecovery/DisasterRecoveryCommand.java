@@ -177,6 +177,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 String segmentName = fields[2];
                 //TODO: verify the return status
                 container.createStreamSegment(segmentName, len, isSealed).whenComplete((v, ex) -> {
+                    /*
                     System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
 
                     List<TableEntry> entries = null;
@@ -196,6 +197,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                     for (Map.Entry<UUID, Long> e : oldContainerSegProp.getAttributes().entrySet())
                         updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
                     container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
+                     */
                 }).join();
                 System.out.format("Segment created for %s\n", segmentName);
                 /*
@@ -231,7 +233,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     }
     private String getBackupMetadataSegmentName(int containerId) {
         Preconditions.checkArgument(containerId >= 0, "containerId must be a non-negative number.");
-        return String.format(root+"/"+BACKUP_PREFIX+METADATA_SEGMENT_NAME_FORMAT, containerId);
+        return String.format(root+BACKUP_PREFIX+METADATA_SEGMENT_NAME_FORMAT, containerId);
     }
     @Override
     public void close() throws Exception {
