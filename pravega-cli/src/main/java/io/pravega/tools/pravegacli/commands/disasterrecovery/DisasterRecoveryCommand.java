@@ -221,16 +221,17 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             System.out.println("=================================================");
         }
     }
-    public static String getBackupMetadataSegmentName(int containerId) {
-        Preconditions.checkArgument(containerId >= 0, "containerId must be a non-negative number.");
-        return String.format(BACKUP_PREFIX+METADATA_SEGMENT_NAME_FORMAT, containerId);
-    }
+
     private Map<Class<? extends SegmentContainerExtension>, SegmentContainerExtension> createContainerExtensions(
             SegmentContainer container, ScheduledExecutorService executor) {
         return Collections.singletonMap(ContainerTableExtension.class, new ContainerTableExtensionImpl(container, this.cacheManager, executor));
     }
     private static ArrayView getTableKey(String segmentName) {
         return new ByteArraySegment(segmentName.getBytes(Charsets.UTF_8));
+    }
+    private String getBackupMetadataSegmentName(int containerId) {
+        Preconditions.checkArgument(containerId >= 0, "containerId must be a non-negative number.");
+        return String.format(root+"/"+BACKUP_PREFIX+METADATA_SEGMENT_NAME_FORMAT, containerId);
     }
     @Override
     public void close() throws Exception {
