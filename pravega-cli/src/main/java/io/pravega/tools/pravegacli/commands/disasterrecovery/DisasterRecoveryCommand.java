@@ -2,9 +2,7 @@ package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
-import io.pravega.common.concurrent.ExecutorServiceHelpers;
 import io.pravega.common.concurrent.Services;
-import io.pravega.common.io.StreamHelpers;
 import io.pravega.common.util.ArrayView;
 import io.pravega.common.util.ByteArraySegment;
 import io.pravega.segmentstore.contracts.AttributeUpdate;
@@ -34,33 +32,21 @@ import io.pravega.segmentstore.storage.cache.CacheStorage;
 import io.pravega.segmentstore.storage.cache.DirectMemoryCache;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
-import io.pravega.segmentstore.storage.mocks.InMemoryDurableDataLogFactory;
-import io.pravega.segmentstore.storage.mocks.InMemoryStorageFactory;
-import io.pravega.shared.segment.StreamSegmentNameUtils;
 import io.pravega.storage.filesystem.FileSystemStorageConfig;
 import io.pravega.storage.filesystem.FileSystemStorageFactory;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import lombok.Cleanup;
+import lombok.extern.slf4j.Slf4j;
 import lombok.val;
-import org.apache.bookkeeper.client.BKException;
-import org.apache.bookkeeper.client.BookKeeper;
-import org.junit.Assert;
-import sun.jvm.hotspot.debugger.ReadResult;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Stream;
 
+@Slf4j 
 public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private final StreamSegmentContainerFactory containerFactory;
     private final String root;
@@ -94,7 +80,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             .with(WriterConfig.MIN_READ_TIMEOUT_MILLIS, 10L)
             .with(WriterConfig.MAX_READ_TIMEOUT_MILLIS, 250L)
             .build();
-    ScheduledExecutorService executorService = StorageListSegmentsCommand.createExecutorService(1);
+    ScheduledExecutorService executorService = StorageListSegmentsCommand.createExecutorService(10);
 
     public DisasterRecoveryCommand(CommandArgs args) {
         super(args);
@@ -140,34 +126,30 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
         lsCmd.execute();
 
-        File[] dirs = new File(root).listFiles(File::isDirectory);
-        if (dirs != null) {
-            for(File d : dirs) {
-                if(d.getName().startsWith(BACKUP_PREFIX)){
-                    System.err.println("Backup file exists already!");
-                }else {
-                    File target = new File(d.getParent() + "/" + BACKUP_PREFIX + d.getName());
-                    if (!target.exists() && !d.renameTo(target)) {
-                        System.err.println("Rename failed for " + d.getAbsolutePath());
-                        System.exit(1);
-                    }
-                    System.out.format("Renamed %s to %s\n", d.getAbsolutePath(), target.getAbsolutePath());
-                }
-            }
-        }else{
-            System.err.println("There are no scopes found in " + root);
-            System.exit(1);
+        File sysDir = new File(root+"/_system");
+        if(!sysDir.exists()){
+            System.err.println("There is no _system scope found in " + root);
+            return;
         }
-
+        File target = new File(sysDir.getParent() + "/" + BACKUP_PREFIX + sysDir.getName());
+        if(target.exists()){
+            System.err.println("Target: " + target.getAbsolutePath()+" already exists. Please remove/rename it to proceed");
+            return;
+        }
+        if (!sysDir.renameTo(target)) {
+            System.err.println("Rename failed for " + sysDir.getAbsolutePath());
+            return;
+        }
+        System.out.format("Renamed %s to %s\n", sysDir.getAbsolutePath(), target.getAbsolutePath());
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService)
                     .thenRun(new Worker(debugStreamSegmentContainer, containerId))
-                    .whenComplete((v, ex) -> Services.stopAsync(debugStreamSegmentContainer, executorService));
+                    .whenComplete((v, ex) -> Services.stopAsync(debugStreamSegmentContainer, executorService)).join();
         }
-
     }
+
     private static final String METADATA_SEGMENT_NAME_FORMAT = "_system/containers/metadata_%d";
 
     private class Worker implements Runnable {
@@ -216,7 +198,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                     for (Map.Entry<UUID, Long> e : oldContainerSegProp.getAttributes().entrySet())
                         updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
                     container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
-                });
+                }).join();
                 System.out.format("Segment created for %s\n", segmentName);
                 /*
                 container.getStreamSegmentInfo(segmentName, Duration.ofSeconds(10)).whenComplete( (segInfo, ex) -> {
