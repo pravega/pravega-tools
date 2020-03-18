@@ -217,7 +217,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     }
     private String getBackupMetadataSegmentName(int containerId) {
         Preconditions.checkArgument(containerId >= 0, "containerId must be a non-negative number.");
-        return String.format(oldContainer.getAbsolutePath()+"metadata_", containerId);
+        return String.format(oldContainer.getAbsolutePath()+"/metadata_", containerId);
     }
     @Override
     public void close() throws Exception {
