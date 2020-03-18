@@ -48,6 +48,7 @@ import java.util.concurrent.ScheduledExecutorService;
 public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private final StreamSegmentContainerFactory containerFactory;
     private final String root;
+    private File oldContainer;
     private final StorageFactory storageFactory;
     private final DurableDataLogFactory dataLogFactory;
     private final OperationLogFactory operationLogFactory;
@@ -124,21 +125,22 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
         lsCmd.execute();
 
-        File sysDir = new File(root+"/_system");
-        if(!sysDir.exists()){
-            System.err.println("There is no _system scope found in " + root);
+        String basePath = root+"_system/";
+        oldContainer = new File(basePath+"containers");
+        if(!oldContainer.exists()){
+            System.err.println("There is no "+oldContainer.getAbsolutePath());
             return;
         }
-        File target = new File(sysDir.getParent() + "/" + BACKUP_PREFIX + sysDir.getName());
+        File target = new File(basePath + BACKUP_PREFIX + "containers");
         if(target.exists()){
             System.err.println("Target: " + target.getAbsolutePath()+" already exists. Please remove/rename it to proceed");
             return;
         }
-        if (!sysDir.renameTo(target)) {
-            System.err.println("Rename failed for " + sysDir.getAbsolutePath());
+        if (!oldContainer.renameTo(target)) {
+            System.err.println("Rename failed for " + oldContainer.getAbsolutePath());
             return;
         }
-        System.out.format("Renamed %s to %s\n", sysDir.getAbsolutePath(), target.getAbsolutePath());
+        System.out.format("Renamed %s to %s\n", oldContainer.getAbsolutePath(), target.getAbsolutePath());
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
@@ -147,8 +149,6 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                     .whenComplete((v, ex) -> Services.stopAsync(debugStreamSegmentContainer, executorService)).join();
         }
     }
-
-    private static final String METADATA_SEGMENT_NAME_FORMAT = "_system/containers/metadata_%d";
 
     private class Worker implements Runnable {
         private final int containerId;
@@ -177,7 +177,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 String segmentName = fields[2];
                 //TODO: verify the return status
                 container.createStreamSegment(segmentName, len, isSealed).whenComplete((v, ex) -> {
-                    /*
+
                     System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
 
                     List<TableEntry> entries = null;
@@ -197,27 +197,11 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                     for (Map.Entry<UUID, Long> e : oldContainerSegProp.getAttributes().entrySet())
                         updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
                     container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
-                     */
+
+                    System.out.format("Adjusted the metadata for segment %s in container# %s\n", segmentName, containerId);
+
                 }).join();
                 System.out.format("Segment created for %s\n", segmentName);
-                /*
-                container.getStreamSegmentInfo(segmentName, Duration.ofSeconds(10)).whenComplete( (segInfo, ex) -> {
-                    Assert.assertEquals("segInfo doesn't match.", segInfo.getLength(), len);
-                });
-
-                byte[] readBuffer = new byte[len];
-                container.read(segmentName, 0, len, Duration.ofSeconds(10)).whenComplete( (res, ex) -> {
-                    val firstEntry = res.next();
-                    firstEntry.requestContent(Duration.ofSeconds(10));
-                    firstEntry.getContent().whenComplete( (entryContents , ex1) -> {
-                    Assert.assertEquals("Unexpected number of bytes read.", readBuffer.length, len);
-                    try {
-                        StreamHelpers.readAll(entryContents.getData(), readBuffer, 0, readBuffer.length);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }});
-                });
-                 */
             }
             System.out.format("Recovery done for container# %s\n", containerId);
             System.out.println("=================================================");
@@ -233,7 +217,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     }
     private String getBackupMetadataSegmentName(int containerId) {
         Preconditions.checkArgument(containerId >= 0, "containerId must be a non-negative number.");
-        return String.format(root+BACKUP_PREFIX+METADATA_SEGMENT_NAME_FORMAT, containerId);
+        return String.format(oldContainer.getAbsolutePath()+"metadata_", containerId);
     }
     @Override
     public void close() throws Exception {
