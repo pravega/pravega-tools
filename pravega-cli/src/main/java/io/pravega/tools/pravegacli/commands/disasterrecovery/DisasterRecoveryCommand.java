@@ -125,12 +125,6 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
         lsCmd.execute();
 
-        for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
-            DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
-            Services.startAsync(debugStreamSegmentContainer, executorService)
-                    .thenRun(new Worker(debugStreamSegmentContainer, containerId))
-                    .whenComplete((v, ex) -> Services.stopAsync(debugStreamSegmentContainer, executorService)).join();
-        }
         String basePath = root+"_system/";
         File containerDir = new File(basePath+"containers");
         if(!containerDir.exists()){
@@ -147,6 +141,13 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             return;
         }
         System.out.format("Renamed %s to %s\n", containerDir.getAbsolutePath(), oldContainer.getAbsolutePath());
+
+        for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
+            DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
+            Services.startAsync(debugStreamSegmentContainer, executorService)
+                    .thenRun(new Worker(debugStreamSegmentContainer, containerId))
+                    .whenComplete((v, ex) -> Services.stopAsync(debugStreamSegmentContainer, executorService)).join();
+        }
     }
 
     private class Worker implements Runnable {
