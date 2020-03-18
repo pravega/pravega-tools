@@ -60,7 +60,7 @@ public final class AdminRunner {
      */
     public static void main(String[] args) throws Exception {
         LoggerContext context = (LoggerContext) LoggerFactory.getILoggerFactory();
-        context.getLoggerList().get(0).setLevel(Level.ERROR);
+        context.getLoggerList().get(0).setLevel(Level.DEBUG);
 
         System.out.println("Pravega CLI.\n");
         @Cleanup
