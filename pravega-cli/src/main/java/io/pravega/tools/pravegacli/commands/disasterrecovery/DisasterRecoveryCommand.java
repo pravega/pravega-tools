@@ -178,6 +178,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 //TODO: verify the return status
                 container.createStreamSegment(segmentName, len, isSealed).whenComplete((v, ex) -> {
                     if(ex == null) {
+                        /*
                         System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
 
                         List<TableEntry> entries = null;
@@ -200,6 +201,7 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                         container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
 
                         System.out.format("Adjusted the metadata for segment %s in container# %s\n", segmentName, containerId);
+                         */
                     }else{
                         ex.printStackTrace();
                     }
