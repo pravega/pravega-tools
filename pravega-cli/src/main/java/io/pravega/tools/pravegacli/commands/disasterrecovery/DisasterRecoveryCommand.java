@@ -126,21 +126,21 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         lsCmd.execute();
 
         String basePath = root+"_system/";
-        oldContainer = new File(basePath+"containers");
-        if(!oldContainer.exists()){
-            System.err.println("There is no "+oldContainer.getAbsolutePath());
+        File containerDir = new File(basePath+"containers");
+        if(!containerDir.exists()){
+            System.err.println("There is no "+containerDir.getAbsolutePath());
             return;
         }
-        File target = new File(basePath + BACKUP_PREFIX + "containers");
-        if(target.exists()){
-            System.err.println("Target: " + target.getAbsolutePath()+" already exists. Please remove/rename it to proceed");
+        oldContainer = new File(basePath + BACKUP_PREFIX + "containers");
+        if(oldContainer.exists()){
+            System.err.println("Target: " + oldContainer.getAbsolutePath()+" already exists. Please remove/rename it to proceed");
             return;
         }
-        if (!oldContainer.renameTo(target)) {
-            System.err.println("Rename failed for " + oldContainer.getAbsolutePath());
+        if (!containerDir.renameTo(oldContainer)) {
+            System.err.println("Rename failed for " + containerDir.getAbsolutePath());
             return;
         }
-        System.out.format("Renamed %s to %s\n", oldContainer.getAbsolutePath(), target.getAbsolutePath());
+        System.out.format("Renamed %s to %s\n", containerDir.getAbsolutePath(), oldContainer.getAbsolutePath());
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
@@ -177,29 +177,31 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 String segmentName = fields[2];
                 //TODO: verify the return status
                 container.createStreamSegment(segmentName, len, isSealed).whenComplete((v, ex) -> {
+                    if(ex == null) {
+                        System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
 
-                    System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
+                        List<TableEntry> entries = null;
+                        try {
+                            entries = ext.get(getBackupMetadataSegmentName(containerId), Collections.singletonList(getTableKey(segmentName)), Duration.ofSeconds(10)).get();
+                        } catch (InterruptedException | ExecutionException e) {
+                            e.printStackTrace();
+                        }
+                        if (entries == null || entries.size() == 0) {
+                            System.out.println("Segment " + segmentName + " not found in the old container metadata files on Tier-2");
+                        }
+                        TableEntry entry = entries.get(0);
+                        SegmentProperties oldContainerSegProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
+                        if (oldContainerSegProp.isSealed())
+                            container.sealStreamSegment(segmentName, Duration.ofSeconds(10));
+                        List<AttributeUpdate> updates = new ArrayList<>();
+                        for (Map.Entry<UUID, Long> e : oldContainerSegProp.getAttributes().entrySet())
+                            updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
+                        container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
 
-                    List<TableEntry> entries = null;
-                    try {
-                        entries = ext.get(getBackupMetadataSegmentName(containerId), Collections.singletonList(getTableKey(segmentName)), Duration.ofSeconds(10)).get();
-                    } catch (InterruptedException | ExecutionException e) {
-                        e.printStackTrace();
+                        System.out.format("Adjusted the metadata for segment %s in container# %s\n", segmentName, containerId);
+                    }else{
+                        ex.printStackTrace();
                     }
-                    if(entries == null || entries.size() == 0){
-                        System.out.println("Segment "+ segmentName+ " not found in the old container metadata files on Tier-2");
-                    }
-                    TableEntry entry = entries.get(0);
-                    SegmentProperties oldContainerSegProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
-                    if (oldContainerSegProp.isSealed())
-                        container.sealStreamSegment(segmentName, Duration.ofSeconds(10));
-                    List<AttributeUpdate> updates = new ArrayList<>();
-                    for (Map.Entry<UUID, Long> e : oldContainerSegProp.getAttributes().entrySet())
-                        updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
-                    container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
-
-                    System.out.format("Adjusted the metadata for segment %s in container# %s\n", segmentName, containerId);
-
                 }).join();
                 System.out.format("Segment created for %s\n", segmentName);
             }
