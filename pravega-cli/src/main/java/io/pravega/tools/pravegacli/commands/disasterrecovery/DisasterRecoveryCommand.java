@@ -40,6 +40,8 @@ import lombok.val;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -47,7 +49,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private final StreamSegmentContainerFactory containerFactory;
-    private final String root;
+    private String root;
     private File oldContainer;
     private final StorageFactory storageFactory;
     private final DurableDataLogFactory dataLogFactory;
@@ -85,7 +87,8 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         super(args);
         ensureArgCount(1);
         root = getCommandArgs().getArgs().get(0);
-
+        if(!root.endsWith("/"))
+            root += "/";
         val config = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
         //TODO: which storageFactory to instantiate?
         FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
@@ -125,22 +128,17 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
         StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
         lsCmd.execute();
 
-        String basePath = root+"_system/";
-        File containerDir = new File(basePath+"containers");
+        String containerPath = "_system/containers/";
+        File containerDir = new File(root+containerPath);
         if(!containerDir.exists()){
             System.err.println("There is no "+containerDir.getAbsolutePath());
             return;
         }
-        oldContainer = new File(basePath + BACKUP_PREFIX + "containers");
-        if(oldContainer.exists()){
-            System.err.println("Target: " + oldContainer.getAbsolutePath()+" already exists. Please remove/rename it to proceed");
-            return;
-        }
-        if (!containerDir.renameTo(oldContainer)) {
-            System.err.println("Rename failed for " + containerDir.getAbsolutePath());
-            return;
-        }
-        System.out.format("Renamed %s to %s\n", containerDir.getAbsolutePath(), oldContainer.getAbsolutePath());
+        oldContainer = new File(root+System.currentTimeMillis()+"/"+containerPath);
+        Files.createDirectories(oldContainer.toPath());
+        Files.move(containerDir.toPath(), oldContainer.toPath(), StandardCopyOption.REPLACE_EXISTING);
+
+        System.out.format("moved %s to %s\n", containerDir.getAbsolutePath(), oldContainer.getAbsolutePath());
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
