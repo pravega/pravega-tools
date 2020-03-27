@@ -305,8 +305,8 @@ public class ToolSetupUtils {
     public StreamMetadataStore createMetadataStore(ScheduledExecutorService executor, ServiceConfig serviceConfig, CommandArgs cArgs)
     {
         @Cleanup
-        CuratorFramework zkClient =createZKClient(serviceConfig);
-        commandArgs=cArgs;
+        CuratorFramework zkClient = createZKClient(serviceConfig);
+        commandArgs= cArgs;
         segmentHelper = instantiateSegmentHelper(serviceConfig);
         authHelper = GrpcAuthHelper.getDisabledAuthHelper();
         StreamMetadataStore store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);

@@ -59,7 +59,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommandHelper 
 
         try {
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-            store=createMetadataStore(executor);
+            store = createMetadataStore(executor);
 
             // The StreamConfigurationRecord.
             StreamConfigurationRecord configurationRecord = store.getConfigurationRecord(scope, streamName, null, executor)
@@ -91,7 +91,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommandHelper 
                     }).join();
 
             responseBuilder.append("StreamTruncationRecord: ").append("\n");
-            if (truncationRecord!= null && truncationRecord.equals(StreamTruncationRecord.EMPTY)) {
+            if (truncationRecord != null && truncationRecord.equals(StreamTruncationRecord.EMPTY)) {
                 responseBuilder.append("EMPTY\n").append("\n");
             } else {
                 responseBuilder.append(outputTruncation(truncationRecord)).append("\n");
@@ -103,7 +103,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommandHelper 
             int epoch = 0;
             int activeEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
 
-            while(true) {
+            while (true) {
                 EpochRecord epochRecord = getEpochIfExists(store, executor, scope, streamName, epoch, faults);
                 HistoryTimeSeriesRecord historyTimeSeriesRecord = getHistoryTimeSeriesRecordIfExists(store, executor, scope, streamName, epoch, faults);
 
@@ -133,7 +133,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommandHelper 
                     }).join();
 
             responseBuilder.append("EpochTransitionRecord: ").append("\n");
-            if (transitionRecord!= null && transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
+            if (transitionRecord != null && transitionRecord.equals(EpochTransitionRecord.EMPTY)) {
                 responseBuilder.append("EMPTY\n").append("\n");
             } else {
                 responseBuilder.append(outputTransition(transitionRecord)).append("\n");
@@ -153,7 +153,7 @@ public class TroubleshootPrintMetadataCommand extends TroubleshootCommandHelper 
                     }).join();
 
             responseBuilder.append("CommittingTransactionsRecord: ").append("\n");
-            if (committingRecord!= null && committingRecord.equals(CommittingTransactionsRecord.EMPTY)) {
+            if (committingRecord != null && committingRecord.equals(CommittingTransactionsRecord.EMPTY)) {
                 responseBuilder.append("EMPTY\n").append("\n");
             } else {
                 responseBuilder.append(outputCommittingTransactions(committingRecord)).append("\n");

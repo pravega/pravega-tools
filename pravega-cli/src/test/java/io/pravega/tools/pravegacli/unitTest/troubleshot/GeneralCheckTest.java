@@ -40,7 +40,7 @@ public class GeneralCheckTest {
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
     private GeneralCheckCommand genralCheck;
-    private String testStream ;
+    private String testStream;
     StreamMetadataStore storeMock;
 
     @BeforeClass
@@ -60,59 +60,57 @@ public class GeneralCheckTest {
     }
 
 
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
         genralCheck = new GeneralCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
 
     }
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+    public void initialStoreSetup() {
+
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
     }
 
 
     @Test
     public void executeCommand() throws Exception {
-        testStream="testStream";
-        initialsetup_commands();
-        initialsetup_store();
+        testStream = "testStream";
+        initialSetupCommands();
+        initialStoreSetup();
         SETUP_UTILS.createTestStream(testStream, 1);
 
         //mocking the store for the ut's
-        storeMock= Mockito.mock(StreamMetadataStore.class);
+        storeMock = Mockito.mock(StreamMetadataStore.class);
 
         //testing for reference missmatch
-        String result =checkingReferenceEpochMissmatch();
+        String result = checkingReferenceEpochMissmatch();
         Assert.assertTrue(result.equalsIgnoreCase("Reference epoch mismatch."));
 
         //testing for epoch missmatch
-        String result2 =checkingEpochMissmatch();
+        String result2 = checkingEpochMissmatch();
         Assert.assertTrue(result2.equalsIgnoreCase("Epoch mismatch : May or may not be the correct record."));
 
         //testing for creation_time missmatch
-        String result3 =checkingCreationTimeMissmatch();
+        String result3 = checkingCreationTimeMissmatch();
         Assert.assertTrue(result3.equalsIgnoreCase("Creation time mismatch."));
 
         //testing for Segments missmatch
-        String result4 =checkingSegmentsMissmatch();
+        String result4 = checkingSegmentsMissmatch();
         Assert.assertTrue(result4.equalsIgnoreCase("Segment data mismatch."));
 
     }
 
 
-    public String checkingReferenceEpochMissmatch()
-    {
-        EpochRecord ep= store.getEpoch("scope",testStream,0,null,executor).join();
-        EpochRecord nep=new EpochRecord(ep.getEpoch(),4,ep.getSegments(),ep.getCreationTime());
+    public String checkingReferenceEpochMissmatch() {
+        EpochRecord ep = store.getEpoch("scope", testStream, 0, null, executor).join();
+        EpochRecord nep = new EpochRecord(ep.getEpoch(), 4, ep.getSegments(), ep.getCreationTime());
         Mockito.when(storeMock.
                 getEpoch("scope", testStream, 0, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
         Mockito.when(storeMock.
-                getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor)).
-                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor));
+                getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor)).
+                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor));
         Mockito.when(storeMock
                 .getActiveEpoch("scope", testStream, null, true, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
@@ -120,16 +118,15 @@ public class GeneralCheckTest {
         return (SETUP_UTILS.faultvalue(faults));
     }
 
-    public String checkingEpochMissmatch()
-    {
-        EpochRecord ep= store.getEpoch("scope",testStream,0,null,executor).join();
-        EpochRecord nep=new EpochRecord(4,ep.getReferenceEpoch(),ep.getSegments(),ep.getCreationTime());
+    public String checkingEpochMissmatch() {
+        EpochRecord ep = store.getEpoch("scope", testStream, 0, null, executor).join();
+        EpochRecord nep = new EpochRecord(4, ep.getReferenceEpoch(), ep.getSegments(), ep.getCreationTime());
          Mockito.when(storeMock.
                 getEpoch("scope", testStream, 0, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
         Mockito.when(storeMock.
-                getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor)).
-                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor));
+                getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor)).
+                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor));
         Mockito.when(storeMock.
                 getActiveEpoch("scope", testStream, null, true, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
@@ -137,16 +134,15 @@ public class GeneralCheckTest {
         return (SETUP_UTILS.faultvalue(faults));
     }
 
-    public String checkingCreationTimeMissmatch()
-    {
-        EpochRecord ep= store.getEpoch("scope",testStream,0,null,executor).join();
-        EpochRecord nep=new EpochRecord(ep.getEpoch(),ep.getReferenceEpoch(),ep.getSegments(),3);
+    public String checkingCreationTimeMissmatch() {
+        EpochRecord ep = store.getEpoch("scope", testStream, 0, null, executor).join();
+        EpochRecord nep = new EpochRecord(ep.getEpoch(), ep.getReferenceEpoch(), ep.getSegments(), 3);
         Mockito.when(storeMock.
                 getEpoch("scope", testStream, 0, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
         Mockito.when(storeMock.
-                getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor)).
-                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor));
+                getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor)).
+                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor));
         Mockito.when(storeMock
                 .getActiveEpoch("scope", testStream, null, true, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
@@ -154,28 +150,26 @@ public class GeneralCheckTest {
         return (SETUP_UTILS.faultvalue(faults));
     }
 
-    public String checkingSegmentsMissmatch()
-    {
-        EpochRecord ep= store.getEpoch("scope",testStream,0,null,executor).join();
-        List<StreamSegmentRecord> currentSegmentsList =ep.getSegments();
-        StreamSegmentRecord currentStreamSegmentRecord=currentSegmentsList.get(0);
-        long creationTime = store.getEpoch("scope",testStream,0,null,executor).join().getCreationTime();
-        StreamSegmentRecord newStreamSegmentRecord=new StreamSegmentRecord(4, currentStreamSegmentRecord.getCreationEpoch(),creationTime,currentStreamSegmentRecord.getKeyStart(),currentStreamSegmentRecord.getKeyEnd());
+    public String checkingSegmentsMissmatch() {
+        EpochRecord ep = store.getEpoch("scope", testStream, 0, null, executor).join();
+        List<StreamSegmentRecord> currentSegmentsList = ep.getSegments();
+        StreamSegmentRecord currentStreamSegmentRecord = currentSegmentsList.get(0);
+        long creationTime = store.getEpoch("scope", testStream, 0, null, executor).join().getCreationTime();
+        StreamSegmentRecord newStreamSegmentRecord = new StreamSegmentRecord(4, currentStreamSegmentRecord.getCreationEpoch(), creationTime, currentStreamSegmentRecord.getKeyStart(), currentStreamSegmentRecord.getKeyEnd());
         List<StreamSegmentRecord> newSegmentsList = new ArrayList<>();
         newSegmentsList.add(newStreamSegmentRecord);
         ImmutableList<StreamSegmentRecord> immutableList = ImmutableList.copyOf(newSegmentsList);
-        EpochRecord nep=new EpochRecord(ep.getEpoch(),ep.getReferenceEpoch(),immutableList,ep.getCreationTime());
+        EpochRecord nep = new EpochRecord(ep.getEpoch(), ep.getReferenceEpoch(), immutableList, ep.getCreationTime());
         Mockito.when(storeMock.
                 getEpoch("scope", testStream, 0, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
         Mockito.when(storeMock.
-                getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor)).
-                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor));
+                getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor)).
+                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor));
         Mockito.when(storeMock
                 .getActiveEpoch("scope", testStream, null, true, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
         faults = genralCheck.check(storeMock, executor);
         return (SETUP_UTILS.faultvalue(faults));
     }
-
 }

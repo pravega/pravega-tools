@@ -40,7 +40,7 @@ public class CommitingTransactionsCheckCommandTest {
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
     private CommittingTransactionsCheckCommand ct;
-    private String testStream ;
+    private String testStream;
     private StreamMetadataStore mockstore;
 
     @BeforeClass
@@ -59,8 +59,7 @@ public class CommitingTransactionsCheckCommandTest {
         SETUP_UTILS.stopAllServices();
     }
 
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
         ct = new CommittingTransactionsCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
@@ -68,21 +67,21 @@ public class CommitingTransactionsCheckCommandTest {
 
     }
 
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+    public void initialStoreSetup() {
+
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
     }
 
     @Test
     public void executeCommand() throws Exception {
-        testStream="testStream";
-        initialsetup_commands();
-        initialsetup_store();
+        testStream = "testStream";
+        initialSetupCommands();
+        initialStoreSetup();
         SETUP_UTILS.createTestStream(testStream, 1);
-        mockstore= Mockito.mock(StreamMetadataStore.class);
+        mockstore = Mockito.mock(StreamMetadataStore.class);
 
         //checking for inconsistency
-        String result= inconsistency_check();
+        String result = inconsistency_check();
         Assert.assertTrue(result.contains("The corresponding EpochRecord is corrupted or does not exist."));
     }
 
@@ -92,16 +91,16 @@ public class CommitingTransactionsCheckCommandTest {
         ImmutableList<UUID> list = ImmutableList.of(v1, v2);
         CommittingTransactionsRecord newTransactionRecord = new CommittingTransactionsRecord(0, list, 0);
         Version.IntVersion v = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<CommittingTransactionsRecord> mockVersionRecord=new VersionedMetadata<>(newTransactionRecord,v);
+        VersionedMetadata<CommittingTransactionsRecord> mockVersionRecord = new VersionedMetadata<>(newTransactionRecord, v);
         Mockito.when(mockstore.getVersionedCommittingTransactionsRecord("scope", testStream, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
 
-        Mockito.when( mockstore.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
-              null, executor)).thenReturn( store.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
+        Mockito.when(mockstore.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
+              null, executor)).thenReturn(store.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
               null, executor));
 
-        int chunkNumber=newTransactionRecord.getNewTxnEpoch()/ HistoryTimeSeries.HISTORY_CHUNK_SIZE;
-         Mockito.when( mockstore.getHistoryTimeSeriesChunk("scope", testStream,
+        int chunkNumber = newTransactionRecord.getNewTxnEpoch() / HistoryTimeSeries.HISTORY_CHUNK_SIZE;
+         Mockito.when(mockstore.getHistoryTimeSeriesChunk("scope", testStream,
                 chunkNumber, null, executor)).
                 thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream,
                         chunkNumber, null, executor));
@@ -110,6 +109,5 @@ public class CommitingTransactionsCheckCommandTest {
         Map<Record, Set<Fault>> faults = ct.check(mockstore, executor);
         //returning to orignal value
         return SETUP_UTILS.faultvalue(faults);
-
     }
 }

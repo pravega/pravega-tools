@@ -10,17 +10,11 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import io.pravega.common.Exceptions;
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamTruncationRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import org.apache.curator.framework.CuratorFramework;
 
 import java.util.*;
 import java.util.concurrent.CompletionException;
@@ -41,7 +35,9 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
      *
      * @param args The arguments for the command.
      */
-    public TruncateCheckCommand(CommandArgs args) { super(args); }
+    public TruncateCheckCommand(CommandArgs args) {
+        super(args);
+    }
 
     /**
      * The method to execute the check method as part of the execution of the command.
@@ -51,7 +47,7 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
         checkTroubleshootArgs();
         try {
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-            store=createMetadataStore(executor);
+            store = createMetadataStore(executor);
             check(store, executor);
             Map<Record, Set<Fault>> faults = check(store, executor);
             outputToFile(outputFaults(faults));
@@ -87,12 +83,12 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
         final String scope = getCommandArgs().getArgs().get(0);
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
-        StreamTruncationRecord truncationRecord=null;
+        StreamTruncationRecord truncationRecord = null;
         try {
             truncationRecord = store.getTruncationRecord(scope, streamName, null, executor).
                     thenApply(VersionedMetadata::getObject).join();
 
-        } catch (CompletionException completionException ) {
+        } catch (CompletionException completionException) {
             if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException) {
                 Record<StreamTruncationRecord> streamTruncationRecord = new Record<>(null, StreamTruncationRecord.class);
                 putInFaultMap(faults, streamTruncationRecord,
@@ -116,7 +112,7 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
         boolean toDeleteExists = checkCorrupted(truncationRecord, StreamTruncationRecord::getToDelete,
                 "segments to delete", "StreamTruncationRecord", faults);
 
-        if (updatingExists && toDeleteExists && truncationRecord.isUpdating()==false) {
+        if (updatingExists && toDeleteExists &&  !truncationRecord.isUpdating()) {
             if (!truncationRecord.isUpdating()) {
                 if (!truncationRecord.getToDelete().isEmpty()) {
                     putInFaultMap(faults, streamTruncationRecord, Fault.inconsistent(streamTruncationRecord,
@@ -135,25 +131,24 @@ public class TruncateCheckCommand extends TroubleshootCommandHelper implements C
 
 
         if (streamCutExists && deletedExists && toDeleteExists) {
-
             Long streamCutMaxSegment;
-            if(truncationRecord.getStreamCut().size()!=0)
-            streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
-            else
-                streamCutMaxSegment=0L;
+            if (truncationRecord.getStreamCut().size() != 0) {
+                streamCutMaxSegment = Collections.max(truncationRecord.getStreamCut().keySet());
+            } else {
+                streamCutMaxSegment = 0L;
+            }
             Set<Long> allDelete = truncationRecord.getToDelete();
-            if(truncationRecord.getDeletedSegments().size()!=0)
-             allDelete.addAll(truncationRecord.getDeletedSegments());
-
-            if(allDelete.size()>0) {
+            if (truncationRecord.getDeletedSegments().size() != 0) {
+                allDelete.addAll(truncationRecord.getDeletedSegments());
+            }
+            if (allDelete.size() > 0) {
                 List<Long> badSegments = allDelete.stream()
                         .filter(segment -> segment >= streamCutMaxSegment)
                         .collect(Collectors.toList());
 
                 if (!badSegments.isEmpty()) {
                     putInFaultMap(faults, streamTruncationRecord, Fault.inconsistent(streamTruncationRecord,
-                            "Fault in the StreamTruncationRecord in regards to segments deletion, " +
-                                    "segments ahead of stream cut being deleted"));
+                            "Fault in the StreamTruncationRecord in regards to segments deletion, " + "segments ahead of stream cut being deleted"));
                 }
             }
         }

@@ -10,18 +10,12 @@
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import io.pravega.common.Exceptions;
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.StreamConfigurationRecord;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import org.apache.curator.framework.CuratorFramework;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -54,13 +48,13 @@ public class UpdateCheckCommand extends TroubleshootCommandHelper implements Che
         checkTroubleshootArgs();
         try {
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-            store=createMetadataStore(executor);
+            store = createMetadataStore(executor);
             check(store, executor);
             Map<Record, Set<Fault>> faults = check(store, executor);
             outputToFile(outputFaults(faults));
         } catch (CompletionException e) {
             System.err.println("Exception during process: " + e.getMessage());
-        }catch (Exception e) {
+        } catch (Exception e) {
             System.err.println("Exception accessing metadata store: " + e.getMessage());
         }
     }

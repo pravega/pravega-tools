@@ -51,9 +51,9 @@ public class TroubleshootCommandTest {
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
     private TroubleshootCheckCommand tc;
-    private String testStream ;
+    private String testStream;
     private  String tablename;
-    private String scope,stream;
+    private String scope, stream;
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -71,113 +71,102 @@ public class TroubleshootCommandTest {
         SETUP_UTILS.stopAllServices();
     }
 
-    public void initialsetup_commands(String testStream)
-    {
+    public void initialSetupCommands(String testStream) {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
         tc = new TroubleshootCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
-
     }
 
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-        segmentHelper=SETUP_UTILS.getSegmentHelper();
+    public void initialStoreSetup() {
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
+        segmentHelper = SETUP_UTILS.getSegmentHelper();
         GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
     @Test
     public void executeCommand() throws Exception {
-        scope="scope";
-        stream="test";
+        scope = "scope";
+        stream = "test";
         testStream = "testStream";
         SETUP_UTILS.createTestStream(testStream, 1);
-        initialsetup_commands(testStream);
-        initialsetup_store();
+        initialSetupCommands(testStream);
+        initialStoreSetup();
         StreamMetadataStore mystoremock = Mockito.mock(StreamMetadataStore.class);
-        EpochTransitionRecord epRecord=store.getEpochTransition("scope",testStream,null,executor).join().getObject();
+        EpochTransitionRecord epRecord = store.getEpochTransition("scope", testStream, null, executor).join().getObject();
 
         //checking for update Failure
-        String result1=update_check(mystoremock);
+        String result1 = update_check(mystoremock);
         Assert.assertTrue(result1.contains("StreamConfigurationRecord consistency check requires human intervention"));
 
         //checking for general Faliure
-        String result2=general_check(mystoremock);
+        String result2 = general_check(mystoremock);
         Assert.assertTrue(result2.contains("Reference epoch mismatch."));
 
         //checking for truncate Error
-        String result3=truncate_check(mystoremock);
+        String result3 = truncate_check(mystoremock);
         Assert.assertTrue(result3.contains("StreamTruncationRecord inconsistency in regards to updating and segments to delete"));
 
         //checking for scale Error
-        String result4=scale_check(mystoremock);
-        Assert.assertEquals(result4,"Epoch mismatch : May or may not be the correct record.");
+        String result4 = scale_check(mystoremock);
+        Assert.assertEquals(result4, "Epoch mismatch : May or may not be the correct record.");
 
         //checking for commiting Error
         String result5 = commiting_check(mystoremock);
-        Assert.assertEquals(result5,"Epoch: 2, The corresponding EpochRecord is corrupted or does not exist.");
+        Assert.assertEquals(result5, "Epoch: 2, The corresponding EpochRecord is corrupted or does not exist.");
 
         //if there's no Error
-        String result6 = tc.check(mystoremock,executor);
-        Assert.assertEquals(result6,"Everything seems OK.");
-
+        String result6 = tc.check(mystoremock, executor);
+        Assert.assertEquals(result6, "Everything seems OK.");
     }
 
-    public String update_check(StreamMetadataStore mystoremock)
-    {
+    public String update_check(StreamMetadataStore mystoremock) {
         //checking for fault if configurationRecord is null
         String result = tc.check(mystoremock, executor);
 
         //returning to orignal state
-        StreamConfigurationRecord presentStreamConfigurationRecord= store.getConfigurationRecord("scope",testStream,
-                null,executor).join().getObject();
-        StreamConfigurationRecord mockStreamConfigurationRecord=new StreamConfigurationRecord(presentStreamConfigurationRecord.getScope(),
-                presentStreamConfigurationRecord.getStreamName(),presentStreamConfigurationRecord.getStreamConfiguration(),true);
+        StreamConfigurationRecord presentStreamConfigurationRecord = store.getConfigurationRecord("scope", testStream,
+                null, executor).join().getObject();
+        StreamConfigurationRecord mockStreamConfigurationRecord = new StreamConfigurationRecord(presentStreamConfigurationRecord.getScope(),
+                presentStreamConfigurationRecord.getStreamName(), presentStreamConfigurationRecord.getStreamConfiguration(), true);
         Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<StreamConfigurationRecord> mockVersionRecord=new VersionedMetadata<>(mockStreamConfigurationRecord,ver);
-        Mockito.when(mystoremock.getConfigurationRecord("scope",testStream,null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
-
+        VersionedMetadata<StreamConfigurationRecord> mockVersionRecord = new VersionedMetadata<>(mockStreamConfigurationRecord, ver);
+        Mockito.when(mystoremock.getConfigurationRecord("scope", testStream, null, executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
         return result;
     }
-    public String general_check(StreamMetadataStore mystoremock)
-    {
-        EpochRecord ep= store.getEpoch("scope",testStream,0,null,executor).join();
-        EpochRecord nep=new EpochRecord(ep.getEpoch(),4,ep.getSegments(),ep.getCreationTime());
+    public String general_check(StreamMetadataStore mystoremock) {
+        EpochRecord ep = store.getEpoch("scope", testStream, 0, null, executor).join();
+        EpochRecord nep = new EpochRecord(ep.getEpoch(), 4, ep.getSegments(), ep.getCreationTime());
         Mockito.when(mystoremock.getEpoch("scope", testStream, 0, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
-        Mockito.when(mystoremock.getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor)).
-                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null , executor));
+        Mockito.when(mystoremock.getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor)).
+                thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream, 0, null, executor));
         Mockito.when(mystoremock.getActiveEpoch("scope", testStream, null, true, executor)).
                 thenReturn(CompletableFuture.completedFuture(nep));
-       String result =tc.check(mystoremock, executor);
-
+       String result = tc.check(mystoremock, executor);
        //returning to orignal state
         Mockito.when(mystoremock.getEpoch("scope", testStream, 0, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(ep));
         return result;
     }
-    public String truncate_check(StreamMetadataStore mystoremock)
-    {
-        ImmutableSet<Long> toDelete=ImmutableSet.of(4L,5L);
-        StreamTruncationRecord streamTruncationRecord=store.getTruncationRecord("scope", testStream, null, executor).join().getObject();
-        StreamTruncationRecord newstreamTruncationRecord=new StreamTruncationRecord(streamTruncationRecord.getStreamCut(),streamTruncationRecord.getSpan(),streamTruncationRecord.getDeletedSegments(),toDelete,streamTruncationRecord.getSizeTill(),streamTruncationRecord.isUpdating());
+    public String truncate_check(StreamMetadataStore mystoremock) {
+        ImmutableSet<Long> toDelete = ImmutableSet.of(4L, 5L);
+        StreamTruncationRecord streamTruncationRecord = store.getTruncationRecord("scope", testStream, null, executor).join().getObject();
+        StreamTruncationRecord newstreamTruncationRecord = new StreamTruncationRecord(streamTruncationRecord.getStreamCut(), streamTruncationRecord.getSpan(), streamTruncationRecord.getDeletedSegments(), toDelete, streamTruncationRecord.getSizeTill(), streamTruncationRecord.isUpdating());
         Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<StreamTruncationRecord> mockVersionRecord=new VersionedMetadata<>(newstreamTruncationRecord,ver);
-        Mockito.when(mystoremock.getTruncationRecord("scope", testStream, null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
-        String result= tc.check(mystoremock, executor);
+        VersionedMetadata<StreamTruncationRecord> mockVersionRecord = new VersionedMetadata<>(newstreamTruncationRecord, ver);
+        Mockito.when(mystoremock.getTruncationRecord("scope", testStream, null, executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
+        String result = tc.check(mystoremock, executor);
 
         //converting to old state
-        mockVersionRecord=new VersionedMetadata<>(streamTruncationRecord,ver);
-        Mockito.when(mystoremock.getTruncationRecord("scope", testStream, null,executor)).
+        mockVersionRecord = new VersionedMetadata<>(streamTruncationRecord, ver);
+        Mockito.when(mystoremock.getTruncationRecord("scope", testStream, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
-
-        return(result);
+        return (result);
     }
 
-    public VersionedMetadata<EpochTransitionRecord> do_scale()
-    {
+    public VersionedMetadata<EpochTransitionRecord> do_scale() {
         // set minimum number of segments to 1 so that we can also test scale downs
         // region idempotent
         long scaleTs = System.currentTimeMillis();
@@ -221,113 +210,111 @@ public class TroubleshootCommandTest {
         // 3. scale segments sealed -- this will complete scale
         store.scaleSegmentsSealed(scope, stream, scale1SealedSegments.stream().collect(Collectors.toMap(x -> x, x -> 0L)), response,
                 null, executor).join();
-        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata= storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
+        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
         store.completeScale(scope, stream, response, null, executor).join();
         store.setState(scope, stream, State.ACTIVE, null, executor).join();
         return currentEpochTransitionRecordMetadata;
     }
-    public String scale_check(StreamMetadataStore mystoremock)
-    {
-        initialsetup_commands(stream);
+    public String scale_check(StreamMetadataStore mystoremock) {
+        initialSetupCommands(stream);
         final ScalingPolicy policy = ScalingPolicy.fixed(2);
         final StreamConfiguration configuration = StreamConfiguration.builder().scalingPolicy(policy).build();
         long start = System.currentTimeMillis();
         store.createStream(scope, stream, configuration, start, null, executor).join();
         store.setState(scope, stream, State.ACTIVE, null, executor).join();
-        tablename = SETUP_UTILS.getMetadataTable(stream,storeHelper).join();
+        tablename = SETUP_UTILS.getMetadataTable(stream, storeHelper).join();
 
-        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata=do_scale();
+        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata = do_scale();
         VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata1 = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
         Version version = currentEpochTransitionRecordMetadata1.getVersion();
         storeHelper.removeEntry(tablename, "epochTransition", version).join();
         storeHelper.addNewEntry(tablename, "epochTransition", currentEpochTransitionRecordMetadata.getObject().toBytes()).join();
 
-        StreamConfigurationRecord presentStreamConfigurationRecord= store.getConfigurationRecord("scope",testStream,
-                null,executor).join().getObject();
-        StreamConfigurationRecord mockStreamConfigurationRecord=new StreamConfigurationRecord(presentStreamConfigurationRecord.getScope(),
-                presentStreamConfigurationRecord.getStreamName(),presentStreamConfigurationRecord.getStreamConfiguration(),true);
+        StreamConfigurationRecord presentStreamConfigurationRecord = store.getConfigurationRecord("scope", testStream,
+                null, executor).join().getObject();
+        StreamConfigurationRecord mockStreamConfigurationRecord = new StreamConfigurationRecord(presentStreamConfigurationRecord.getScope(),
+                presentStreamConfigurationRecord.getStreamName(), presentStreamConfigurationRecord.getStreamConfiguration(), true);
         Version.IntVersion v = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<StreamConfigurationRecord> mockconfigVersionRecord=new VersionedMetadata<>(mockStreamConfigurationRecord,v);
-        Mockito.when(mystoremock.getConfigurationRecord("scope",stream,null,executor)).thenReturn(CompletableFuture.completedFuture(mockconfigVersionRecord));
+        VersionedMetadata<StreamConfigurationRecord> mockconfigVersionRecord = new VersionedMetadata<>(mockStreamConfigurationRecord, v);
+        Mockito.when(mystoremock.getConfigurationRecord("scope", stream, null, executor)).thenReturn(CompletableFuture.completedFuture(mockconfigVersionRecord));
 
-        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata2= storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
-        EpochTransitionRecord currentEpochTransitionRecord=currentEpochTransitionRecordMetadata2.getObject();
+        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata2 = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
+        EpochTransitionRecord currentEpochTransitionRecord = currentEpochTransitionRecordMetadata2.getObject();
         EpochRecord currentEpochRecord = store.getEpoch(scope, stream, currentEpochTransitionRecord.getNewEpoch(),
                 null, executor).join();
 
-        int chunkNumber=currentEpochTransitionRecord.getNewEpoch()/ HistoryTimeSeries.HISTORY_CHUNK_SIZE;
+        int chunkNumber = currentEpochTransitionRecord.getNewEpoch() / HistoryTimeSeries.HISTORY_CHUNK_SIZE;
 
         HistoryTimeSeriesRecord currentHistoryRecord = store.getHistoryTimeSeriesChunk(scope, stream, chunkNumber,
                 null, executor).join().getLatestRecord();
 
-        EpochTransitionRecord newEpochTransitionRecord=new EpochTransitionRecord(currentEpochTransitionRecord.getActiveEpoch(),currentEpochTransitionRecord.getTime()
-                ,currentEpochTransitionRecord.getSegmentsToSeal(),currentEpochTransitionRecord.getNewSegmentsWithRange());
+        EpochTransitionRecord newEpochTransitionRecord = new EpochTransitionRecord(currentEpochTransitionRecord.getActiveEpoch(), currentEpochTransitionRecord.getTime()
+                ,currentEpochTransitionRecord.getSegmentsToSeal(), currentEpochTransitionRecord.getNewSegmentsWithRange());
 
-        EpochRecord newEpochRecord=new EpochRecord(4,currentEpochRecord.getReferenceEpoch(),currentEpochRecord.getSegments()
+        EpochRecord newEpochRecord = new EpochRecord(4, currentEpochRecord.getReferenceEpoch(), currentEpochRecord.getSegments()
                 ,currentEpochRecord.getCreationTime());
 
-        HistoryTimeSeriesRecord newHistoryTimeSeriesRecord=new HistoryTimeSeriesRecord(currentHistoryRecord.getEpoch(),
-                currentHistoryRecord.getReferenceEpoch(),currentHistoryRecord.getSegmentsSealed(),
-                currentHistoryRecord.getSegmentsCreated(),currentHistoryRecord.getScaleTime());
+        HistoryTimeSeriesRecord newHistoryTimeSeriesRecord = new HistoryTimeSeriesRecord(currentHistoryRecord.getEpoch(),
+                currentHistoryRecord.getReferenceEpoch(), currentHistoryRecord.getSegmentsSealed(),
+                currentHistoryRecord.getSegmentsCreated(), currentHistoryRecord.getScaleTime());
 
         Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<EpochTransitionRecord> mockVersionRecord=new VersionedMetadata<>(newEpochTransitionRecord,ver);
+        VersionedMetadata<EpochTransitionRecord> mockVersionRecord = new VersionedMetadata<>(newEpochTransitionRecord, ver);
 
-        Mockito.when( mystoremock.getEpochTransition(scope, stream, null, executor)).
+        Mockito.when(mystoremock.getEpochTransition(scope, stream, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
 
-        Mockito.when(mystoremock.getEpoch(scope,stream,currentEpochTransitionRecord.getNewEpoch()
-                ,null,executor)).thenReturn(CompletableFuture.completedFuture(newEpochRecord));
+        Mockito.when(mystoremock.getEpoch(scope, stream, currentEpochTransitionRecord.getNewEpoch()
+                ,null, executor)).thenReturn(CompletableFuture.completedFuture(newEpochRecord));
 
-        Mockito.when( mystoremock.getHistoryTimeSeriesChunk(scope, stream, chunkNumber,
-                null, executor)).thenReturn(store.getHistoryTimeSeriesChunk(scope,testStream,
-                chunkNumber,null,executor));
+        Mockito.when(mystoremock.getHistoryTimeSeriesChunk(scope, stream, chunkNumber,
+                null, executor)).thenReturn(store.getHistoryTimeSeriesChunk(scope, testStream,
+                chunkNumber, null, executor));
 
         Mockito.when(mystoremock.getSegmentSealedEpoch("scope", stream, 1, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(0));
 
 
-        Mockito.when(mystoremock.getEpoch("scope",stream,currentEpochTransitionRecord.getNewEpoch()
-                ,null,executor)).thenReturn(CompletableFuture.completedFuture(newEpochRecord));
+        Mockito.when(mystoremock.getEpoch("scope", stream, currentEpochTransitionRecord.getNewEpoch()
+                ,null, executor)).thenReturn(CompletableFuture.completedFuture(newEpochRecord));
 
         Mockito.when(mystoremock.getActiveEpoch(scope, stream, null, true, executor)).
                 thenReturn(CompletableFuture.completedFuture(newEpochRecord));
 
         int currentEpoch = store.getActiveEpoch(scope, stream, null, true, executor).join().getEpoch();
-        int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join().getLatestRecord().getEpoch();
-        HistoryTimeSeries ht=store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor).join();
+        int historyCurrentEpoch = store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch / HistoryTimeSeries.HISTORY_CHUNK_SIZE), null, executor).join().getLatestRecord().getEpoch();
+        HistoryTimeSeries ht = store.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch / HistoryTimeSeries.HISTORY_CHUNK_SIZE), null, executor).join();
 
-        Mockito.when(mystoremock.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE),null, executor)).
+        Mockito.when(mystoremock.getHistoryTimeSeriesChunk(scope, stream, (currentEpoch / HistoryTimeSeries.HISTORY_CHUNK_SIZE), null, executor)).
                 thenReturn(CompletableFuture.completedFuture(ht));
 
-        String result=tc.check(mystoremock,executor);
+        String result = tc.check(mystoremock, executor);
 
         //changing back to orignal
-        Mockito.when(mystoremock.getEpoch("scope",stream,currentEpochTransitionRecord.getNewEpoch()
-                ,null,executor)).thenReturn(CompletableFuture.completedFuture(currentEpochRecord));
+        Mockito.when(mystoremock.getEpoch("scope", stream, currentEpochTransitionRecord.getNewEpoch()
+                ,null, executor)).thenReturn(CompletableFuture.completedFuture(currentEpochRecord));
         return result;
     }
-    public String commiting_check(StreamMetadataStore mockstore)
-    {
-        testStream="test";
+    public String commiting_check(StreamMetadataStore mockstore) {
+        testStream = "test";
         UUID v1 = new UUID(0, 1);
         UUID v2 = new UUID(1, 2);
         ImmutableList<UUID> list = ImmutableList.of(v1, v2);
         CommittingTransactionsRecord newTransactionRecord = new CommittingTransactionsRecord(0, list, 1);
         Version.IntVersion v = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<CommittingTransactionsRecord> mockVersionRecord=new VersionedMetadata<>(newTransactionRecord,v);
+        VersionedMetadata<CommittingTransactionsRecord> mockVersionRecord = new VersionedMetadata<>(newTransactionRecord, v);
 
 
         Mockito.when(mockstore.getVersionedCommittingTransactionsRecord("scope", testStream, null, executor)).
                 thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
 
-        Mockito.when( mockstore.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
-                null, executor)).thenReturn( store.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
+        Mockito.when(mockstore.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
+                null, executor)).thenReturn(store.getEpoch("scope", testStream, newTransactionRecord.getNewTxnEpoch(),
                 null, executor));
 
-        int chunkNumber=newTransactionRecord.getNewTxnEpoch()/ HistoryTimeSeries.HISTORY_CHUNK_SIZE;
+        int chunkNumber = newTransactionRecord.getNewTxnEpoch() / HistoryTimeSeries.HISTORY_CHUNK_SIZE;
 
-        Mockito.when( mockstore.getHistoryTimeSeriesChunk("scope", testStream,
+        Mockito.when(mockstore.getHistoryTimeSeriesChunk("scope", testStream,
                 chunkNumber, null, executor)).
                 thenReturn(store.getHistoryTimeSeriesChunk("scope", testStream,
                         chunkNumber, null, executor));
@@ -340,5 +327,4 @@ public class TroubleshootCommandTest {
 
         return result;
     }
-
 }

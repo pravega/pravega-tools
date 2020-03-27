@@ -39,7 +39,7 @@ public class UpdateCommandTest {
     private ScheduledExecutorService executor;
     private UpdateCheckCommand updatecheck;
     private  String tablename;
-    private String testStream ;
+    private String testStream;
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -57,25 +57,24 @@ public class UpdateCommandTest {
         SETUP_UTILS.stopAllServices();
     }
 
-    public void initialsetup_store()
-    {
+    public void initialStoreSetup() {
 
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
     }
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
-        updatecheck= new UpdateCheckCommand(commandArgs);
+        updatecheck = new UpdateCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
     }
 
     @Test
     public void executeCommand() throws Exception {
-        testStream="testStream";
-        SETUP_UTILS.createTestStream(testStream,1);
-        initialsetup_commands();
-        initialsetup_store();
+        testStream = "testStream";
+        SETUP_UTILS.createTestStream(testStream, 1);
+        initialSetupCommands();
+        initialStoreSetup();
 
         //mocking the store
         StreamMetadataStore mystoremock = Mockito.mock(StreamMetadataStore.class);
@@ -84,11 +83,11 @@ public class UpdateCommandTest {
         Assert.assertTrue("StreamConfigurationRecord consistency check requires human intervention".equalsIgnoreCase(result));
 
         //checking for correct case
-        StreamConfigurationRecord presentStreamConfigurationRecord= store.getConfigurationRecord("scope",testStream,null,executor).join().getObject();
-        StreamConfigurationRecord mockStreamConfigurationRecord=new StreamConfigurationRecord(presentStreamConfigurationRecord.getScope(),presentStreamConfigurationRecord.getStreamName(),presentStreamConfigurationRecord.getStreamConfiguration(),true);
+        StreamConfigurationRecord presentStreamConfigurationRecord = store.getConfigurationRecord("scope", testStream, null, executor).join().getObject();
+        StreamConfigurationRecord mockStreamConfigurationRecord = new StreamConfigurationRecord(presentStreamConfigurationRecord.getScope(), presentStreamConfigurationRecord.getStreamName(), presentStreamConfigurationRecord.getStreamConfiguration(), true);
         Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<StreamConfigurationRecord> mockVersionRecord=new VersionedMetadata<>(mockStreamConfigurationRecord,ver);
-        Mockito.when(mystoremock.getConfigurationRecord("scope",testStream,null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
+        VersionedMetadata<StreamConfigurationRecord> mockVersionRecord = new VersionedMetadata<>(mockStreamConfigurationRecord, ver);
+        Mockito.when(mystoremock.getConfigurationRecord("scope", testStream, null, executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
         String result2 = SETUP_UTILS.faultvalue(updatecheck.check(mystoremock, executor));
         Assert.assertTrue("".equalsIgnoreCase(result2));
     }

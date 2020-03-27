@@ -18,8 +18,8 @@ import java.util.concurrent.ScheduledExecutorService;
 /**
  * An interface for the basic check method
  */
+@SuppressWarnings("checkstyle:JavadocStyle")
 public interface Check {
-
     /**
      * Method to check the consistency of a given case of records
      *
@@ -27,5 +27,6 @@ public interface Check {
      * @param executor  callers executor
      * @return A map of Record and Fault.
      */
+    @SuppressWarnings("checkstyle:LineLength")
     Map<Record, Set<Fault>> check(StreamMetadataStore store, ScheduledExecutorService executor);
 }

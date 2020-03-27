@@ -36,10 +36,10 @@ public class UpdateCheckCommandTest {
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
     private CommandArgs commandArgs;
-    private AtomicReference<String> idRef=new AtomicReference<>(null);
+    private AtomicReference<String> idRef = new AtomicReference<>(null);
     private ScheduledExecutorService executor;
     private UpdateCheckCommand updatecheck;
-    private String testStream ;
+    private String testStream;
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -56,8 +56,8 @@ public class UpdateCheckCommandTest {
     public static void tearDown() throws Exception {
         SETUP_UTILS.stopAllServices();
     }
-    public void initialsetup_store()
-    {
+    public void initialStoreSetup() {
+
         StreamMetadataStore store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
         // Setup utility.
         SegmentHelper segmentHelper = SETUP_UTILS.getSegmentHelper();
@@ -65,31 +65,28 @@ public class UpdateCheckCommandTest {
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
-        updatecheck= new UpdateCheckCommand(commandArgs);
+        updatecheck = new UpdateCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
     }
 
     @Test
     public void executeCommand() throws Exception {
-        testStream="testStream";
-        SETUP_UTILS.createTestStream(testStream,1);
-        initialsetup_commands();
-        initialsetup_store();
+        testStream = "testStream";
+        SETUP_UTILS.createTestStream(testStream, 1);
+        initialSetupCommands();
+        initialStoreSetup();
         String tablename = SETUP_UTILS.getMetadataTable(testStream, storeHelper).join();
         VersionedMetadata<StreamConfigurationRecord> currentstreamEpochVersionMetadata = storeHelper.getEntry(tablename, "configuration", x -> StreamConfigurationRecord.fromBytes(x)).get();
-        Version version=currentstreamEpochVersionMetadata.getVersion();
+        Version version = currentstreamEpochVersionMetadata.getVersion();
         //removing the configuration record
-        storeHelper.removeEntry(tablename,"configuration",version).join();
-        StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+        storeHelper.removeEntry(tablename, "configuration", version).join();
+        StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
         //checking for update fault
         String result = SETUP_UTILS.faultvalue(updatecheck.check(mystore, executor));
         Assert.assertTrue("StreamConfigurationRecord is corrupted or unavailable".equalsIgnoreCase(result));
     }
-
-
 
 }

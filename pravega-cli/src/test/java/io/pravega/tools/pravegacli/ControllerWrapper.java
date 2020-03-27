@@ -142,7 +142,7 @@ public class ControllerWrapper implements AutoCloseable {
 
         Optional<RESTServerConfig> restServerConfig = restPort > 0 ?
                 Optional.of(RESTServerConfigImpl.builder().host("localhost").port(restPort).build()) :
-                Optional.<RESTServerConfig>empty();
+                Optional.empty();
 
         ControllerServiceConfig serviceConfig = ControllerServiceConfigImpl.builder()
                 .threadPoolSize(15)

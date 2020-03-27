@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class TroubleshootCheckCommandTest{
-
     // Setup utility.
     private Map<Record, Set<Fault>> faults;
     SegmentHelper segmentHelper;
@@ -45,7 +44,7 @@ public class TroubleshootCheckCommandTest{
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
     private TroubleshootCheckCommand tc;
-    private String testStream ;
+    private String testStream;
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -63,8 +62,7 @@ public class TroubleshootCheckCommandTest{
         SETUP_UTILS.stopAllServices();
     }
 
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
         tc = new TroubleshootCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
@@ -72,10 +70,10 @@ public class TroubleshootCheckCommandTest{
 
     }
 
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-        segmentHelper=SETUP_UTILS.getSegmentHelper();
+    public void initialStoreSetup() {
+
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
+        segmentHelper = SETUP_UTILS.getSegmentHelper();
         GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         PravegaTablesStoreHelper storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
@@ -84,9 +82,9 @@ public class TroubleshootCheckCommandTest{
     public void executeCommand() throws Exception {
         testStream = "testStream";
         SETUP_UTILS.createTestStream(testStream, 1);
-        initialsetup_commands();
-        initialsetup_store();
-        String result= tc.check(store,executor);
+        initialSetupCommands();
+        initialStoreSetup();
+        String result = tc.check(store, executor);
         Assert.assertTrue(result.trim().equalsIgnoreCase("Everything seems OK."));
     }
 

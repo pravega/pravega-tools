@@ -46,7 +46,7 @@ public class CommitingTransactionsCheckCommandTest {
     private ScheduledExecutorService executor;
     private CommittingTransactionsCheckCommand ct;
     private  String tablename;
-    private String testStream ;
+    private String testStream;
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -64,50 +64,46 @@ public class CommitingTransactionsCheckCommandTest {
         SETUP_UTILS.stopAllServices();
     }
 
-
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
         ct = new CommittingTransactionsCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
-
     }
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-        segmentHelper=SETUP_UTILS.getSegmentHelper();
+
+    public void initialStoreSetup() {
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
+        segmentHelper = SETUP_UTILS.getSegmentHelper();
         GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
     @Test
     public void executeCommand() throws Exception {
-        testStream="testStream";
-        initialsetup_commands();
-        initialsetup_store();
+        testStream = "testStream";
+        initialSetupCommands();
+        initialStoreSetup();
         SETUP_UTILS.createTestStream(testStream, 1);
-        tablename=SETUP_UTILS.getMetadataTable(testStream,storeHelper).join();
+        tablename = SETUP_UTILS.getMetadataTable(testStream, storeHelper).join();
 
         //checking for unavalability
-        VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata1=storeHelper.getEntry(tablename,"committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
+        VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata1 = storeHelper.getEntry(tablename, "committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
         String result1 = unavaliblity_check(committingVersionMetadata1);
-        Assert.assertEquals(result1,"CommittingTransactionsRecord is corrupted or unavailable");
+        Assert.assertEquals(result1, "CommittingTransactionsRecord is corrupted or unavailable");
 
         //checking for inconsistency
-        VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata2=storeHelper.getEntry(tablename,"committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
-        String result2= inconsistency_check(committingVersionMetadata2);
+        VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata2 = storeHelper.getEntry(tablename, "committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
+        String result2 = inconsistency_check(committingVersionMetadata2);
         Assert.assertTrue(result2.contains("The corresponding EpochRecord is corrupted or does not exist."));
 
     }
 
-    public String unavaliblity_check(VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata)
-    {
-        Version ver=committingVersionMetadata.getVersion() ;
-        storeHelper.removeEntry(tablename, "committingTxns",ver).join();
-        faults=ct.check(store,executor);
-        String result=SETUP_UTILS.faultvalue(faults);
-        storeHelper.addNewEntry(tablename,"committingTxns",committingVersionMetadata.getObject().toBytes()).join();
+    public String unavaliblity_check(VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata) {
+        Version ver = committingVersionMetadata.getVersion();
+        storeHelper.removeEntry(tablename, "committingTxns", ver).join();
+        faults = ct.check(store, executor);
+        String result = SETUP_UTILS.faultvalue(faults);
+        storeHelper.addNewEntry(tablename, "committingTxns", committingVersionMetadata.getObject().toBytes()).join();
         return result;
     }
     public String inconsistency_check(VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata) {
@@ -122,9 +118,9 @@ public class CommitingTransactionsCheckCommandTest {
         faults = ct.check(store, executor);
 
         //returning to orignal value
-        VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata1=storeHelper.getEntry(tablename,"committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
-        storeHelper.removeEntry(tablename,"committingTxns",committingVersionMetadata1.getVersion()).join();
-        storeHelper.addNewEntry(tablename,"committingTxns", committingVersionMetadata.getObject().toBytes()).join();
+        VersionedMetadata<CommittingTransactionsRecord> committingVersionMetadata1 = storeHelper.getEntry(tablename, "committingTxns", x -> CommittingTransactionsRecord.fromBytes(x)).join();
+        storeHelper.removeEntry(tablename, "committingTxns", committingVersionMetadata1.getVersion()).join();
+        storeHelper.addNewEntry(tablename, "committingTxns", committingVersionMetadata.getObject().toBytes()).join();
         return SETUP_UTILS.faultvalue(faults);
     }
 }

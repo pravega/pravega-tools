@@ -108,8 +108,8 @@ public class ToolSetupUtils {
     private static final String STREAMS_IN_SCOPE_TABLE_FORMAT = "streamsInScope" + ".#." + "%s";
     private static final String METADATA_TABLE = "metadata" + ".#." + "%s";
     private static final String SCOPES_TABLE = getQualifiedTableName(NameUtils.INTERNAL_SCOPE_NAME, "scopes");
-    private final AtomicReference<UUID> scopeidRef=new AtomicReference<>(null);
-    private AtomicReference<String> idRef=new AtomicReference<>(null);
+    private final AtomicReference<UUID> scopeidRef = new AtomicReference<>(null);
+    private AtomicReference<String> idRef = new AtomicReference<>(null);
     private CommandArgs commandArgs;
     @Getter
     private SegmentHelper segmentHelper;
@@ -258,7 +258,7 @@ public class ToolSetupUtils {
     }
 
     public CompletableFuture<String> getId(String streamname, PravegaTablesStoreHelper storeHelper) {
-        streamName=streamname;
+        streamName = streamname;
         return getStreamsInScopeTableName(storeHelper)
                 .thenCompose(streamsInScopeTable -> {
                     return storeHelper.getEntry(streamsInScopeTable, streamname,
@@ -271,11 +271,11 @@ public class ToolSetupUtils {
     }
 
     public CompletableFuture<String> getMetadataTable(String streamname, PravegaTablesStoreHelper storeHelper) {
-        return getId(streamname,storeHelper).thenApply(this::getMetadataTableName);
+        return getId(streamname, storeHelper).thenApply(this::getMetadataTableName);
     }
 
     private String getMetadataTableName(String id) {
-        return getQualifiedTableName(INTERNAL_SCOPE_NAME, this.getScope(),streamName, String.format(METADATA_TABLE, id));
+        return getQualifiedTableName(INTERNAL_SCOPE_NAME, this.getScope(), streamName, String.format(METADATA_TABLE, id));
     }
 
     public CompletableFuture<UUID> getScopeId(PravegaTablesStoreHelper storeHelper) {
@@ -292,8 +292,7 @@ public class ToolSetupUtils {
         }
     }
 
-    public String faultvalue( Map<Record, Set<Fault>> fault)
-    {
+    public String faultvalue(Map<Record, Set<Fault>> fault) {
         String error = "";
         Iterator iterator =  fault.keySet().iterator();
         while (iterator.hasNext()) {
@@ -305,16 +304,16 @@ public class ToolSetupUtils {
         return error;
     }
 
-    public StreamMetadataStore createMetadataStore(ScheduledExecutorService executor, ServiceConfig serviceConfig, CommandArgs cArgs)
-    {
+    public StreamMetadataStore createMetadataStore(ScheduledExecutorService executor, ServiceConfig serviceConfig, CommandArgs cArgs) {
         @Cleanup
-        CuratorFramework zkClient =createZKClient(serviceConfig);
-        commandArgs=cArgs;
+        CuratorFramework zkClient = createZKClient(serviceConfig);
+        commandArgs = cArgs;
         segmentHelper = instantiateSegmentHelper(serviceConfig);
         authHelper = GrpcAuthHelper.getDisabledAuthHelper();
         StreamMetadataStore store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
         return store;
     }
+
     public SegmentHelper instantiateSegmentHelper(ServiceConfig serviceConfig) {
         HashMap<Host, Set<Integer>> hostContainerMap = new HashMap<>();
         hostContainerMap.put(new Host("localhost", 6000, null), IntStream.range(0, 4).boxed().collect(Collectors.toSet()));
@@ -335,6 +334,7 @@ public class ToolSetupUtils {
         return new SegmentHelper(connectionFactory, hostStore);
 
     }
+
     public CLIControllerConfig getCLIControllerConfig() {
         return commandArgs.getState().getConfigBuilder().build().getConfig(CLIControllerConfig::builder);
     }

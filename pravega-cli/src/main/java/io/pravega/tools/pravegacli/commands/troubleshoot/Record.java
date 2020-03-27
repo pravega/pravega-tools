@@ -51,11 +51,11 @@ public class Record<T> {
         }
 
         if (this.recordType == StreamConfigurationRecord.class) {
-            return responseBuilder.append(outputConfiguration((StreamConfigurationRecord)this.record)).toString();
+            return responseBuilder.append(outputConfiguration((StreamConfigurationRecord) this.record)).toString();
         }
 
         if (this.recordType == EpochTransitionRecord.class) {
-            return responseBuilder.append(outputTransition((EpochTransitionRecord)this.record)).toString();
+            return responseBuilder.append(outputTransition((EpochTransitionRecord) this.record)).toString();
         }
 
         if (this.recordType == CommittingTransactionsRecord.class) {
@@ -63,7 +63,7 @@ public class Record<T> {
         }
 
         if (this.recordType == StreamTruncationRecord.class) {
-            return responseBuilder.append(outputTruncation((StreamTruncationRecord)this.record)).toString();
+            return responseBuilder.append(outputTruncation((StreamTruncationRecord) this.record)).toString();
         }
 
         return responseBuilder.toString();

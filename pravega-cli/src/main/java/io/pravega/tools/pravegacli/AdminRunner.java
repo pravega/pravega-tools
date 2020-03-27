@@ -43,7 +43,7 @@ public final class AdminRunner {
      * <p>
      * This program can be executed in two modes. First, the "interactive mode", in which you may want to point to a
      * config file that contains the previous mandatory configuration parameters:
-     * -Dpravega.configurationFile=config.properties
+     * -Dpravega.configurationFile= config.properties
      *
      * If you don't want to use a config file, you still can load configuration properties dynamically using the command
      * "config set property=value".

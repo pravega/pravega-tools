@@ -42,12 +42,12 @@ public class TruncateCheckTest {
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
     private CommandArgs commandArgs;
-    private AtomicReference<String> idRef=new AtomicReference<>(null);
+    private AtomicReference<String> idRef = new AtomicReference<>(null);
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
     private TruncateCheckCommand tc;
     private  String tablename;
-    private String testStream ;
+    private String testStream;
     private Map<Record, Set<Fault>> faults;
     private StreamMetadataStore mockStore;
 
@@ -66,81 +66,77 @@ public class TruncateCheckTest {
     public static void tearDown() throws Exception {
         SETUP_UTILS.stopAllServices();
     }
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+    public void initialStoreSetup() {
+
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
         SegmentHelper segmentHelper = SETUP_UTILS.getSegmentHelper();
         GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
-        tc= new TruncateCheckCommand(commandArgs);
+        tc = new TruncateCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
-
     }
     @Test
     public void executeCommand() throws Exception {
         testStream = "testStream";
-        String stream="testStream";
-        String scope="scope";
-        initialsetup_commands();
-        initialsetup_store();
+        String stream = "testStream";
+        String scope = "scope";
+
+        initialSetupCommands();
+        initialStoreSetup();
         final ScalingPolicy policy = ScalingPolicy.fixed(2);
         final StreamConfiguration configuration = StreamConfiguration.builder().scalingPolicy(policy).build();
-        SETUP_UTILS.createTestStream_withconfig(testStream, 1,configuration);
-        tablename = SETUP_UTILS.getMetadataTable(testStream,storeHelper).join();
+        SETUP_UTILS.createTestStream_withconfig(testStream, 1, configuration);
+        tablename = SETUP_UTILS.getMetadataTable(testStream, storeHelper).join();
 
         store.setState(scope, stream, State.ACTIVE, null, executor).get();
         //mocking the store
-        mockStore=Mockito.mock(StreamMetadataStore.class);
+        mockStore = Mockito.mock(StreamMetadataStore.class);
 
         //checking for unavailability
         VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecord1 = storeHelper.getEntry(tablename, "truncation", x -> StreamTruncationRecord.fromBytes(x)).get();
-        String result1=unavailability_check(currentStreamTruncationRecord1);
+        String result1 = unavailability_check(currentStreamTruncationRecord1);
         Assert.assertTrue(result1.equalsIgnoreCase("StreamTruncationRecord is corrupted or unavailable"));
 
         //checking for inconsistency
-        String result2=inconsistency_check();
+        String result2 = inconsistency_check();
         Assert.assertTrue(result2.equalsIgnoreCase("StreamTruncationRecord inconsistency in regards to updating and segments to delete"));
 
         //check for segment count inconsistency
-        String result3=segment_count_inconsistency_check();
+        String result3 = segment_count_inconsistency_check();
         Assert.assertTrue(result3.equalsIgnoreCase("Fault in the StreamTruncationRecord in regards to segments deletion, segments ahead of stream cut being deleted"));
     }
 
-    private String unavailability_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata)
-    {
-        Version version=currentStreamTruncationRecordMetadata.getVersion();
-        storeHelper.removeEntry(tablename,"truncation",version).join();
-        faults=tc.check(store,executor);
+    private String unavailability_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata) {
+        Version version = currentStreamTruncationRecordMetadata.getVersion();
+        storeHelper.removeEntry(tablename, "truncation", version).join();
+        faults = tc.check(store, executor);
         storeHelper.addNewEntry(tablename, "truncation", currentStreamTruncationRecordMetadata.getObject().toBytes()).join();
         return (SETUP_UTILS.faultvalue(faults));
+    }
 
-    }
-    private String inconsistency_check()
-    {
-        ImmutableSet<Long> toDelete=ImmutableSet.of(4L,5L);
-        StreamTruncationRecord streamTruncationRecord=store.getTruncationRecord("scope", testStream, null, executor).join().getObject();
-        StreamTruncationRecord newstreamTruncationRecord=new StreamTruncationRecord(streamTruncationRecord.getStreamCut(),streamTruncationRecord.getSpan(),streamTruncationRecord.getDeletedSegments(),toDelete,streamTruncationRecord.getSizeTill(),streamTruncationRecord.isUpdating());
+    private String inconsistency_check() {
+        ImmutableSet<Long> toDelete = ImmutableSet.of(4L, 5L);
+        StreamTruncationRecord streamTruncationRecord = store.getTruncationRecord("scope", testStream, null, executor).join().getObject();
+        StreamTruncationRecord newstreamTruncationRecord = new StreamTruncationRecord(streamTruncationRecord.getStreamCut(), streamTruncationRecord.getSpan(), streamTruncationRecord.getDeletedSegments(), toDelete, streamTruncationRecord.getSizeTill(), streamTruncationRecord.isUpdating());
         Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
-        VersionedMetadata<StreamTruncationRecord> mockVersionRecord=new VersionedMetadata<>(newstreamTruncationRecord,ver);
-        Mockito.when(mockStore.getTruncationRecord("scope", testStream, null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
+        VersionedMetadata<StreamTruncationRecord> mockVersionRecord = new VersionedMetadata<>(newstreamTruncationRecord, ver);
+        Mockito.when(mockStore.getTruncationRecord("scope", testStream, null, executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
         faults = tc.check(mockStore, executor);
-        return(SETUP_UTILS.faultvalue(faults));
+        return (SETUP_UTILS.faultvalue(faults));
     }
-    private String segment_count_inconsistency_check()
-    {
-    ImmutableSet<Long> toDelete=ImmutableSet.of(4L,5L);
-    StreamTruncationRecord streamTruncationRecord=store.getTruncationRecord("scope", testStream, null, executor).join().getObject();
-    StreamTruncationRecord newstreamTruncationRecord=new StreamTruncationRecord(streamTruncationRecord.getStreamCut(),streamTruncationRecord.getSpan(),streamTruncationRecord.getDeletedSegments(),toDelete,streamTruncationRecord.getSizeTill(),true);
+    private String segment_count_inconsistency_check() {
+    ImmutableSet<Long> toDelete = ImmutableSet.of(4L, 5L);
+    StreamTruncationRecord streamTruncationRecord = store.getTruncationRecord("scope", testStream, null, executor).join().getObject();
+    StreamTruncationRecord newstreamTruncationRecord = new StreamTruncationRecord(streamTruncationRecord.getStreamCut(), streamTruncationRecord.getSpan(), streamTruncationRecord.getDeletedSegments(), toDelete, streamTruncationRecord.getSizeTill(), true);
     Version.IntVersion ver = Version.IntVersion.builder().intValue(0).build();
-    VersionedMetadata<StreamTruncationRecord> mockVersionRecord=new VersionedMetadata<>(newstreamTruncationRecord,ver);
-    Mockito.when(mockStore.getTruncationRecord("scope", testStream, null,executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
+    VersionedMetadata<StreamTruncationRecord> mockVersionRecord = new VersionedMetadata<>(newstreamTruncationRecord, ver);
+    Mockito.when(mockStore.getTruncationRecord("scope", testStream, null, executor)).thenReturn(CompletableFuture.completedFuture(mockVersionRecord));
     faults = tc.check(mockStore, executor);
-    return(SETUP_UTILS.faultvalue(faults));
+    return (SETUP_UTILS.faultvalue(faults));
     }
 }

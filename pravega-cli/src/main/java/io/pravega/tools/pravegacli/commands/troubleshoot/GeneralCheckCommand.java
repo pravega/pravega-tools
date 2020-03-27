@@ -11,18 +11,12 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableList;
 import io.pravega.common.Exceptions;
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.records.EpochRecord;
 import io.pravega.controller.store.stream.records.HistoryTimeSeries;
 import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import org.apache.curator.framework.CuratorFramework;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -43,14 +37,16 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
      *
      * @param args The arguments for the command.
      */
-    public GeneralCheckCommand(CommandArgs args) { super(args); }
+    public GeneralCheckCommand(CommandArgs args) {
+        super(args);
+    }
 
     @Override
     public void execute() {
         checkTroubleshootArgs();
         try {
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-            store=createMetadataStore(executor);
+            store = createMetadataStore(executor);
             check(store, executor);
             Map<Record, Set<Fault>> faults = check(store, executor);
             outputToFile(outputFaults(faults));
@@ -87,14 +83,14 @@ public class GeneralCheckCommand extends TroubleshootCommandHelper implements Ch
         final String streamName = getCommandArgs().getArgs().get(1);
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
-        HistoryTimeSeries history=null;
+        HistoryTimeSeries history = null;
 
         try {
             int currentEpoch = store.getActiveEpoch(scope, streamName, null, true, executor).join().getEpoch();
-            int chuckNumber=currentEpoch/ HistoryTimeSeries.HISTORY_CHUNK_SIZE;
-            history = store.getHistoryTimeSeriesChunk(scope, streamName, chuckNumber,null, executor).join();
+            int chuckNumber = currentEpoch / HistoryTimeSeries.HISTORY_CHUNK_SIZE;
+            history = store.getHistoryTimeSeriesChunk(scope, streamName, chuckNumber, null, executor).join();
 
-        } catch (CompletionException completionException ) {
+        } catch (CompletionException completionException) {
             if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException) {
                 Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
                 putInFaultMap(faults, historySeriesRecord,

@@ -9,22 +9,20 @@
  */
 package io.pravega.tools.pravegacli.commands.troubleshoot;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import io.pravega.common.Exceptions;
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.StreamStoreFactory;
-import io.pravega.controller.store.stream.VersionedMetadata;
-import io.pravega.controller.store.stream.records.*;
+import io.pravega.controller.store.stream.records.CommittingTransactionsRecord;
+import io.pravega.controller.store.stream.records.EpochRecord;
+import io.pravega.controller.store.stream.records.HistoryTimeSeriesRecord;
+import io.pravega.controller.store.stream.records.StreamSegmentRecord;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import org.apache.curator.framework.CuratorFramework;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
@@ -38,14 +36,16 @@ import static io.pravega.tools.pravegacli.commands.utils.OutputUtils.outputFault
 /**
  * A helper class that checks the stream with respect to the committing_txn case.
  */
-public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelper implements Check{
+public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelper implements Check {
 
     /**
      * Creates a new instance of the Command class.
      *
      * @param args The arguments for the command.
      */
-    public CommittingTransactionsCheckCommand(CommandArgs args) { super(args); }
+    public CommittingTransactionsCheckCommand(CommandArgs  args) {
+        super(args);
+    }
 
     /**
      * The method to execute the check method as part of the execution of the command.
@@ -55,7 +55,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
         checkTroubleshootArgs();
         try {
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-            store=createMetadataStore(executor);
+            store = createMetadataStore(executor);
             check(store, executor);
             Map<Record, Set<Fault>> faults = check(store, executor);
             outputToFile(outputFaults(faults));
@@ -184,7 +184,6 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
                                 Fault.inconsistent(duplicateActiveRecord, "Fault: duplicates time's are not ordered properly."));
                     }
                 }
-
                 checkOriginal(faults, committingRecord.getEpoch(), duplicateTxnEpochRecord, scope, streamName,
                         store, executor, "Txn");
                 checkOriginal(faults, committingRecord.getCurrentEpoch(), duplicateActiveEpochRecord, scope, streamName,
@@ -236,7 +235,7 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
                                           final Function<HistoryTimeSeriesRecord, Object> historyFunc, final String field, final String className) {
         boolean segmentsExists = checkCorrupted(record, historyFunc, field, className, faults);
 
-        if (segmentsExists && !((ImmutableList<StreamSegmentRecord>)historyFunc.apply(record)).isEmpty()) {
+        if (segmentsExists && !((ImmutableList<StreamSegmentRecord>) historyFunc.apply(record)).isEmpty()) {
             putInFaultMap(faults, historyRecord,
                     Fault.inconsistent(historyRecord, className + ": " + field + " are not empty."));
         }
@@ -274,7 +273,6 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
         if (originalEpochRecord == null) {
             return;
         }
-
         Record<EpochRecord> originalRecord = new Record<>(originalEpochRecord, EpochRecord.class);
         Record<EpochRecord> duplicateRecord = new Record<>(duplicateEpochRecord, EpochRecord.class);
 
@@ -288,7 +286,6 @@ public class CommittingTransactionsCheckCommand extends TroubleshootCommandHelpe
             List<Integer> dup2Segments = originalEpochRecord.getSegments().stream()
                     .map(segment -> getEpoch(computeSegmentId(Math.toIntExact(segment.getSegmentNumber()), originalEpochRecord.getEpoch())))
                     .collect(Collectors.toList());
-
             List<Integer> duplicateSegments = duplicateEpochRecord.getSegments().stream()
                     .map(StreamSegmentRecord::getSegmentNumber)
                     .collect(Collectors.toList());

@@ -44,7 +44,7 @@ public class TruncateCheckTest {
     private ScheduledExecutorService executor;
     private TruncateCheckCommand tc;
     private  String tablename;
-    private String testStream ;
+    private String testStream;
     private Map<Record, Set<Fault>> faults;
 
     @BeforeClass
@@ -62,18 +62,17 @@ public class TruncateCheckTest {
     public static void tearDown() throws Exception {
         SETUP_UTILS.stopAllServices();
     }
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+    public void initialStoreSetup() {
+
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
         SegmentHelper segmentHelper = SETUP_UTILS.getSegmentHelper();
         GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
-        tc= new TruncateCheckCommand(commandArgs);
+        tc = new TruncateCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
 
@@ -81,72 +80,68 @@ public class TruncateCheckTest {
     @Test
     public void executeCommand() throws Exception {
         testStream = "testStream";
-        String scope="scope";
-        initialsetup_commands();
-        initialsetup_store();
+        String scope = "scope";
+        initialSetupCommands();
+        initialStoreSetup();
         final ScalingPolicy policy = ScalingPolicy.fixed(2);
         final StreamConfiguration configuration = StreamConfiguration.builder().scalingPolicy(policy).build();
-        SETUP_UTILS.createTestStream_withconfig(testStream, 1,configuration);
-        tablename = SETUP_UTILS.getMetadataTable(testStream,storeHelper).join();
+        SETUP_UTILS.createTestStream_withconfig(testStream, 1, configuration);
+        tablename = SETUP_UTILS.getMetadataTable(testStream, storeHelper).join();
         store.setState(scope, testStream, State.ACTIVE, null, executor).get();
 
         //checking for unavailability
         VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecord1 = storeHelper.getEntry(tablename, "truncation", x -> StreamTruncationRecord.fromBytes(x)).get();
-        String result1=unavailability_check(currentStreamTruncationRecord1);
+        String result1 = unavailability_check(currentStreamTruncationRecord1);
         Assert.assertTrue(result1.equalsIgnoreCase("StreamTruncationRecord is corrupted or unavailable"));
 
         //checking for inconsistency
         VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecord2 = storeHelper.getEntry(tablename, "truncation", x -> StreamTruncationRecord.fromBytes(x)).get();
-        String result2=inconsistency_check(currentStreamTruncationRecord2);
+        String result2 = inconsistency_check(currentStreamTruncationRecord2);
         Assert.assertTrue(result2.equalsIgnoreCase("StreamTruncationRecord inconsistency in regards to updating and segments to delete"));
 
         //checking for inconsistency between streamcut and segments to delete
         VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecord3 = storeHelper.getEntry(tablename, "truncation", x -> StreamTruncationRecord.fromBytes(x)).get();
-        String result3=segment_count_inconsistency_check(currentStreamTruncationRecord3);
+        String result3 = segment_count_inconsistency_check(currentStreamTruncationRecord3);
         Assert.assertTrue(result3.equalsIgnoreCase("Fault in the StreamTruncationRecord in regards to segments deletion, segments ahead of stream cut being deleted"));
 
     }
 
-    private String unavailability_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata)
-    {
-        Version version=currentStreamTruncationRecordMetadata.getVersion();
-        storeHelper.removeEntry(tablename,"truncation",version).join();
-        faults=tc.check(store,executor);
+    private String unavailability_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata) {
+        Version version = currentStreamTruncationRecordMetadata.getVersion();
+        storeHelper.removeEntry(tablename, "truncation", version).join();
+        faults = tc.check(store, executor);
         storeHelper.addNewEntry(tablename, "truncation", currentStreamTruncationRecordMetadata.getObject().toBytes()).join();
         return (SETUP_UTILS.faultvalue(faults));
 
     }
-    private String inconsistency_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata)
-    {
-        StreamTruncationRecord oldRecord=currentStreamTruncationRecordMetadata.getObject();
-        ImmutableSet<Long> toDelete=ImmutableSet.of(4L,5L);
-        StreamTruncationRecord newRecord=new StreamTruncationRecord(oldRecord.getStreamCut(),oldRecord.getSpan(),oldRecord.getDeletedSegments(),toDelete,oldRecord.getSizeTill(),false);
-        Version v=currentStreamTruncationRecordMetadata.getVersion();
-        storeHelper.removeEntry(tablename, "truncation",v).join();
-        storeHelper.addNewEntry(tablename,"truncation",newRecord.toBytes()).join();
-        StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+    private String inconsistency_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata) {
+        StreamTruncationRecord oldRecord = currentStreamTruncationRecordMetadata.getObject();
+        ImmutableSet<Long> toDelete = ImmutableSet.of(4L, 5L);
+        StreamTruncationRecord newRecord = new StreamTruncationRecord(oldRecord.getStreamCut(), oldRecord.getSpan(), oldRecord.getDeletedSegments(), toDelete, oldRecord.getSizeTill(),false);
+        Version v = currentStreamTruncationRecordMetadata.getVersion();
+        storeHelper.removeEntry(tablename, "truncation", v).join();
+        storeHelper.addNewEntry(tablename, "truncation", newRecord.toBytes()).join();
+        StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
         faults = tc.check(mystore, executor);
         VersionedMetadata<StreamTruncationRecord> newStreamTruncationRecord1 = storeHelper.getEntry(tablename, "truncation", x -> StreamTruncationRecord.fromBytes(x)).join();
-        changingBackToOrginalState(newStreamTruncationRecord1,oldRecord);
-        return(SETUP_UTILS.faultvalue(faults));
+        changingBackToOrginalState(newStreamTruncationRecord1, oldRecord);
+        return (SETUP_UTILS.faultvalue(faults));
     }
 
-    private String segment_count_inconsistency_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata)
-    {
-        StreamTruncationRecord oldRecord=currentStreamTruncationRecordMetadata.getObject();
-        ImmutableSet<Long> toDelete=ImmutableSet.of(4L,5L);
-        StreamTruncationRecord newRecord=new StreamTruncationRecord(oldRecord.getStreamCut(),oldRecord.getSpan(),oldRecord.getDeletedSegments(),toDelete,oldRecord.getSizeTill(),true);
-        Version v=currentStreamTruncationRecordMetadata.getVersion();
-        storeHelper.removeEntry(tablename, "truncation",v).join();
-        storeHelper.addNewEntry(tablename,"truncation",newRecord.toBytes()).join();
-        StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+    private String segment_count_inconsistency_check(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata) {
+        StreamTruncationRecord oldRecord = currentStreamTruncationRecordMetadata.getObject();
+        ImmutableSet<Long> toDelete = ImmutableSet.of(4L, 5L);
+        StreamTruncationRecord newRecord = new StreamTruncationRecord(oldRecord.getStreamCut(), oldRecord.getSpan(), oldRecord.getDeletedSegments(), toDelete, oldRecord.getSizeTill(), true);
+        Version v = currentStreamTruncationRecordMetadata.getVersion();
+        storeHelper.removeEntry(tablename, "truncation", v).join();
+        storeHelper.addNewEntry(tablename, "truncation", newRecord.toBytes()).join();
+        StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
         faults = tc.check(mystore, executor);
         VersionedMetadata<StreamTruncationRecord> newStreamTruncationRecord1 = storeHelper.getEntry(tablename, "truncation", x -> StreamTruncationRecord.fromBytes(x)).join();
-        changingBackToOrginalState(newStreamTruncationRecord1,oldRecord);
-        return(SETUP_UTILS.faultvalue(faults));
+        changingBackToOrginalState(newStreamTruncationRecord1, oldRecord);
+        return (SETUP_UTILS.faultvalue(faults));
     }
-    private void changingBackToOrginalState(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata, StreamTruncationRecord oldStreamTruncationRecord )
-    {
+    private void changingBackToOrginalState(VersionedMetadata<StreamTruncationRecord> currentStreamTruncationRecordMetadata, StreamTruncationRecord oldStreamTruncationRecord) {
         Version version = currentStreamTruncationRecordMetadata.getVersion();
         storeHelper.removeEntry(tablename, "truncation", version).join();
         storeHelper.addNewEntry(tablename, "truncation", oldStreamTruncationRecord.toBytes()).join();

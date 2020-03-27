@@ -12,7 +12,6 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 import io.pravega.client.netty.impl.ConnectionFactory;
 import io.pravega.client.netty.impl.ConnectionFactoryImpl;
 import io.pravega.client.stream.impl.DefaultCredentials;
-import io.pravega.common.cluster.Host;
 import io.pravega.controller.server.SegmentHelper;
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
 import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
@@ -41,11 +40,7 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
 import java.io.PrintWriter;
 import java.net.URI;
-import java.util.HashMap;
-import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
@@ -56,7 +51,7 @@ import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 public abstract class TroubleshootCommandHelper extends Command {
     static final String COMPONENT = "troubleshoot";
     protected StreamMetadataStore store;
-    protected ScheduledExecutorService executor ;
+    protected ScheduledExecutorService executor;
     /**
      * Creates a new instance of the Command class.
      *
@@ -129,8 +124,7 @@ public abstract class TroubleshootCommandHelper extends Command {
         return new SegmentHelper(connectionFactory, hostStore);
     }
 
-    public StreamMetadataStore createMetadataStore(ScheduledExecutorService executor)
-    {
+    public StreamMetadataStore createMetadataStore(ScheduledExecutorService executor) {
         StreamMetadataStore store;
         @Cleanup
         CuratorFramework zkClient = createZKClient();
@@ -141,7 +135,7 @@ public abstract class TroubleshootCommandHelper extends Command {
             segmentHelper = instantiateSegmentHelper(zkClient);
             GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
             store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
-            System.out.println("store is here = " +store);
+            System.out.println("store is here = " + store);
         }
         return store;
     }
@@ -166,7 +160,7 @@ public abstract class TroubleshootCommandHelper extends Command {
      * Method to check if the right number of arguments are present.
      */
     void checkTroubleshootArgs() {
-        if(checkFileNotExists()) {
+        if (checkFileNotExists()) {
             ensureArgCount(2);
         }
     }

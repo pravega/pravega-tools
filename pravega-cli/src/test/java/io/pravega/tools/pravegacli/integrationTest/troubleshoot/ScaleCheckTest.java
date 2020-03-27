@@ -42,12 +42,12 @@ public class ScaleCheckTest {
     private static final AtomicReference<AdminCommandState> STATE = new AtomicReference<>();
     private ServiceConfig serviceConfig;
     private CommandArgs commandArgs;
-    private AtomicReference<String> idRef=new AtomicReference<>(null);
+    private AtomicReference<String> idRef = new AtomicReference<>(null);
     private volatile StreamMetadataStore store;
     private ScheduledExecutorService executor;
     private ScaleCheckCommand sc;
     private  String tablename;
-    private String testStream ;
+    private String testStream;
     private Map<Record, Set<Fault>> faults;
 
     @BeforeClass
@@ -65,36 +65,34 @@ public class ScaleCheckTest {
     public static void tearDown() throws Exception {
         SETUP_UTILS.stopAllServices();
     }
-    public void initialsetup_store()
-    {
-        store = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
+    public void initialStoreSetup() {
+        store = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
         SegmentHelper segmentHelper = SETUP_UTILS.getSegmentHelper();
         GrpcAuthHelper authHelper = SETUP_UTILS.getAuthHelper();
         storeHelper = new PravegaTablesStoreHelper(segmentHelper, authHelper, executor);
     }
 
-    public void initialsetup_commands()
-    {
+    public void initialSetupCommands() {
         commandArgs = new CommandArgs(Arrays.asList(SETUP_UTILS.getScope(), testStream), STATE.get());
-        sc= new ScaleCheckCommand(commandArgs);
+        sc = new ScaleCheckCommand(commandArgs);
         serviceConfig = commandArgs.getState().getConfigBuilder().build().getConfig(ServiceConfig::builder);
         executor = commandArgs.getState().getExecutor();
-
     }
+
     @Test
     public void executeCommand() throws Exception {
         final String scope = "scope";
         final String stream = "testStream";
-        testStream="testStream";
-        initialsetup_commands();
-        initialsetup_store();
+        testStream = "testStream";
+        initialSetupCommands();
+        initialStoreSetup();
         final ScalingPolicy policy = ScalingPolicy.fixed(2);
         final StreamConfiguration configuration = StreamConfiguration.builder().scalingPolicy(policy).build();
         long start = System.currentTimeMillis();
         store.createStream(scope, stream, configuration, start, null, executor).get();
         store.setState(scope, stream, State.ACTIVE, null, executor).get();
-        tablename = SETUP_UTILS.getMetadataTable(testStream,storeHelper).join();
-        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata= do_scale();
+        tablename = SETUP_UTILS.getMetadataTable(testStream, storeHelper).join();
+        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata = do_scale();
 
         //checking for unavalability
         VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata1 = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
@@ -102,21 +100,20 @@ public class ScaleCheckTest {
         storeHelper.removeEntry(tablename, "epochTransition", version).join();
         storeHelper.addNewEntry(tablename, "epochTransition", currentEpochTransitionRecordMetadata.getObject().toBytes()).join();
         currentEpochTransitionRecordMetadata1 = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
-        String result1 =unvalabilityCheck(currentEpochTransitionRecordMetadata1);
-        System.out.println("result1 = "+result1);
-        Assert.assertEquals(result1,"EpochTransitionRecord is corrupted or unavailable");
+        String result1 = unvalabilityCheck(currentEpochTransitionRecordMetadata1);
+        System.out.println("result1 = " + result1);
+        Assert.assertEquals(result1, "EpochTransitionRecord is corrupted or unavailable");
 
         //checking for inconsistency
-        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata2= storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
-        String result2=Inconsistency_check(currentEpochTransitionRecordMetadata2);
-        System.out.println("result2 = "+result2);
+        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata2 = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).get();
+        String result2 = Inconsistency_check(currentEpochTransitionRecordMetadata2);
+        System.out.println("result2 = " + result2);
         Assert.assertTrue(result2.contains("HistoryTimeSeriesRecord and EpochTransitionRecord mismatch in the sealed segments"));
     }
 
-    public VersionedMetadata<EpochTransitionRecord> do_scale()
-    {
-        String scope="scope";
-        String stream="testStream";
+    public VersionedMetadata<EpochTransitionRecord> do_scale() {
+        String scope = "scope";
+        String stream = "testStream";
         // set minimum number of segments to 1 so that we can also test scale downs
         // region idempotent
 
@@ -161,48 +158,43 @@ public class ScaleCheckTest {
         // 3. scale segments sealed -- this will complete scale
         store.scaleSegmentsSealed(scope, stream, scale1SealedSegments.stream().collect(Collectors.toMap(x -> x, x -> 0L)), response,
                 null, executor).join();
-        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata= storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
+        VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
         store.completeScale(scope, stream, response, null, executor).join();
         store.setState(scope, stream, State.ACTIVE, null, executor).join();
         return currentEpochTransitionRecordMetadata;
     }
 
 
-    public void changingBackToOrginalState(VersionedMetadata<EpochTransitionRecord> currentEpochVersionMetadata, EpochTransitionRecord oldEpochTransitionRecord )
-    {
+    public void changingBackToOrginalState(VersionedMetadata<EpochTransitionRecord> currentEpochVersionMetadata, EpochTransitionRecord oldEpochTransitionRecord) {
         Version version = currentEpochVersionMetadata.getVersion();
-        EpochTransitionRecord currentEpochTransitionRecord=currentEpochVersionMetadata.getObject();
+        EpochTransitionRecord currentEpochTransitionRecord = currentEpochVersionMetadata.getObject();
         storeHelper.removeEntry(tablename, "epochTransition", version).join();
         storeHelper.addNewEntry(tablename, "epochTransition", oldEpochTransitionRecord.toBytes()).join();
-
     }
 
-    public String unvalabilityCheck( VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata )
-    {
-
-        EpochTransitionRecord currentEpochTransitionRecord=currentEpochTransitionRecordMetadata.getObject();
-        Version version=currentEpochTransitionRecordMetadata.getVersion();
+    public String unvalabilityCheck(VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata) {
+        EpochTransitionRecord currentEpochTransitionRecord = currentEpochTransitionRecordMetadata.getObject();
+        Version version = currentEpochTransitionRecordMetadata.getVersion();
         storeHelper.removeEntry(tablename, "epochTransition", version).join();
-        faults=sc.check(store,executor);
-        storeHelper.addNewEntry(tablename, "epochTransition",currentEpochTransitionRecord.toBytes()).join();
+        faults = sc.check(store, executor);
+        storeHelper.addNewEntry(tablename, "epochTransition", currentEpochTransitionRecord.toBytes()).join();
         return (SETUP_UTILS.faultvalue(faults));
     }
 
-  public String Inconsistency_check(VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata)
-  {
-      Version version=currentEpochTransitionRecordMetadata.getVersion();
-      EpochTransitionRecord currentEpochTransitionRecord=currentEpochTransitionRecordMetadata.getObject();
-      HashSet<Long> segmentIds=new HashSet<>();
+  public String Inconsistency_check(VersionedMetadata<EpochTransitionRecord> currentEpochTransitionRecordMetadata) {
+      Version version = currentEpochTransitionRecordMetadata.getVersion();
+      EpochTransitionRecord currentEpochTransitionRecord = currentEpochTransitionRecordMetadata.getObject();
+      HashSet<Long> segmentIds = new HashSet<>();
       segmentIds.add(1L);
       segmentIds.add(2L);
       ImmutableSet<Long> immutableSegmentid = ImmutableSet.copyOf(segmentIds);
-      EpochTransitionRecord newEpochTransitionRecord=new EpochTransitionRecord(currentEpochTransitionRecord.getActiveEpoch(), currentEpochTransitionRecord.getTime(),immutableSegmentid,currentEpochTransitionRecord.getNewSegmentsWithRange());
+      EpochTransitionRecord newEpochTransitionRecord = new EpochTransitionRecord(currentEpochTransitionRecord.getActiveEpoch(), currentEpochTransitionRecord.getTime(), immutableSegmentid, currentEpochTransitionRecord.getNewSegmentsWithRange());
       storeHelper.removeEntry(tablename, "epochTransition", version).join();
-      storeHelper.addNewEntry(tablename,"epochTransition",newEpochTransitionRecord.toBytes()).join();
-      StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor,serviceConfig,commandArgs);
-      faults=sc.check(mystore,executor);
+      storeHelper.addNewEntry(tablename, "epochTransition", newEpochTransitionRecord.toBytes()).join();
+      StreamMetadataStore mystore = SETUP_UTILS.createMetadataStore(executor, serviceConfig, commandArgs);
+      faults = sc.check(mystore, executor);
       VersionedMetadata<EpochTransitionRecord> newEpochTransitionRecordMetadata = storeHelper.getEntry(tablename, "epochTransition", x -> EpochTransitionRecord.fromBytes(x)).join();
-      changingBackToOrginalState(newEpochTransitionRecordMetadata,currentEpochTransitionRecord);
+      changingBackToOrginalState(newEpochTransitionRecordMetadata, currentEpochTransitionRecord);
       return (SETUP_UTILS.faultvalue(faults));
   }
 

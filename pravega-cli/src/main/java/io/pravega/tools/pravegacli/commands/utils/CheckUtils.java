@@ -11,7 +11,6 @@ package io.pravega.tools.pravegacli.commands.utils;
 
 import com.google.common.collect.ImmutableList;
 import io.pravega.common.Exceptions;
-import io.pravega.controller.store.stream.OperationContext;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
 import io.pravega.controller.store.stream.records.EpochRecord;
@@ -22,9 +21,7 @@ import io.pravega.tools.pravegacli.commands.troubleshoot.Fault;
 import io.pravega.tools.pravegacli.commands.troubleshoot.Record;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -87,20 +84,18 @@ public class CheckUtils {
 
         // Segment data
         boolean segmentExists = checkField(record, history, "segment data", EpochRecord::getSegments, HistoryTimeSeriesRecord::getSegmentsCreated, faults);
-        ImmutableList<StreamSegmentRecord> immutableList=null;
-        if (segmentExists)
-        {
+        ImmutableList<StreamSegmentRecord> immutableList = null;
+        if (segmentExists) {
             List<StreamSegmentRecord> newSegmentsList = new ArrayList<>();
-            for(StreamSegmentRecord streamSegmentRecord :record.getSegments())
-            {
-                if (record.getEpoch()==streamSegmentRecord.getCreationEpoch()) {
+            for (StreamSegmentRecord streamSegmentRecord :record.getSegments()) {
+                if (record.getEpoch() == streamSegmentRecord.getCreationEpoch()) {
                     newSegmentsList.add(streamSegmentRecord);
                 }
             }
 
             immutableList = ImmutableList.copyOf(newSegmentsList);
 
-            if(immutableList.size()!=0 && !immutableList.equals(history.getSegmentsCreated())) {
+            if (immutableList.size() != 0 && !immutableList.equals(history.getSegmentsCreated())) {
                 putInFaultMap(faults, epochRecord, Fault.inconsistent(historyTimeSeriesRecord,
                         "Segment data mismatch."));
             }
@@ -127,7 +122,7 @@ public class CheckUtils {
 
             for (Long id : sealedSegmentsHistory) {
                 Integer isSealed = store.getSegmentSealedEpoch(scope, streamName, id, null, executor).join();
-                if (isSealed<0) {
+                if (isSealed < 0) {
                     putInFaultMap(faults, historyTimeSeriesRecord, Fault.inconsistent(historyTimeSeriesRecord,
                             "Fault among the HistoryTimeSeriesRecord and the SealedSegmentRecords."));
                     break;
@@ -136,7 +131,7 @@ public class CheckUtils {
         }
 
         // Segments created in epoch should be ahead of the sealed segments.
-        if (immutableList.size()!=0 && sealedExists && segmentExists) {
+        if (immutableList.size() != 0 && sealedExists && segmentExists) {
             Long epochMinSegment = Collections.min(immutableList.stream()
                     .map(StreamSegmentRecord::getSegmentNumber)
                     .mapToLong(Integer::longValue)
@@ -221,7 +216,7 @@ public class CheckUtils {
                         if (Exceptions.unwrap(e) instanceof StoreException.DataNotFoundException) {
                             Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
                             putInFaultMap(faultMap, epochRecord,
-                                    Fault.unavailable("Epoch: "+ epoch + ", The corresponding EpochRecord is corrupted or does not exist."));
+                                    Fault.unavailable("Epoch: " + epoch + ", The corresponding EpochRecord is corrupted or does not exist."));
                         } else {
                             throw new CompletionException(e);
                         }
@@ -246,7 +241,7 @@ public class CheckUtils {
         try {
             int chuckNumber = epoch / HistoryTimeSeries.HISTORY_CHUNK_SIZE;
             return store.getHistoryTimeSeriesChunk(scope, streamName, chuckNumber, null, executor).join().getLatestRecord();
-        }catch (CompletionException completionException ) {
+        } catch (CompletionException completionException) {
             if (Exceptions.unwrap(completionException) instanceof StoreException.DataNotFoundException) {
                 Record<HistoryTimeSeries> historySeriesRecord = new Record<>(null, HistoryTimeSeries.class);
                 putInFaultMap(faultMap, historySeriesRecord,
@@ -255,7 +250,6 @@ public class CheckUtils {
         }
         return null;
     }
-
     /**
      * Method to put a Fault in the given fault map under the given record
      *
@@ -275,7 +269,6 @@ public class CheckUtils {
             faultMap.putIfAbsent(record, faultList);
         }
     }
-
     /**
      * Method to merge two given fault maps
      *

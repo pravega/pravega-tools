@@ -11,17 +11,11 @@ package io.pravega.tools.pravegacli.commands.troubleshoot;
 
 import com.google.common.collect.ImmutableMap;
 import io.micrometer.shaded.reactor.core.Exceptions;
-import io.pravega.controller.server.SegmentHelper;
-import io.pravega.controller.server.rpc.auth.GrpcAuthHelper;
 import io.pravega.controller.store.stream.StoreException;
 import io.pravega.controller.store.stream.StreamMetadataStore;
-import io.pravega.controller.store.stream.StreamStoreFactory;
 import io.pravega.controller.store.stream.VersionedMetadata;
 import io.pravega.controller.store.stream.records.*;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
-import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
-import lombok.Cleanup;
-import org.apache.curator.framework.CuratorFramework;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.*;
@@ -42,7 +36,9 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
      *
      * @param args The arguments for the command.
      */
-    public ScaleCheckCommand(CommandArgs args) { super(args); }
+    public ScaleCheckCommand(CommandArgs args) {
+        super(args);
+    }
 
     /**
      * The method to execute the check method as part of the execution of the command.
@@ -52,7 +48,7 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
         checkTroubleshootArgs();
         try {
             ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
-            store=createMetadataStore(executor);
+            store = createMetadataStore(executor);
             check(store, executor);
             Map<Record, Set<Fault>> faults = check(store, executor);
             outputToFile(outputFaults(faults));
@@ -92,7 +88,7 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
         Map<Record, Set<Fault>> faults = new HashMap<>();
 
         // Check for the existence of an EpochTransitionRecord.
-        EpochTransitionRecord transitionRecord= EpochTransitionRecord.EMPTY;
+        EpochTransitionRecord transitionRecord = EpochTransitionRecord.EMPTY;
 
         // To obtain the EpochTransitionRecord and check if it is corrupted or not.
         try {
@@ -122,7 +118,7 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
         } catch (StoreException.DataNotFoundException e) {
             Record<EpochRecord> epochRecord = new Record<>(null, EpochRecord.class);
             putInFaultMap(faults, epochRecord,
-                    Fault.unavailable("Epoch: "+ transitionRecord.getNewEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
+                    Fault.unavailable("Epoch: " + transitionRecord.getNewEpoch() + ", The corresponding EpochRecord is corrupted or does not exist."));
 
             epochExists = false;
         }
@@ -130,14 +126,14 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
         // To obtain the corresponding HistoryTimeSeriesRecord and check if it corrupted or not.
         try {
 
-            int chunkNumber=transitionRecord.getNewEpoch()/ HistoryTimeSeries.HISTORY_CHUNK_SIZE;
+            int chunkNumber = transitionRecord.getNewEpoch() / HistoryTimeSeries.HISTORY_CHUNK_SIZE;
             neededHistoryRecord = store.getHistoryTimeSeriesChunk(scope, streamName, chunkNumber,
                     null, executor).join().getLatestRecord();
 
         } catch (StoreException.DataNotFoundException e) {
             Record<HistoryTimeSeriesRecord> historyTimeSeriesRecord = new Record<>(null, HistoryTimeSeriesRecord.class);
             putInFaultMap(faults, historyTimeSeriesRecord,
-                    Fault.unavailable("History: "+ transitionRecord.getNewEpoch() + ", The corresponding HistoryTimeSeriesRecord is corrupted or does not exist."));
+                    Fault.unavailable("History: " + transitionRecord.getNewEpoch() + ", The corresponding HistoryTimeSeriesRecord is corrupted or does not exist."));
 
             historyExists = false;
         }
@@ -163,7 +159,7 @@ public class ScaleCheckCommand extends TroubleshootCommandHelper implements Chec
             ImmutableMap<Long, Map.Entry<Double, Double>> newSegments = transitionRecord.getNewSegmentsWithRange();
 
             for (Long id : segmentIds) {
-                if(neededEpochRecord.getSegment(id).getCreationEpoch()==neededEpochRecord.getEpoch()) {
+                if (neededEpochRecord.getSegment(id).getCreationEpoch() == neededEpochRecord.getEpoch()) {
                     SimpleEntry<Double, Double> segmentRange = new SimpleEntry<>(neededEpochRecord.getSegment(id).getKeyStart(),
                             neededEpochRecord.getSegment(id).getKeyEnd());
 
