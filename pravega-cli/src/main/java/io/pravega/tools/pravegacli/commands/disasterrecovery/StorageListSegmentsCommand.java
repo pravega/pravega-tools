@@ -1,29 +1,22 @@
 package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
-import io.pravega.shared.segment.SegmentToContainerMapper;
-import io.pravega.shared.segment.StreamSegmentNameUtils;
-import io.pravega.tools.pravegacli.commands.Command;
-import io.pravega.tools.pravegacli.commands.CommandArgs;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-
 import io.pravega.segmentstore.contracts.SegmentProperties;
 import io.pravega.segmentstore.storage.AsyncStorageWrapper;
 import io.pravega.segmentstore.storage.SegmentRollingPolicy;
 import io.pravega.segmentstore.storage.Storage;
 import io.pravega.segmentstore.storage.rolling.RollingStorage;
+import io.pravega.shared.NameUtils;
+import io.pravega.shared.segment.SegmentToContainerMapper;
 import io.pravega.storage.filesystem.FileSystemStorage;
 import io.pravega.storage.filesystem.FileSystemStorageConfig;
-import io.pravega.tools.pravegacli.commands.controller.ControllerCommand;
-import lombok.AccessLevel;
-import lombok.Cleanup;
-import lombok.RequiredArgsConstructor;
-import lombok.val;
+import io.pravega.tools.pravegacli.commands.Command;
+import io.pravega.tools.pravegacli.commands.CommandArgs;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.util.Iterator;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 
 public class StorageListSegmentsCommand extends Command {
@@ -53,11 +46,11 @@ public class StorageListSegmentsCommand extends Command {
             File f = new File(String.valueOf(containerId));
             if(f.exists() && !f.delete()){
                 System.err.println("Failed to delete "+ f.getAbsolutePath());
-                System.exit(1);
+                return;
             }
             if(!f.createNewFile()){
                 System.err.println("Failed to create "+ f.getAbsolutePath());
-                System.exit(1);
+                return;
             }
             writers[containerId] = new FileWriter(f.getName());
         }
@@ -66,7 +59,7 @@ public class StorageListSegmentsCommand extends Command {
         while(it.hasNext()) {
             SegmentProperties curr = it.next();
             //TODO: move this to server side?
-            if(StreamSegmentNameUtils.isAttributeSegment(curr.getName()))
+            if(curr.getName().startsWith("_system/") || NameUtils.isAttributeSegment(curr.getName()))
                 continue;
             int containerId = segToConMapper.getContainerId(curr.getName());
             writers[containerId].write(curr.getLength()+"\t"+ curr.isSealed()+"\t"+curr.getName()+"\n");

@@ -1,21 +1,19 @@
 package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
 import com.google.common.base.Charsets;
-import com.google.common.base.Preconditions;
 import io.pravega.common.concurrent.Services;
 import io.pravega.common.util.ArrayView;
+import io.pravega.common.util.AsyncIterator;
 import io.pravega.common.util.ByteArraySegment;
-import io.pravega.segmentstore.contracts.AttributeUpdate;
-import io.pravega.segmentstore.contracts.AttributeUpdateType;
-import io.pravega.segmentstore.contracts.SegmentProperties;
-import io.pravega.segmentstore.contracts.tables.TableEntry;
+import io.pravega.segmentstore.contracts.StreamSegmentNotExistsException;
+import io.pravega.segmentstore.contracts.tables.IteratorItem;
+import io.pravega.segmentstore.contracts.tables.TableKey;
 import io.pravega.segmentstore.server.*;
 import io.pravega.segmentstore.server.attributes.AttributeIndexConfig;
 import io.pravega.segmentstore.server.attributes.AttributeIndexFactory;
 import io.pravega.segmentstore.server.attributes.ContainerAttributeIndexFactoryImpl;
 import io.pravega.segmentstore.server.containers.ContainerConfig;
 import io.pravega.segmentstore.server.containers.DebugStreamSegmentContainer;
-import io.pravega.segmentstore.server.containers.MetadataStore;
 import io.pravega.segmentstore.server.containers.StreamSegmentContainerFactory;
 import io.pravega.segmentstore.server.logs.DurableLogConfig;
 import io.pravega.segmentstore.server.logs.DurableLogFactory;
@@ -32,6 +30,7 @@ import io.pravega.segmentstore.storage.cache.CacheStorage;
 import io.pravega.segmentstore.storage.cache.DirectMemoryCache;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
+import io.pravega.shared.segment.StreamSegmentNameUtils;
 import io.pravega.storage.filesystem.FileSystemStorageConfig;
 import io.pravega.storage.filesystem.FileSystemStorageFactory;
 import io.pravega.tools.pravegacli.commands.Command;
@@ -40,17 +39,13 @@ import lombok.val;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 
 public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     private final StreamSegmentContainerFactory containerFactory;
     private String root;
-    private File oldContainer;
     private final StorageFactory storageFactory;
     private final DurableDataLogFactory dataLogFactory;
     private final OperationLogFactory operationLogFactory;
@@ -81,6 +76,8 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
             .with(WriterConfig.MIN_READ_TIMEOUT_MILLIS, 10L)
             .with(WriterConfig.MAX_READ_TIMEOUT_MILLIS, 250L)
             .build();
+
+    private static final Duration timeout = Duration.ofSeconds(10);
     ScheduledExecutorService executorService = StorageListSegmentsCommand.createExecutorService(10);
 
     public DisasterRecoveryCommand(CommandArgs args) {
@@ -119,27 +116,11 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 this::createContainerExtensions, executorService);
     }
 
-
-    private static final String BACKUP_PREFIX = "backup_";
     public void execute() throws Exception {
 
         //generate segToContainer files
-
         StorageListSegmentsCommand lsCmd = new StorageListSegmentsCommand(getCommandArgs());
         lsCmd.execute();
-
-        String containerPath = "_system/containers/";
-        File containerDir = new File(root+containerPath);
-        if(!containerDir.exists()){
-            System.err.println("There is no "+containerDir.getAbsolutePath());
-            return;
-        }
-        oldContainer = new File(root+System.currentTimeMillis()+"/"+containerPath);
-        Files.createDirectories(oldContainer.toPath());
-        Files.move(containerDir.toPath(), oldContainer.toPath(), StandardCopyOption.REPLACE_EXISTING);
-
-        System.out.format("moved %s to %s\n", containerDir.getAbsolutePath(), oldContainer.getAbsolutePath());
-
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer) containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService)
@@ -164,50 +145,47 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
                 s = new Scanner(new File(String.valueOf(containerId)));
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
+                return;
             }
             ContainerTableExtension ext = container.getExtension(ContainerTableExtension.class);
+            AsyncIterator<IteratorItem<TableKey>> it = ext.keyIterator(StreamSegmentNameUtils.getMetadataSegmentName(containerId), null, Duration.ofSeconds(10)).join();
+            Set<TableKey> segmentsInMD = new HashSet<>();
+            it.forEachRemaining(k -> segmentsInMD.addAll(k.getEntries()), executorService);
 
             while (s.hasNextLine()) {
                 String[] fields = s.nextLine().split("\t");
-                System.out.println("Creating segment for :\t" + Arrays.toString(fields));
                 int len = Integer.parseInt(fields[0]);
-                boolean isSealed = Boolean.parseBoolean(fields[1]);
+                //boolean isSealed = Boolean.parseBoolean(fields[1]);
                 String segmentName = fields[2];
-                //TODO: verify the return status
-                container.createStreamSegment(segmentName, len, isSealed).whenComplete((v, ex) -> {
-                    if(ex == null) {
-
-                        System.out.format("Adjusting the metadata for segment %s in container# %s\n", segmentName, containerId);
-
-                        List<TableEntry> entries = null;
-                        try {
-                            entries = ext.get(getBackupMetadataSegmentName(containerId), Collections.singletonList(getTableKey(segmentName)), Duration.ofSeconds(10)).get();
-                        } catch (InterruptedException | ExecutionException e) {
-                            e.printStackTrace();
-                            return;
-                        }
-                        if (entries == null || entries.size() == 0) {
-                            System.out.println("Segment " + segmentName + " not found in the old container metadata files on Tier-2");
-                        }
-                        TableEntry entry = entries.get(0);
-                        SegmentProperties oldContainerSegProp = MetadataStore.SegmentInfo.deserialize(entry.getValue()).getProperties();
-                        if (oldContainerSegProp.isSealed())
-                            container.sealStreamSegment(segmentName, Duration.ofSeconds(10));
-                        List<AttributeUpdate> updates = new ArrayList<>();
-                        for (Map.Entry<UUID, Long> e : oldContainerSegProp.getAttributes().entrySet())
-                            updates.add(new AttributeUpdate(e.getKey(), AttributeUpdateType.Replace, e.getValue()));
-                        container.updateAttributes(segmentName, updates, Duration.ofSeconds(10));
-
-                        System.out.format("Adjusted the metadata for segment %s in container# %s\n", segmentName, containerId);
-                    }else{
-                        ex.printStackTrace();
-                    }
-                }).join();
-                System.out.format("Segment created for %s\n", segmentName);
+                segmentsInMD.remove(TableKey.unversioned(getTableKey(segmentName)));
+                /*
+                    1. segment exists in both metadata and storage, update SegmentMetadata
+                    2. segment only in metadata, delete
+                    3. segment only in storage, re-create it
+                 */
+                container.getStreamSegmentInfo(segmentName, timeout)
+                        .thenAccept(e -> {
+                            container.deleteStreamSegment(segmentName, timeout).join();
+                            container.createStreamSegment(segmentName, len, true).join();
+                            System.out.println("Re-created segment :\t" + segmentName);
+                        })
+                        .exceptionally(e -> {
+                                    if (e instanceof StreamSegmentNotExistsException) {
+                                        container.createStreamSegment(segmentName, len, true).join();
+                                        System.out.println("Created segment :\t" + segmentName);
+                                    }
+                                return null;
+                        });
+            }
+            for(TableKey k : segmentsInMD){
+                String segmentName = new String(k.getKey().array(), Charsets.UTF_8);
+                System.out.println("Deleting segment :\t" + segmentName+" as it is not in storage");
+                container.deleteStreamSegment(segmentName, timeout).join();
             }
             System.out.format("Recovery done for container# %s\n", containerId);
             System.out.println("=================================================");
         }
+
     }
 
     private Map<Class<? extends SegmentContainerExtension>, SegmentContainerExtension> createContainerExtensions(
@@ -216,10 +194,6 @@ public class DisasterRecoveryCommand  extends Command implements AutoCloseable{
     }
     private static ArrayView getTableKey(String segmentName) {
         return new ByteArraySegment(segmentName.getBytes(Charsets.UTF_8));
-    }
-    private String getBackupMetadataSegmentName(int containerId) {
-        Preconditions.checkArgument(containerId >= 0, "containerId must be a non-negative number.");
-        return oldContainer.getAbsolutePath()+"/metadata_"+containerId;
     }
     @Override
     public void close() throws Exception {
