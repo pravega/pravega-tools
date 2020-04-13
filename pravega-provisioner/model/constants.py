@@ -13,6 +13,7 @@ class Constants:
     """
     Constant values and assumptions for the Pravega cluster provisioning model.
     """
+    VERBOSE_OUTPUT = True
     # Minimum Pravega Cluster deployment to preserve data durability (3-way replication). Nothing less than this should
     # be considered for non-testing deployments.
     min_zookeeper_servers = 3
