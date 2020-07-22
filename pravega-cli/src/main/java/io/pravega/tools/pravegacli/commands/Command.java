@@ -14,8 +14,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.pravega.common.Exceptions;
 import io.pravega.segmentstore.server.store.ServiceConfig;
@@ -37,6 +39,7 @@ import io.pravega.tools.pravegacli.commands.controller.ControllerListReaderGroup
 import io.pravega.tools.pravegacli.commands.controller.ControllerListScopesCommand;
 import io.pravega.tools.pravegacli.commands.controller.ControllerListStreamsInScopeCommand;
 import io.pravega.tools.pravegacli.commands.cluster.GetClusterNodesCommand;
+import io.pravega.tools.pravegacli.commands.controller.ControllerCreateScopeCommand;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -137,6 +140,10 @@ public abstract class Command {
         JsonElement je = new JsonParser().parse(jsonString);
         output(new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create().toJson(je));
     }
+    
+    protected String toJson(Map<String, Object> map) {
+        return new Gson().toJson(map);
+    }
 
     protected void prettyJSONOutput(String key, Object value) {
         JsonElement je = new JsonParser().parse(objectToJSON(new Tuple(key, value)));
@@ -231,6 +238,7 @@ public abstract class Command {
                         .put(ContainerRecoverCommand::descriptor, ContainerRecoverCommand::new)
                         .put(ControllerListScopesCommand::descriptor, ControllerListScopesCommand::new)
                         .put(ControllerDescribeScopeCommand::descriptor, ControllerDescribeScopeCommand::new)
+                        .put(ControllerCreateScopeCommand::descriptor, ControllerCreateScopeCommand::new)
                         .put(ControllerListStreamsInScopeCommand::descriptor, ControllerListStreamsInScopeCommand::new)
                         .put(ControllerListReaderGroupsInScopeCommand::descriptor, ControllerListReaderGroupsInScopeCommand::new)
                         .put(ControllerDescribeReaderGroupCommand::descriptor, ControllerDescribeReaderGroupCommand::new)

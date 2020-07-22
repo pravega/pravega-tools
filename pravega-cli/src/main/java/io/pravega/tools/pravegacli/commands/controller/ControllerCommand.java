@@ -14,8 +14,10 @@ import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -67,10 +69,29 @@ public abstract class ControllerCommand extends Command {
      * @return Response for the REST call.
      */
     String executeRESTCall(Context context, String requestURI) {
+        return executeRESTCall(context, "GET", requestURI, null);
+    }
+    
+    /**
+     * Generic method to execute execute a request against the Controller and get the response.
+     *
+     * @param context Controller command context.
+     * @param method the HTTP verb, like 'GET' or 'POST'
+     * @param requestURI URI to execute the request against.
+     * @param body a JSON payload
+     * @return Response for the REST call.
+     */
+    String executeRESTCall(Context context, String method, String requestURI, String body) {
         Invocation.Builder builder;
         String resourceURL = getCLIControllerConfig().getControllerRestURI() + requestURI;
         WebTarget webTarget = context.client.target(resourceURL);
         builder = webTarget.request();
+        Entity entity = null;
+        if (body != null) {
+            entity = Entity.entity(entity, MediaType.APPLICATION_JSON);
+        }
+        builder.method(method, entity);
+        System.out.println("execute "+method+" with "+body+" to "+resourceURL);
         Response response = builder.get();
         printResponseInfo(response);
         return response.readEntity(String.class);
