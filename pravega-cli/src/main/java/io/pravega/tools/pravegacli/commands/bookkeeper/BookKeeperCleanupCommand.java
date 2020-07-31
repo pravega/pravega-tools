@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import lombok.Cleanup;
 import lombok.val;
+import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 
 /**
@@ -46,7 +47,7 @@ public class BookKeeperCleanupCommand extends BookKeeperCommand {
         // Get all BK ledger ids.
         output("Searching for all the ledgers ...");
         @Cleanup
-        val bkAdmin = new BookKeeperAdmin(context.logFactory.getBookKeeperClient());
+        val bkAdmin = new BookKeeperAdmin((BookKeeper) context.logFactory.getBookKeeperClient());
         val allLedgerIds = new ArrayList<Long>();
         bkAdmin.listLedgers().forEach(allLedgerIds::add);
 
@@ -66,8 +67,8 @@ public class BookKeeperCleanupCommand extends BookKeeperCommand {
 
         // Determine deletion candidates.
         val deletionCandidates = allLedgerIds.stream()
-                                             .filter(id -> id < highestReferencedLedgerId.get() && !referencedLedgerIds.contains(id))
-                                             .collect(Collectors.toList());
+                .filter(id -> id < highestReferencedLedgerId.get() && !referencedLedgerIds.contains(id))
+                .collect(Collectors.toList());
         output("\nTotal Count: %d, Referenced Count: %d, Highest Referenced Id: %s, To Delete Count: %d.",
                 allLedgerIds.size(), referencedLedgerIds.size(), highestReferencedLedgerId, deletionCandidates.size());
         if (deletionCandidates.isEmpty()) {
@@ -97,7 +98,7 @@ public class BookKeeperCleanupCommand extends BookKeeperCommand {
             }
 
             try {
-                Exceptions.handleInterrupted(() -> context.logFactory.getBookKeeperClient().deleteLedger(ledgerId));
+                Exceptions.handleInterrupted(() -> context.logFactory.getBookKeeperClient().newDeleteLedgerOp().withLedgerId(ledgerId));
                 output("Deleted Ledger %d.", ledgerId);
             } catch (Exception ex) {
                 output("FAILED to delete Ledger %d: %s.", ledgerId, ex.getMessage());

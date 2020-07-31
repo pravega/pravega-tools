@@ -54,11 +54,7 @@ def withoutLogger = { exclude group: 'org.slf4j', module: 'slf4j-log4j12'
     exclude group: 'org.slf4j', module: 'slf4j-simple' }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
     compile group: 'org.projectlombok', name: 'lombok', version: lombokVersion
-    compile group: 'org.apache.bookkeeper', name: 'bookkeeper-common', version: bookKeeperVersion
-    testCompile group: 'org.apache.bookkeeper', name: 'bookkeeper-server', version: bookKeeperVersion, classifier: 'tests'
-    testCompile group: 'org.apache.zookeeper', name: 'zookeeper', version: zookeeperVersion, classifier: 'tests'
     compile group: 'org.apache.curator', name: 'curator-framework', version: apacheCuratorVersion
     compile group: 'io.pravega', name: 'pravega-client', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-common', version: pravegaVersion
@@ -68,15 +64,21 @@ dependencies {
     compile group: 'io.pravega', name: 'pravega-segmentstore-storage-impl', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-shared-cluster', version: pravegaVersion
     compile group: 'io.pravega', name: 'pravega-test-integration', version: pravegaVersion
+    compile group: 'io.pravega', name: 'pravega-shared-protocol', version: pravegaVersion
     compile group: 'javax.ws.rs', name: 'javax.ws.rs-api', version: javaxwsrsApiVersion
     compile group: 'com.googlecode.json-simple', name: 'json-simple', version: jsonSimpleVersion
     compile group: 'com.google.code.gson', name: 'gson', version: gsonVersion
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile group: 'org.apache.bookkeeper', name: 'bookkeeper-common', version: bookKeeperVersion, classifier: 'tests'
+    testCompile group: 'org.apache.bookkeeper', name: 'bookkeeper-server', version: bookKeeperVersion, classifier: 'tests'
+    testCompile group: 'org.apache.zookeeper', name: 'zookeeper', version: zookeeperVersion, classifier: 'tests'
 }
 
 tasks
 
 task startPravegaCLI(type: JavaExec){
     main = "io.pravega.tools.pravegacli.AdminRunner"
+    jvmArgs "-Xdebug", "-Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
     classpath = sourceSets.main.runtimeClasspath
 }
 
@@ -107,4 +109,3 @@ distributions {
         }
     }
 }
-
