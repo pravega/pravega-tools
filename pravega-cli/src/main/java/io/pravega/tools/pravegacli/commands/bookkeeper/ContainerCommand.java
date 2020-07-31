@@ -16,6 +16,7 @@ import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import lombok.val;
+import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.curator.framework.CuratorFramework;
 
@@ -51,7 +52,7 @@ abstract class ContainerCommand extends BookKeeperCommand {
             throw ex;
         }
 
-        val bkAdmin = new BookKeeperAdmin(factory.getBookKeeperClient());
+        val bkAdmin = new BookKeeperAdmin((BookKeeper) factory.getBookKeeperClient());
         return new Context(serviceConfig, containerConfig, bkConfig, zkClient, factory, bkAdmin);
     }
 

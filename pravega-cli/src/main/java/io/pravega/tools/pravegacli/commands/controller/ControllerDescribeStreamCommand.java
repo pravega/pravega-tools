@@ -10,8 +10,9 @@
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.client.ClientConfig;
-import io.pravega.client.netty.impl.ConnectionFactory;
-import io.pravega.client.netty.impl.ConnectionFactoryImpl;
+import io.pravega.client.connection.impl.ConnectionPool;
+import io.pravega.client.connection.impl.ConnectionPoolImpl;
+import io.pravega.client.connection.impl.SocketConnectionFactoryImpl;
 import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.client.stream.impl.DefaultCredentials;
 import io.pravega.controller.server.SegmentHelper;
@@ -132,7 +133,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                                                 .validateHostName(getCLIControllerConfig().isAuthEnabled())
                                                 .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
                                                 .build();
-        ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
-        return new SegmentHelper(connectionFactory, hostStore);
+        ConnectionPool pool = new ConnectionPoolImpl(clientConfig, new SocketConnectionFactoryImpl(clientConfig));
+        return new SegmentHelper(pool, hostStore, pool.getInternalExecutor());
     }
 }
