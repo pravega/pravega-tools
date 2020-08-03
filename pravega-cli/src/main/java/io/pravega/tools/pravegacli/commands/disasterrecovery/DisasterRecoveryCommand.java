@@ -137,14 +137,12 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
                 .with(FileSystemStorageConfig.ROOT, getCommandArgs().getArgs().get(0))
                 .build();
         this.storageFactory = new FileSystemStorageFactory(fsConfig, executorService);
-        //this.storageFactory = new InMemoryStorageFactory();
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
                 .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, getServiceConfig().getZkURL()))
                 .build().getConfig(BookKeeperConfig::builder);
 
         val zkClient = createZKClient();
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
-        //this.dataLogFactory = new InMemoryDurableDataLogFactory(executorService);
         try {
             this.dataLogFactory.initialize();
         } catch (DurableDataLogException e) {
@@ -171,12 +169,14 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
 
         Map<Integer, DebugStreamSegmentContainer> debugStreamSegmentContainerMap = new HashMap<>();
 
+        System.out.println("Starting all debug segment containers...");
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             // Start a debug segment container with given id and recover all segments belonging to that container
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer)
                     containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService).join();
             debugStreamSegmentContainerMap.put(containerId, debugStreamSegmentContainer);
+            System.out.println("Debug Segment container " + containerId + " started.");
         }
 
         // List segments and recover them
@@ -187,12 +187,12 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             String metadataSegmentName = getMetadataSegmentName(containerId);
             waitForSegmentsInStorage(Collections.singleton(metadataSegmentName), debugStreamSegmentContainerMap.get(containerId), storage)
                     .get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            log.info("Long term storage has been update with a new container metadata segment.");
+            System.out.println("Long term storage has been update with a new container metadata segment for container Id: " + containerId);
 
             // Stop the debug segment container
             Services.stopAsync(debugStreamSegmentContainerMap.get(containerId), executorService).join();
             debugStreamSegmentContainerMap.get(containerId).close();
-            log.info("Segments have been recovered.");
+            System.out.println("Segments have been recovered for container Id: " + containerId);
         }
     }
 
@@ -208,8 +208,11 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
-
+    public void close() {
+        this.cacheManager.close();
+        this.cacheStorage.close();
+        this.readIndexFactory.close();
+        this.dataLogFactory.close();
     }
 
     private CompletableFuture<Void> waitForSegmentsInStorage(Collection<String> segmentNames, DebugStreamSegmentContainer container,
@@ -217,7 +220,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         ArrayList<CompletableFuture<Void>> segmentsCompletion = new ArrayList<>();
         for (String segmentName : segmentNames) {
             SegmentProperties sp = container.getStreamSegmentInfo(segmentName, TIMEOUT).join();
-            log.info("Segment properties = {}", sp);
+            System.out.println("Segment properties = " + sp);
             segmentsCompletion.add(waitForSegmentInStorage(sp, storage));
         }
 
@@ -280,7 +283,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
      */
     public static void recoverAllSegments(Storage storage, Map<Integer, DebugStreamSegmentContainer> debugStreamSegmentContainers,
                                           ExecutorService executorService) throws Exception {
-        log.info("Recovery started for all containers...");
+        System.out.println("Recovery started for all containers...");
         Map<DebugStreamSegmentContainer, Set<String>> metadataSegmentsByContainer = new HashMap<>();
         for (Map.Entry<Integer, DebugStreamSegmentContainer> debugStreamSegmentContainer : debugStreamSegmentContainers.entrySet()) {
             // Delete container metadata segment and attributes index segment corresponding to the container Id from the long term storage
@@ -301,7 +304,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
 
         Iterator<SegmentProperties> it = storage.listSegments();
         if (it == null) {
-            log.info("No segments found in the long term storage.");
+            System.out.println("No segments found in the long term storage.");
             return;
         }
 
@@ -310,7 +313,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         while (it.hasNext()) {
             SegmentProperties curr = it.next();
             int containerId = segToConMapper.getContainerId(curr.getName());
-            log.info("Segment to be recovered = {}", curr.getName());
+            System.out.println("Segment to be recovered = " + curr.getName());
             metadataSegmentsByContainer.get(debugStreamSegmentContainers.get(containerId)).remove(curr.getName());
             futures.add(CompletableFuture.runAsync(new SegmentRecovery(debugStreamSegmentContainers.get(containerId), curr)));
         }
@@ -318,7 +321,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
 
         for (Map.Entry<DebugStreamSegmentContainer, Set<String>> metadataSegmentsSetEntry : metadataSegmentsByContainer.entrySet()) {
             for (String segmentName : metadataSegmentsSetEntry.getValue()) {
-                log.info("Deleting segment '{}' as it is not in storage", segmentName);
+                System.out.println("Deleting segment '" + segmentName + "' as it is not in storage");
                 metadataSegmentsSetEntry.getKey().deleteStreamSegment(segmentName, TIMEOUT).join();
             }
         }
@@ -344,7 +347,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             boolean isSealed = storageSegment.isSealed();
             String segmentName = storageSegment.getName();
 
-            log.info("Recovering segment with name = {}, length = {}, sealed status = {}.", segmentName, segmentLength, isSealed);
+            System.out.println("Recovering segment with name = " + segmentName + ", length = " + segmentLength + ", sealed status = " + isSealed);
             /*
                 1. segment exists in both metadata and storage, re-create it
                 2. segment only in metadata, delete

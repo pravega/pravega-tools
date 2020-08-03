@@ -23,20 +23,17 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.time.Duration;
 import java.util.Iterator;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 @Slf4j
-public class StorageListSegmentsCommand extends Command {
+public class StorageListSegmentsCommand extends Command implements AutoCloseable {
 
-    private static final Duration TIMEOUT = Duration.ofSeconds(30);
     protected static final String APPEND_FORMAT = "Segment_%s_Append_%d";
     protected static final long DEFAULT_ROLLING_SIZE = (int) (APPEND_FORMAT.length() * 1.5);
     private Storage storage = null;
     private SegmentToContainerMapper segToConMapper;
-    ScheduledExecutorService executorService = StorageListSegmentsCommand.createExecutorService(10);
 
     public StorageListSegmentsCommand(CommandArgs args) {
         super(args);
@@ -55,9 +52,14 @@ public class StorageListSegmentsCommand extends Command {
                 createExecutorService(1));
 
         int containerCount = segToConMapper.getTotalContainerCount();
+
+        String logsDirectory = System.getProperty("user.dir") + File.pathSeparator + "segments";
+        File dir = new File(logsDirectory);
+        if (!dir.exists()) dir.mkdirs();
+
         FileWriter[] writers = new FileWriter[containerCount];
         for (int containerId=0; containerId < containerCount; containerId++) {
-            File f = new File(String.valueOf(containerId));
+            File f = new File(dir, String.valueOf(containerId));
             if(f.exists() && !f.delete()){
                 System.err.println("Failed to delete "+ f.getAbsolutePath());
                 return;
@@ -74,8 +76,8 @@ public class StorageListSegmentsCommand extends Command {
         while(it.hasNext()) {
             SegmentProperties curr = it.next();
             int containerId = segToConMapper.getContainerId(curr.getName());
-            System.out.println("Segment No. =" + i + " Segment Name: " + curr.getName() + " Sealed status: " +
-                    curr.isSealed() + " Length: " + curr.getLength());
+            System.out.println("Segment No. = " + i + "\t" + " Segment Name: " + curr.getName() + "\t" + " Sealed status: " +
+                    curr.isSealed() + "\t" + " Length: " + curr.getLength());
             i++;
             writers[containerId].write(curr.getLength()+"\t"+ curr.isSealed()+"\t"+curr.getName()+"\n");
         }
@@ -98,5 +100,10 @@ public class StorageListSegmentsCommand extends Command {
         final String component = "storage";
         return new CommandDescriptor(component, "list-segments", "lists segments from tier-2 and displays their name, length, sealed status",
                 new ArgDescriptor("root", "mount path"));
+    }
+
+    @Override
+    public void close() throws Exception {
+        storage.close();
     }
 }
