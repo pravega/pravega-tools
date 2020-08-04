@@ -55,7 +55,7 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
         for (LedgerMetadata lm : m.getLedgers()) {
             LedgerHandle lh = null;
             try {
-                lh = log.openLedgerNoFencing(lm);
+                lh = (LedgerHandle) log.openLedgerNoFencing(lm);
                 val bkLm = context.bkAdmin.getLedgerMetadata(lh);
                 prettyJSONOutput("ledger_details", new LedgerDetails(lm.getLedgerId(), lm.getSequence(), String.valueOf(lm.getStatus()),
                         lh.getLastAddConfirmed(), lh.getLength(), lh.getNumBookies(), lh.getNumFragments(),
@@ -72,8 +72,8 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
         }
     }
 
-    private String getEnsembleDescription(org.apache.bookkeeper.client.LedgerMetadata bkLm) {
-        return bkLm.getEnsembles().entrySet().stream()
+    private String getEnsembleDescription(org.apache.bookkeeper.client.api.LedgerMetadata bkLm) {
+        return bkLm.getAllEnsembles().entrySet().stream()
                    .map(e -> String.format("%d: [%s]", e.getKey(), e.getValue().stream().map(Object::toString).collect(Collectors.joining(","))))
                    .collect(Collectors.joining(","));
     }
