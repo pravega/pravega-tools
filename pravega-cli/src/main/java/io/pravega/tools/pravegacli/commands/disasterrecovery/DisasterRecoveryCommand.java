@@ -9,18 +9,13 @@
  */
 package io.pravega.tools.pravegacli.commands.disasterrecovery;
 
-import com.google.common.base.Preconditions;
-import io.pravega.common.Exceptions;
 import io.pravega.common.TimeoutTimer;
+import io.pravega.common.concurrent.ExecutorServiceHelpers;
 import io.pravega.common.concurrent.Futures;
 import io.pravega.common.concurrent.Services;
-import io.pravega.common.util.AsyncIterator;
 import io.pravega.segmentstore.contracts.SegmentProperties;
 import io.pravega.segmentstore.contracts.StreamSegmentInformation;
 import io.pravega.segmentstore.contracts.StreamSegmentNotExistsException;
-import io.pravega.segmentstore.contracts.tables.IteratorArgs;
-import io.pravega.segmentstore.contracts.tables.IteratorItem;
-import io.pravega.segmentstore.contracts.tables.TableKey;
 import io.pravega.segmentstore.server.CacheManager;
 import io.pravega.segmentstore.server.CachePolicy;
 import io.pravega.segmentstore.server.OperationLogFactory;
@@ -33,6 +28,7 @@ import io.pravega.segmentstore.server.attributes.AttributeIndexFactory;
 import io.pravega.segmentstore.server.attributes.ContainerAttributeIndexFactoryImpl;
 import io.pravega.segmentstore.server.containers.ContainerConfig;
 import io.pravega.segmentstore.server.containers.DebugStreamSegmentContainer;
+import io.pravega.segmentstore.server.containers.SegmentsRecovery;
 import io.pravega.segmentstore.server.containers.StreamSegmentContainerFactory;
 import io.pravega.segmentstore.server.logs.DurableLogConfig;
 import io.pravega.segmentstore.server.logs.DurableLogFactory;
@@ -45,7 +41,6 @@ import io.pravega.segmentstore.server.writer.WriterConfig;
 import io.pravega.segmentstore.storage.AsyncStorageWrapper;
 import io.pravega.segmentstore.storage.DurableDataLogException;
 import io.pravega.segmentstore.storage.DurableDataLogFactory;
-import io.pravega.segmentstore.storage.SegmentHandle;
 import io.pravega.segmentstore.storage.SegmentRollingPolicy;
 import io.pravega.segmentstore.storage.Storage;
 import io.pravega.segmentstore.storage.StorageFactory;
@@ -55,7 +50,6 @@ import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperConfig;
 import io.pravega.segmentstore.storage.impl.bookkeeper.BookKeeperLogFactory;
 import io.pravega.segmentstore.storage.rolling.RollingStorage;
 import io.pravega.shared.NameUtils;
-import io.pravega.shared.segment.SegmentToContainerMapper;
 import io.pravega.storage.filesystem.FileSystemStorage;
 import io.pravega.storage.filesystem.FileSystemStorageConfig;
 import io.pravega.storage.filesystem.FileSystemStorageFactory;
@@ -70,21 +64,15 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import static io.pravega.shared.NameUtils.getMetadataSegmentName;
 import static io.pravega.tools.pravegacli.commands.disasterrecovery.StorageListSegmentsCommand.DEFAULT_ROLLING_SIZE;
-import static io.pravega.tools.pravegacli.commands.disasterrecovery.StorageListSegmentsCommand.createExecutorService;
 
 @Slf4j
 public class DisasterRecoveryCommand extends Command implements AutoCloseable {
@@ -122,7 +110,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             .with(WriterConfig.MAX_READ_TIMEOUT_MILLIS, 250L)
             .build();
 
-    ScheduledExecutorService executorService = createExecutorService(100);
+    ScheduledExecutorService executorService = ExecutorServiceHelpers.newScheduledThreadPool(100, "recoveryProcessor");
 
     public DisasterRecoveryCommand(CommandArgs args) {
         super(args);
@@ -177,10 +165,14 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             Services.startAsync(debugStreamSegmentContainer, executorService).join();
             debugStreamSegmentContainerMap.put(containerId, debugStreamSegmentContainer);
             System.out.println("Debug Segment container " + containerId + " started.");
+
+            // Delete container metadata segment and attributes index segment corresponding to the container Id from the long term storage
+            SegmentsRecovery.deleteContainerMetadataSegments(storage, containerId);
+            System.out.println("Container metadata segment and attributes index segment deleted for container Id = " + containerId);
         }
 
         // List segments and recover them
-        recoverAllSegments(storage, debugStreamSegmentContainerMap, executorService);
+        SegmentsRecovery.recoverAllSegments(storage, debugStreamSegmentContainerMap, executorService);
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             // Wait for metadata segment to be flushed to LTS
@@ -270,129 +262,5 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
                 .exceptionallyExpecting(storage.getStreamSegmentInfo(segmentName, timer.getRemaining()),
                         ex -> ex instanceof StreamSegmentNotExistsException,
                         StreamSegmentInformation.builder().name(segmentName).deleted(true).build());
-    }
-
-
-    /**
-     * Lists all segments from a given long term storage and then re-creates them using their corresponding debug segment
-     * container.
-     * @param storage                           Long term storage.
-     * @param debugStreamSegmentContainers      A hashmap which has debug segment container instances to create segments.
-     * @param executorService                   A thread pool for execution.
-     * @throws                                  Exception in case of exception during the execution.
-     */
-    public static void recoverAllSegments(Storage storage, Map<Integer, DebugStreamSegmentContainer> debugStreamSegmentContainers,
-                                          ExecutorService executorService) throws Exception {
-        System.out.println("Recovery started for all containers...");
-        Map<DebugStreamSegmentContainer, Set<String>> metadataSegmentsByContainer = new HashMap<>();
-        for (Map.Entry<Integer, DebugStreamSegmentContainer> debugStreamSegmentContainer : debugStreamSegmentContainers.entrySet()) {
-            // Delete container metadata segment and attributes index segment corresponding to the container Id from the long term storage
-            deleteContainerMetadataSegments(storage, debugStreamSegmentContainer.getKey());
-
-            ContainerTableExtension ext = debugStreamSegmentContainer.getValue().getExtension(ContainerTableExtension.class);
-            AsyncIterator<IteratorItem<TableKey>> it = ext.keyIterator(getMetadataSegmentName(debugStreamSegmentContainer.getKey()),
-                    IteratorArgs.builder().fetchTimeout(TIMEOUT).build()).get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-
-            // Add all segments present in the container metadata in a set.
-            Set<String> metadataSegments = new HashSet<>();
-            it.forEachRemaining(k -> metadataSegments.addAll(k.getEntries().stream().map(entry -> entry.getKey().toString())
-                    .collect(Collectors.toSet())), executorService).get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            metadataSegmentsByContainer.put(debugStreamSegmentContainer.getValue(), metadataSegments);
-        }
-
-        SegmentToContainerMapper segToConMapper = new SegmentToContainerMapper(debugStreamSegmentContainers.size());
-
-        Iterator<SegmentProperties> it = storage.listSegments();
-        if (it == null) {
-            System.out.println("No segments found in the long term storage.");
-            return;
-        }
-
-        // Iterate through all segments. Create each one of their using their respective debugSegmentContainer instance.
-        ArrayList<CompletableFuture<Void>> futures = new ArrayList<>();
-        while (it.hasNext()) {
-            SegmentProperties curr = it.next();
-            int containerId = segToConMapper.getContainerId(curr.getName());
-            System.out.println("Segment to be recovered = " + curr.getName());
-            metadataSegmentsByContainer.get(debugStreamSegmentContainers.get(containerId)).remove(curr.getName());
-            futures.add(CompletableFuture.runAsync(new SegmentRecovery(debugStreamSegmentContainers.get(containerId), curr)));
-        }
-        Futures.allOf(futures).join();
-
-        for (Map.Entry<DebugStreamSegmentContainer, Set<String>> metadataSegmentsSetEntry : metadataSegmentsByContainer.entrySet()) {
-            for (String segmentName : metadataSegmentsSetEntry.getValue()) {
-                System.out.println("Deleting segment '" + segmentName + "' as it is not in storage");
-                metadataSegmentsSetEntry.getKey().deleteStreamSegment(segmentName, TIMEOUT).join();
-            }
-        }
-    }
-
-    /**
-     * Creates the given segment with the given DebugStreamSegmentContainer instance.
-     */
-    public static class SegmentRecovery implements Runnable {
-        private final DebugStreamSegmentContainer container;
-        private final SegmentProperties storageSegment;
-
-        public SegmentRecovery(DebugStreamSegmentContainer container, SegmentProperties segment) {
-            Preconditions.checkNotNull(container);
-            Preconditions.checkNotNull(segment);
-            this.container = container;
-            this.storageSegment = segment;
-        }
-
-        @Override
-        public void run() {
-            long segmentLength = storageSegment.getLength();
-            boolean isSealed = storageSegment.isSealed();
-            String segmentName = storageSegment.getName();
-
-            System.out.println("Recovering segment with name = " + segmentName + ", length = " + segmentLength + ", sealed status = " + isSealed);
-            /*
-                1. segment exists in both metadata and storage, re-create it
-                2. segment only in metadata, delete
-                3. segment only in storage, re-create it
-             */
-            val streamSegmentInfo = container.getStreamSegmentInfo(storageSegment.getName(), TIMEOUT)
-                    .thenAccept(e -> {
-                        if (segmentLength != e.getLength() || isSealed != e.isSealed()) {
-                            container.deleteStreamSegment(segmentName, TIMEOUT).join();
-                            container.registerExistingSegment(segmentName, segmentLength, isSealed).join();
-                        }
-                    });
-
-            Futures.exceptionallyComposeExpecting(streamSegmentInfo, ex -> Exceptions.unwrap(ex) instanceof StreamSegmentNotExistsException,
-                    () -> container.registerExistingSegment(segmentName, segmentLength, isSealed)).join();
-        }
-    }
-
-    /**
-     * Deletes container-metadata segment and attribute segment of the container with given container Id.
-     * @param storage       Long term storage to delete the segments from.
-     * @param containerId   Id of the container for which the segments has to be deleted.
-     */
-    private static void deleteContainerMetadataSegments(Storage storage, int containerId) {
-        String metadataSegmentName = getMetadataSegmentName(containerId);
-        deleteSegment(storage, metadataSegmentName);
-        String attributeSegmentName = NameUtils.getAttributeSegmentName(metadataSegmentName);
-        deleteSegment(storage, attributeSegmentName);
-    }
-
-    /**
-     * Deletes the segment with given segment name from the given long term storage.
-     * @param storage       Long term storage to delete the segment from.
-     * @param segmentName   Name of the segment to be deleted.
-     */
-    private static void deleteSegment(Storage storage, String segmentName) {
-        try {
-            SegmentHandle segmentHandle = storage.openWrite(segmentName).join();
-            storage.delete(segmentHandle, TIMEOUT).join();
-        } catch (Exception e) {
-            if (Exceptions.unwrap(e) instanceof StreamSegmentNotExistsException) {
-                log.info("Segment '{}' doesn't exist.", segmentName);
-            } else {
-                throw e;
-            }
-        }
     }
 }

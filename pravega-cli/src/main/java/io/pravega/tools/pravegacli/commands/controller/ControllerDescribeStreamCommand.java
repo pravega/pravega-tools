@@ -10,8 +10,10 @@
 package io.pravega.tools.pravegacli.commands.controller;
 
 import io.pravega.client.ClientConfig;
-import io.pravega.client.netty.impl.ConnectionFactory;
-import io.pravega.client.netty.impl.ConnectionFactoryImpl;
+import io.pravega.client.connection.impl.ConnectionFactory;
+import io.pravega.client.connection.impl.ConnectionPool;
+import io.pravega.client.connection.impl.ConnectionPoolImpl;
+import io.pravega.client.connection.impl.SocketConnectionFactoryImpl;
 import io.pravega.client.stream.StreamConfiguration;
 import io.pravega.client.stream.impl.DefaultCredentials;
 import io.pravega.controller.server.SegmentHelper;
@@ -41,7 +43,7 @@ import org.apache.curator.framework.CuratorFramework;
  * Gets a description of different characteristics related to a Stream (e.g., configuration, state, active txn).
  */
 public class ControllerDescribeStreamCommand extends ControllerCommand {
-
+    ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
     /**
      * Creates a new instance of the Command class.
      *
@@ -60,7 +62,6 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
         try {
             @Cleanup
             CuratorFramework zkClient = createZKClient();
-            ScheduledExecutorService executor = getCommandArgs().getState().getExecutor();
 
             // The Pravega Controller service may store metadata either at Zookeeper or the Segment Store service
             // (tables). We need to instantiate the correct type of metadata store object based on the cluster at hand.
@@ -132,7 +133,8 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                                                 .validateHostName(getCLIControllerConfig().isAuthEnabled())
                                                 .credentials(new DefaultCredentials(getCLIControllerConfig().getPassword(), getCLIControllerConfig().getUserName()))
                                                 .build();
-        ConnectionFactory connectionFactory = new ConnectionFactoryImpl(clientConfig);
-        return new SegmentHelper(connectionFactory, hostStore);
+        ConnectionFactory connectionFactory = new SocketConnectionFactoryImpl(clientConfig);
+        ConnectionPool connectionPool = new ConnectionPoolImpl(clientConfig, connectionFactory);
+        return new SegmentHelper(connectionPool, hostStore, executor);
     }
 }
