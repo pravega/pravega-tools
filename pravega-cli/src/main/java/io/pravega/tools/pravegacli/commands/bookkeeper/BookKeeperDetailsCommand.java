@@ -74,8 +74,8 @@ public class BookKeeperDetailsCommand extends BookKeeperCommand {
 
     private String getEnsembleDescription(org.apache.bookkeeper.client.api.LedgerMetadata bkLm) {
         return bkLm.getAllEnsembles().entrySet().stream()
-                .map(e -> String.format("%d: [%s]", e.getKey(), e.getValue().stream().map(Object::toString).collect(Collectors.joining(","))))
-                .collect(Collectors.joining(","));
+                   .map(e -> String.format("%d: [%s]", e.getKey(), e.getValue().stream().map(Object::toString).collect(Collectors.joining(","))))
+                   .collect(Collectors.joining(","));
     }
 
     public static CommandDescriptor descriptor() {

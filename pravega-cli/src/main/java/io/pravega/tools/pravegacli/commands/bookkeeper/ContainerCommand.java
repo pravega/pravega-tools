@@ -41,8 +41,8 @@ abstract class ContainerCommand extends BookKeeperCommand {
         val serviceConfig = getServiceConfig();
         val containerConfig = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
-                .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, serviceConfig.getZkURL()))
-                .build().getConfig(BookKeeperConfig::builder);
+                                       .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, serviceConfig.getZkURL()))
+                                       .build().getConfig(BookKeeperConfig::builder);
         val zkClient = createZKClient();
         val factory = new BookKeeperLogFactory(bkConfig, zkClient, getCommandArgs().getState().getExecutor());
         try {

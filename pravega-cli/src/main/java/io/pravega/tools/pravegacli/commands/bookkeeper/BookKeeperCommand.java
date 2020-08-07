@@ -57,8 +57,8 @@ abstract class BookKeeperCommand extends Command {
     protected Context createContext() throws DurableDataLogException {
         val serviceConfig = getServiceConfig();
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
-                .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, serviceConfig.getZkURL()))
-                .build().getConfig(BookKeeperConfig::builder);
+                                       .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, serviceConfig.getZkURL()))
+                                       .build().getConfig(BookKeeperConfig::builder);
         val zkClient = createZKClient();
         val factory = new BookKeeperLogFactory(bkConfig, zkClient, getCommandArgs().getState().getExecutor());
         try {

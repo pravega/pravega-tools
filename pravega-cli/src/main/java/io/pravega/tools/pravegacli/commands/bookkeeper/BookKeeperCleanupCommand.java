@@ -67,8 +67,8 @@ public class BookKeeperCleanupCommand extends BookKeeperCommand {
 
         // Determine deletion candidates.
         val deletionCandidates = allLedgerIds.stream()
-                .filter(id -> id < highestReferencedLedgerId.get() && !referencedLedgerIds.contains(id))
-                .collect(Collectors.toList());
+                                             .filter(id -> id < highestReferencedLedgerId.get() && !referencedLedgerIds.contains(id))
+                                             .collect(Collectors.toList());
         output("\nTotal Count: %d, Referenced Count: %d, Highest Referenced Id: %s, To Delete Count: %d.",
                 allLedgerIds.size(), referencedLedgerIds.size(), highestReferencedLedgerId, deletionCandidates.size());
         if (deletionCandidates.isEmpty()) {

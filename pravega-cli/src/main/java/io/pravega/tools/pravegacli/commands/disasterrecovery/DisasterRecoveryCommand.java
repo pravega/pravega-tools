@@ -179,7 +179,6 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             String metadataSegmentName = getMetadataSegmentName(containerId);
             waitForSegmentsInStorage(Collections.singleton(metadataSegmentName), debugStreamSegmentContainerMap.get(containerId), storage)
                     .get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            System.out.println("Long term storage has been update with a new container metadata segment for container Id: " + containerId);
 
             // Stop the debug segment container
             Services.stopAsync(debugStreamSegmentContainerMap.get(containerId), executorService).join();
@@ -212,7 +211,6 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         ArrayList<CompletableFuture<Void>> segmentsCompletion = new ArrayList<>();
         for (String segmentName : segmentNames) {
             SegmentProperties sp = container.getStreamSegmentInfo(segmentName, TIMEOUT).join();
-            System.out.println("Segment properties = " + sp);
             segmentsCompletion.add(waitForSegmentInStorage(sp, storage));
         }
 
