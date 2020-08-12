@@ -160,6 +160,10 @@ public abstract class Command {
         Preconditions.checkArgument(this.commandArgs.getArgs().size() == expectedCount, "Incorrect argument count.");
     }
 
+    protected int getArgCount() {
+        return this.commandArgs.getArgs().size();
+    }
+
     protected int getIntArg(int index) {
         return getArg(index, Integer::parseInt);
     }

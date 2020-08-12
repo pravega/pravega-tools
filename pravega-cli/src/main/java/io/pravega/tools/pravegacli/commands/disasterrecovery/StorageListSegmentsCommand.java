@@ -25,9 +25,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 @Slf4j
 public class StorageListSegmentsCommand extends Command {
@@ -35,6 +41,8 @@ public class StorageListSegmentsCommand extends Command {
     protected static final String APPEND_FORMAT = "Segment_%s_Append_%d";
     protected static final long DEFAULT_ROLLING_SIZE = (int) (APPEND_FORMAT.length() * 1.5);
     private SegmentToContainerMapper segToConMapper;
+    protected final Logger logger = Logger.getLogger("ListSegmentsLog");
+    private static final List<String> HEADER = Arrays.asList("Length", "Sealed Status", "Segment Name");
 
     public StorageListSegmentsCommand(CommandArgs args) {
         super(args);
@@ -43,8 +51,23 @@ public class StorageListSegmentsCommand extends Command {
 
     @Override
     public void execute() throws Exception {
+        FileHandler fh;
+        fh = new FileHandler("ListSegmentsLog" + System.currentTimeMillis() + ".log");
+        logger.addHandler(fh);
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+
         ensureArgCount(1);
         String mountPath = getCommandArgs().getArgs().get(0);
+        logging("Mount path of LTS is " + mountPath, Level.INFO);
+
+        String filePath = System.getProperty("user.dir") + File.pathSeparator + "segments";
+
+        if (getArgCount() >= 2) {
+            filePath = getCommandArgs().getArgs().get(1);
+        }
+        logging("Segments' information files are stored in " + filePath, Level.INFO);
+
         FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
                 .with(FileSystemStorageConfig.ROOT, mountPath)
                 .build();
@@ -54,48 +77,67 @@ public class StorageListSegmentsCommand extends Command {
         @Cleanup
         Storage storage = new AsyncStorageWrapper(new RollingStorage(new FileSystemStorage(fsConfig), new
                 SegmentRollingPolicy(DEFAULT_ROLLING_SIZE)), scheduledExecutorService);
+        logging(getServiceConfig().getStorageImplementation().toString() + "Storage initialized", Level.FINER);
 
         int containerCount = segToConMapper.getTotalContainerCount();
+        logging("Container Count = " + containerCount, Level.INFO);
 
         // Create a directory for storing files for each container.
-        String logsDirectory = System.getProperty("user.dir") + File.pathSeparator + "segments";
-        File dir = new File(logsDirectory);
+        File dir = new File(filePath);
         if (!dir.exists()) dir.mkdirs();
 
         // Create a file for each container.
-        FileWriter[] writers = new FileWriter[containerCount];
+        FileWriter[] csvWriters = new FileWriter[containerCount];
         for (int containerId=0; containerId < containerCount; containerId++) {
-            File f = new File(dir, "Container" + containerId);
-            if(f.exists() && !f.delete()){
-                System.err.println("Failed to delete "+ f.getAbsolutePath());
-                return;
+            File f = new File(dir, "Container_" + containerId + "_" + System.currentTimeMillis() + ".csv");
+            if(f.exists()){
+                logging("File already exists " + f.getAbsolutePath(), Level.WARNING);
+                if(!f.delete()) {
+                    logging("Failed to delete file " + f.getAbsolutePath(), Level.SEVERE);
+                    return;
+                }
             }
             if(!f.createNewFile()){
-                System.err.println("Failed to create "+ f.getAbsolutePath());
+                logging("Failed to create " + f.getAbsolutePath(), Level.SEVERE);
                 return;
             }
-            writers[containerId] = new FileWriter(f.getName());
+            csvWriters[containerId] = new FileWriter(f.getName());
+            logging("Created file " + f.getAbsolutePath(), Level.INFO);
+            csvWriters[containerId].append(String.join(",", HEADER));
+            csvWriters[containerId].append("\n");
         }
 
-        System.out.println("Generating container files with the segments they own...");
-        Iterator<SegmentProperties> it = storage.listSegments();
-        while(it.hasNext()) {
-            SegmentProperties currentSegment = it.next();
+        // Gets total segments listed.
+        int segmentCount = 0;
+
+        logging("Writing segments' details onto the files...", Level.INFO);
+        Iterator<SegmentProperties> segmentIterator = storage.listSegments();
+        while(segmentIterator.hasNext()) {
+            segmentCount++;
+            SegmentProperties currentSegment = segmentIterator.next();
             int containerId = segToConMapper.getContainerId(currentSegment.getName());
-            System.out.println("Segment Name: " + currentSegment.getName() + "\t" + " Sealed status: " + currentSegment.isSealed() +
-                    "\t" + " Length: " + currentSegment.getLength());
-            writers[containerId].write(currentSegment.getLength() + "\t" + currentSegment.isSealed() + "\t" + currentSegment.getName()
-                    + "\n");
+            logging(containerId + "\t" + currentSegment.isSealed() + "\t" + currentSegment.getLength() + "\t" +
+                    currentSegment.getName(), Level.FINE);
+            csvWriters[containerId].append(currentSegment.isSealed() + "," + currentSegment.getLength() + "," +
+                    currentSegment.getName() + "\n");
         }
+
+        logging("Flushing data and closing the files...", Level.FINE);
         for (int containerId=0; containerId < containerCount; containerId++) {
-            writers[containerId].close();
+            csvWriters[containerId].flush();
+            csvWriters[containerId].close();
         }
-        System.out.println("Done!");
+        logging("Done listing the segments!", Level.INFO);
     }
 
     public static CommandDescriptor descriptor() {
         final String component = "storage";
         return new CommandDescriptor(component, "list-segments", "lists segments from tier-2 and displays their name, length, sealed status",
                 new ArgDescriptor("root", "mount path"));
+    }
+
+    public void logging(String stringToLog, Level level) {
+        System.out.println(stringToLog);
+        logger.log(level, stringToLog);
     }
 }
