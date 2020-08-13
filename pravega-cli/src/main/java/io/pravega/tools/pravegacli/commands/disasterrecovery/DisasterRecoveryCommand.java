@@ -56,9 +56,11 @@ import io.pravega.storage.filesystem.FileSystemStorageFactory;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import lombok.Cleanup;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -70,6 +72,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.FileHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 
 import static io.pravega.shared.NameUtils.getMetadataSegmentName;
 import static io.pravega.tools.pravegacli.commands.disasterrecovery.StorageListSegmentsCommand.DEFAULT_ROLLING_SIZE;
@@ -109,32 +115,51 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             .with(WriterConfig.MIN_READ_TIMEOUT_MILLIS, 10L)
             .with(WriterConfig.MAX_READ_TIMEOUT_MILLIS, 250L)
             .build();
+    protected static final Logger LOGGER = Logger.getLogger("DisasterRecoveryLog");
 
     ScheduledExecutorService executorService = ExecutorServiceHelpers.newScheduledThreadPool(100, "recoveryProcessor");
 
+    @SneakyThrows
     public DisasterRecoveryCommand(CommandArgs args) {
         super(args);
+
+        FileHandler fh;
+        fh = new FileHandler("DisasterRecoveryLog" + System.currentTimeMillis() + ".log");
+        LOGGER.addHandler(fh);
+        SimpleFormatter formatter = new SimpleFormatter();
+        fh.setFormatter(formatter);
+
         ensureArgCount(1);
         root = getCommandArgs().getArgs().get(0);
-        if(!root.endsWith("/"))
+        if(!root.endsWith("/")) {
             root += "/";
+        }
+        LOGGER.log(Level.INFO, "Mount path of LTS is " + root);
 
         val config = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
+        LOGGER.log(Level.INFO, "Container config: " + config);
+
         //TODO: which storageFactory to instantiate?
         FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
                 .with(FileSystemStorageConfig.ROOT, getCommandArgs().getArgs().get(0))
                 .build();
+        LOGGER.log(Level.FINE, "Storage config: ", fsConfig);
         this.storageFactory = new FileSystemStorageFactory(fsConfig, executorService);
+        LOGGER.log(Level.FINE, getServiceConfig().getStorageImplementation().toString() + "Storage factory initialized");
+
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
                 .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, getServiceConfig().getZkURL()))
                 .build().getConfig(BookKeeperConfig::builder);
+        LOGGER.log(Level.FINE, "BookKeeper config: ", bkConfig);
 
         val zkClient = createZKClient();
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
         try {
             this.dataLogFactory.initialize();
+            LOGGER.log(Level.FINE, "BookKeeper Log factory initialized.");
         } catch (DurableDataLogException e) {
             e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "Error initialising BookKeeper Log Factory.");
         }
         this.operationLogFactory = new DurableLogFactory(DEFAULT_DURABLE_LOG_CONFIG, dataLogFactory, executorService);
         this.cacheStorage = new DirectMemoryCache(Integer.MAX_VALUE);
@@ -145,6 +170,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         this.containerFactory = new StreamSegmentContainerFactory(config, this.operationLogFactory,
                 this.readIndexFactory, this.attributeIndexFactory, this.writerFactory, this.storageFactory,
                 this::createContainerExtensions, executorService);
+        LOGGER.log(Level.INFO, "Starting recovery...");
     }
 
     public void execute() throws Exception {
@@ -157,21 +183,23 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
 
         Map<Integer, DebugStreamSegmentContainer> debugStreamSegmentContainerMap = new HashMap<>();
 
-        System.out.println("Starting all debug segment containers...");
+        LOGGER.log(Level.INFO, "Starting all debug segment containers...");
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             // Start a debug segment container with given id and recover all segments belonging to that container
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer)
                     containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService).join();
             debugStreamSegmentContainerMap.put(containerId, debugStreamSegmentContainer);
-            System.out.println("Debug Segment container " + containerId + " started.");
+            LOGGER.log(Level.INFO, "Debug Segment container " + containerId + " started.");
 
             // Delete container metadata segment and attributes index segment corresponding to the container Id from the long term storage
             SegmentsRecovery.deleteContainerMetadataSegments(storage, containerId);
-            System.out.println("Container metadata segment and attributes index segment deleted for container Id = " + containerId);
+            LOGGER.log(Level.INFO, "Container metadata segment and attributes index segment deleted for container Id = " +
+                    containerId, Level.INFO);
         }
 
         // List segments and recover them
+        LOGGER.log(Level.INFO, "Recovering all segments...");
         SegmentsRecovery.recoverAllSegments(storage, debugStreamSegmentContainerMap, executorService);
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
@@ -179,12 +207,14 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             String metadataSegmentName = getMetadataSegmentName(containerId);
             waitForSegmentsInStorage(Collections.singleton(metadataSegmentName), debugStreamSegmentContainerMap.get(containerId), storage)
                     .get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+            LOGGER.log(Level.INFO, metadataSegmentName + "flushed to the Long-Term Storage.");
 
             // Stop the debug segment container
             Services.stopAsync(debugStreamSegmentContainerMap.get(containerId), executorService).join();
             debugStreamSegmentContainerMap.get(containerId).close();
-            System.out.println("Segments have been recovered for container Id: " + containerId);
+            LOGGER.log(Level.INFO, "Stopping debug segment container with Id: " + containerId);
         }
+        LOGGER.log(Level.INFO, "Recovery Done!", Level.INFO);
     }
 
     private Map<Class<? extends SegmentContainerExtension>, SegmentContainerExtension> createContainerExtensions(
