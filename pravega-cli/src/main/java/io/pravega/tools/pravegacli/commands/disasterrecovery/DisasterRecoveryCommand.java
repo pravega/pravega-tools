@@ -137,20 +137,17 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         LOGGER.log(Level.INFO, "Mount path of LTS is " + root);
 
         val config = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
-        LOGGER.log(Level.INFO, "Container config: " + config);
 
         //TODO: which storageFactory to instantiate?
         FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
                 .with(FileSystemStorageConfig.ROOT, getCommandArgs().getArgs().get(0))
                 .build();
-        LOGGER.log(Level.FINE, "Storage config: ", fsConfig);
         this.storageFactory = new FileSystemStorageFactory(fsConfig, executorService);
         LOGGER.log(Level.FINE, getServiceConfig().getStorageImplementation().toString() + "Storage factory initialized");
 
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
                 .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, getServiceConfig().getZkURL()))
                 .build().getConfig(BookKeeperConfig::builder);
-        LOGGER.log(Level.FINE, "BookKeeper config: ", bkConfig);
 
         val zkClient = createZKClient();
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
@@ -195,7 +192,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             // Delete container metadata segment and attributes index segment corresponding to the container Id from the long term storage
             SegmentsRecovery.deleteContainerMetadataSegments(storage, containerId);
             LOGGER.log(Level.INFO, "Container metadata segment and attributes index segment deleted for container Id = " +
-                    containerId, Level.INFO);
+                    containerId);
         }
 
         // List segments and recover them
@@ -214,7 +211,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             debugStreamSegmentContainerMap.get(containerId).close();
             LOGGER.log(Level.INFO, "Stopping debug segment container with Id: " + containerId);
         }
-        LOGGER.log(Level.INFO, "Recovery Done!", Level.INFO);
+        LOGGER.log(Level.INFO, "Recovery Done!");
     }
 
     private Map<Class<? extends SegmentContainerExtension>, SegmentContainerExtension> createContainerExtensions(
