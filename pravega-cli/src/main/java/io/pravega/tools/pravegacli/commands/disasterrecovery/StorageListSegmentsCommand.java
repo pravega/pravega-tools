@@ -138,7 +138,7 @@ public class StorageListSegmentsCommand extends Command {
             csvWriters[containerId].flush();
             csvWriters[containerId].close();
         }
-        LOGGER.log(Level.INFO, "Total number of segments found" + segmentsCount);
+        LOGGER.log(Level.INFO, "Total number of segments found : " + segmentsCount);
         LOGGER.log(Level.INFO, "Done listing the segments!");
     }
 
