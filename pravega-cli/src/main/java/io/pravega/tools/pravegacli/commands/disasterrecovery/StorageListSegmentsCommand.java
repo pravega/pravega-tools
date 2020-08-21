@@ -26,12 +26,16 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
@@ -41,7 +45,17 @@ public class StorageListSegmentsCommand extends Command {
     protected static final String APPEND_FORMAT = "Segment_%s_Append_%d";
     protected static final long DEFAULT_ROLLING_SIZE = (int) (APPEND_FORMAT.length() * 1.5);
     private SegmentToContainerMapper segToConMapper;
-    protected static final Logger LOGGER = Logger.getLogger("ListSegmentsLog");
+    protected static final Logger LOGGER = Logger.getLogger(StorageListSegmentsCommand.class.getName());
+//    static {
+////        String path = StorageListSegmentsCommand.class
+////                .getClassLoader()
+////                .getResource("/home/manish/deployment/pravega-tools/pravega-cli/src/main/resources/logging.properties")
+////                .getFile();
+//        System.setProperty("java.util.logging.config.file", "/home/manish/deployment/pravega-tools/pravega-cli/src/main/resources/logging.properties");
+////        System.setProperty("java.util.logging.SimpleFormatter.format",
+////                "[%1$tF %1$tT %1$tL] [%4$-7s] %5$s %n");
+//        LOGGER = Logger.getLogger(StorageListSegmentsCommand.class.getName());
+//    }
     private static final List<String> HEADER = Arrays.asList("Sealed Status", "Length", "Segment Name");
 
     public StorageListSegmentsCommand(CommandArgs args) {
@@ -51,16 +65,36 @@ public class StorageListSegmentsCommand extends Command {
 
     @Override
     public void execute() throws Exception {
-        FileHandler fh;
-        fh = new FileHandler("ListSegmentsLog" + System.currentTimeMillis() + ".log");
+        LOGGER.setUseParentHandlers(false);
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+
+        FileHandler fh = new FileHandler("ListSegmentsLog_" + timeStamp + ".log");
+        fh.setLevel(Level.FINEST);
+        DisasterRecoveryLogFormatter drFormatter = new DisasterRecoveryLogFormatter();
+        fh.setFormatter(drFormatter);
         LOGGER.addHandler(fh);
-        SimpleFormatter formatter = new SimpleFormatter();
-        fh.setFormatter(formatter);
+
+        ConsoleHandler ch = new ConsoleHandler();
+        ch.setLevel(Level.INFO);
+        LOGGER.setLevel(Level.ALL);
+        ch.setFormatter(new SimpleFormatter() {
+            private static final String format = "[%1$tF %1$tT] %3$s %n";
+
+            @Override
+            public synchronized String format(LogRecord lr) {
+                return String.format(format,
+                        new Date(lr.getMillis()),
+                        lr.getLevel().getLocalizedName(),
+                        lr.getMessage()
+                );
+            }
+        });
+        LOGGER.addHandler(ch);
+
 
         ensureArgCount(1);
         String mountPath = getCommandArgs().getArgs().get(0);
         LOGGER.log(Level.INFO, "Mount path of LTS is " + mountPath);
-
         String filePath = System.getProperty("user.dir") + "/" + "Listed_segments_" + System.currentTimeMillis();
 
         if (getArgCount() >= 2) {
@@ -69,7 +103,6 @@ public class StorageListSegmentsCommand extends Command {
                 filePath.substring(0, filePath.length()-1);
             }
         }
-        LOGGER.log(Level.INFO, "Segments' information files are stored in " + filePath);
 
         FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
                 .with(FileSystemStorageConfig.ROOT, mountPath)
@@ -80,7 +113,7 @@ public class StorageListSegmentsCommand extends Command {
         @Cleanup
         Storage storage = new AsyncStorageWrapper(new RollingStorage(new FileSystemStorage(fsConfig), new
                 SegmentRollingPolicy(DEFAULT_ROLLING_SIZE)), scheduledExecutorService);
-        LOGGER.log(Level.FINER, getServiceConfig().getStorageImplementation().toString() + "Storage initialized");
+        LOGGER.log(Level.INFO, getServiceConfig().getStorageImplementation().toString() + " Storage initialized");
 
         int containerCount = segToConMapper.getTotalContainerCount();
         LOGGER.log(Level.INFO, "Container Count = " + containerCount);
@@ -96,7 +129,7 @@ public class StorageListSegmentsCommand extends Command {
         for (int containerId=0; containerId < containerCount; containerId++) {
             File f = new File(filePath + "/" + "Container_" + containerId + ".csv");
             if(f.exists()){
-                LOGGER.log(Level.INFO, "File already exists " + f.getAbsolutePath());
+                LOGGER.log(Level.FINE, "File already exists " + f.getAbsolutePath());
                 if(!f.delete()) {
                     LOGGER.log(Level.SEVERE, "Failed to delete file " + f.getAbsolutePath());
                     return;
@@ -107,7 +140,7 @@ public class StorageListSegmentsCommand extends Command {
                 return;
             }
             csvWriters[containerId] = new FileWriter(f.getName());
-            LOGGER.log(Level.INFO, "Created file " + f.getAbsolutePath(), Level.INFO);
+            LOGGER.log(Level.FINE, "Created file " + f.getPath(), Level.INFO);
             csvWriters[containerId].append(String.join(",", HEADER));
             csvWriters[containerId].append("\n");
         }
@@ -133,11 +166,13 @@ public class StorageListSegmentsCommand extends Command {
                     currentSegment.getName() + "\n");
         }
 
-        LOGGER.log(Level.INFO, "Flushing data and closing the files...");
+        LOGGER.log(Level.FINE, "Flushing data and closing the files...");
         for (int containerId=0; containerId < containerCount; containerId++) {
             csvWriters[containerId].flush();
             csvWriters[containerId].close();
         }
+        LOGGER.log(Level.INFO, "All non-shadow segments' details have been written to the files.");
+        LOGGER.log(Level.FINE, "Path to the directory of all files " + filePath);
         LOGGER.log(Level.INFO, "Total number of segments found : " + segmentsCount);
         LOGGER.log(Level.INFO, "Done listing the segments!");
     }
