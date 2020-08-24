@@ -61,10 +61,12 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.val;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -72,8 +74,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.ConsoleHandler;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
+import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
@@ -115,19 +119,38 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             .with(WriterConfig.MIN_READ_TIMEOUT_MILLIS, 10L)
             .with(WriterConfig.MAX_READ_TIMEOUT_MILLIS, 250L)
             .build();
-    protected static final Logger LOGGER = Logger.getLogger("DisasterRecoveryLog");
+    protected static final Logger LOGGER = Logger.getLogger(DisasterRecoveryCommand.class.getName());
 
     ScheduledExecutorService executorService = ExecutorServiceHelpers.newScheduledThreadPool(100, "recoveryProcessor");
 
     @SneakyThrows
     public DisasterRecoveryCommand(CommandArgs args) {
         super(args);
+        LOGGER.setUseParentHandlers(false);
+        String timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
 
-        FileHandler fh;
-        fh = new FileHandler("DisasterRecoveryLog" + System.currentTimeMillis() + ".log");
+        FileHandler fh = new FileHandler("DisasterRecoveryLog_" + timeStamp + ".log");
+        fh.setLevel(Level.FINEST);
+        DisasterRecoveryLogFormatter drFormatter = new DisasterRecoveryLogFormatter();
+        fh.setFormatter(drFormatter);
         LOGGER.addHandler(fh);
-        SimpleFormatter formatter = new SimpleFormatter();
-        fh.setFormatter(formatter);
+
+        ConsoleHandler ch = new ConsoleHandler();
+        ch.setLevel(Level.INFO);
+        LOGGER.setLevel(Level.ALL);
+        ch.setFormatter(new SimpleFormatter() {
+            private static final String format = "[%1$tF %1$tT] %3$s %n";
+
+            @Override
+            public synchronized String format(LogRecord lr) {
+                return String.format(format,
+                        new Date(lr.getMillis()),
+                        lr.getLevel().getLocalizedName(),
+                        lr.getMessage()
+                );
+            }
+        });
+        LOGGER.addHandler(ch);
 
         ensureArgCount(1);
         root = getCommandArgs().getArgs().get(0);
@@ -137,20 +160,17 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         LOGGER.log(Level.INFO, "Mount path of LTS is " + root);
 
         val config = getCommandArgs().getState().getConfigBuilder().build().getConfig(ContainerConfig::builder);
-        LOGGER.log(Level.INFO, "Container config: " + config);
 
         //TODO: which storageFactory to instantiate?
         FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
                 .with(FileSystemStorageConfig.ROOT, getCommandArgs().getArgs().get(0))
                 .build();
-        LOGGER.log(Level.FINE, "Storage config: ", fsConfig);
         this.storageFactory = new FileSystemStorageFactory(fsConfig, executorService);
-        LOGGER.log(Level.FINE, getServiceConfig().getStorageImplementation().toString() + "Storage factory initialized");
+        LOGGER.log(Level.INFO, getServiceConfig().getStorageImplementation().toString() + "Storage factory initialized.");
 
         val bkConfig = getCommandArgs().getState().getConfigBuilder()
                 .include(BookKeeperConfig.builder().with(BookKeeperConfig.ZK_ADDRESS, getServiceConfig().getZkURL()))
                 .build().getConfig(BookKeeperConfig::builder);
-        LOGGER.log(Level.FINE, "BookKeeper config: ", bkConfig);
 
         val zkClient = createZKClient();
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
@@ -170,10 +190,10 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         this.containerFactory = new StreamSegmentContainerFactory(config, this.operationLogFactory,
                 this.readIndexFactory, this.attributeIndexFactory, this.writerFactory, this.storageFactory,
                 this::createContainerExtensions, executorService);
-        LOGGER.log(Level.INFO, "Starting recovery...");
     }
 
     public void execute() throws Exception {
+        LOGGER.log(Level.INFO, "Starting recovery...");
         FileSystemStorageConfig fsConfig = FileSystemStorageConfig.builder()
                 .with(FileSystemStorageConfig.ROOT, root)
                 .build();
@@ -183,36 +203,37 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
 
         Map<Integer, DebugStreamSegmentContainer> debugStreamSegmentContainerMap = new HashMap<>();
 
-        LOGGER.log(Level.INFO, "Starting all debug segment containers...");
+        LOGGER.log(Level.FINE, "Starting all debug segment containers...");
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             // Start a debug segment container with given id and recover all segments belonging to that container
             DebugStreamSegmentContainer debugStreamSegmentContainer = (DebugStreamSegmentContainer)
                     containerFactory.createDebugStreamSegmentContainer(containerId);
             Services.startAsync(debugStreamSegmentContainer, executorService).join();
             debugStreamSegmentContainerMap.put(containerId, debugStreamSegmentContainer);
-            LOGGER.log(Level.INFO, "Debug Segment container " + containerId + " started.");
+            LOGGER.log(Level.FINE, "Debug Segment container " + containerId + " started.");
 
             // Delete container metadata segment and attributes index segment corresponding to the container Id from the long term storage
             SegmentsRecovery.deleteContainerMetadataSegments(storage, containerId);
-            LOGGER.log(Level.INFO, "Container metadata segment and attributes index segment deleted for container Id = " +
+            LOGGER.log(Level.FINE, "Container metadata segment and attributes index segment deleted for container Id = " +
                     containerId);
         }
 
         // List segments and recover them
         LOGGER.log(Level.INFO, "Recovering all segments...");
         SegmentsRecovery.recoverAllSegments(storage, debugStreamSegmentContainerMap, executorService);
+        LOGGER.log(Level.INFO, "All segments recovered.");
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             // Wait for metadata segment to be flushed to LTS
             String metadataSegmentName = getMetadataSegmentName(containerId);
             waitForSegmentsInStorage(Collections.singleton(metadataSegmentName), debugStreamSegmentContainerMap.get(containerId), storage)
                     .get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-            LOGGER.log(Level.INFO, metadataSegmentName + "flushed to the Long-Term Storage.");
+            LOGGER.log(Level.FINE, metadataSegmentName + " flushed to the Long-Term Storage.");
 
             // Stop the debug segment container
             Services.stopAsync(debugStreamSegmentContainerMap.get(containerId), executorService).join();
             debugStreamSegmentContainerMap.get(containerId).close();
-            LOGGER.log(Level.INFO, "Stopping debug segment container with Id: " + containerId);
+            LOGGER.log(Level.FINE, "Stopping debug segment container with Id: " + containerId);
         }
         LOGGER.log(Level.INFO, "Recovery Done!");
     }
