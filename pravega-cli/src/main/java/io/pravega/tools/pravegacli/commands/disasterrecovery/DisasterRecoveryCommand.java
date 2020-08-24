@@ -173,6 +173,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
                 .build().getConfig(BookKeeperConfig::builder);
 
         val zkClient = createZKClient();
+        LOGGER.log(Level.FINE, "Created a new zookeeper client to " + zkClient.getState().name());
         this.dataLogFactory = new BookKeeperLogFactory(bkConfig, zkClient, executorService);
         try {
             this.dataLogFactory.initialize();
@@ -226,6 +227,7 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
             // Wait for metadata segment to be flushed to LTS
             String metadataSegmentName = getMetadataSegmentName(containerId);
+            LOGGER.log(Level.FINE, "Waiting for metadata segment of container " + containerId + " to be flushed to the Long-Term storage.");
             waitForSegmentsInStorage(Collections.singleton(metadataSegmentName), debugStreamSegmentContainerMap.get(containerId), storage)
                     .get(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             LOGGER.log(Level.FINE, metadataSegmentName + " flushed to the Long-Term Storage.");
