@@ -46,16 +46,7 @@ public class StorageListSegmentsCommand extends Command {
     protected static final long DEFAULT_ROLLING_SIZE = (int) (APPEND_FORMAT.length() * 1.5);
     private SegmentToContainerMapper segToConMapper;
     protected static final Logger LOGGER = Logger.getLogger(StorageListSegmentsCommand.class.getName());
-//    static {
-////        String path = StorageListSegmentsCommand.class
-////                .getClassLoader()
-////                .getResource("/home/manish/deployment/pravega-tools/pravega-cli/src/main/resources/logging.properties")
-////                .getFile();
-//        System.setProperty("java.util.logging.config.file", "/home/manish/deployment/pravega-tools/pravega-cli/src/main/resources/logging.properties");
-////        System.setProperty("java.util.logging.SimpleFormatter.format",
-////                "[%1$tF %1$tT %1$tL] [%4$-7s] %5$s %n");
-//        LOGGER = Logger.getLogger(StorageListSegmentsCommand.class.getName());
-//    }
+
     private static final List<String> HEADER = Arrays.asList("Sealed Status", "Length", "Segment Name");
 
     public StorageListSegmentsCommand(CommandArgs args) {

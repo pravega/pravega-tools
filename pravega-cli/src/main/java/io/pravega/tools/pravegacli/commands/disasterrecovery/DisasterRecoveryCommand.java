@@ -27,8 +27,8 @@ import io.pravega.segmentstore.server.attributes.AttributeIndexConfig;
 import io.pravega.segmentstore.server.attributes.AttributeIndexFactory;
 import io.pravega.segmentstore.server.attributes.ContainerAttributeIndexFactoryImpl;
 import io.pravega.segmentstore.server.containers.ContainerConfig;
+import io.pravega.segmentstore.server.containers.ContainerRecoveryUtils;
 import io.pravega.segmentstore.server.containers.DebugStreamSegmentContainer;
-import io.pravega.segmentstore.server.containers.SegmentsRecovery;
 import io.pravega.segmentstore.server.containers.StreamSegmentContainerFactory;
 import io.pravega.segmentstore.server.logs.DurableLogConfig;
 import io.pravega.segmentstore.server.logs.DurableLogFactory;
@@ -214,14 +214,14 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             LOGGER.log(Level.FINE, "Debug Segment container " + containerId + " started.");
 
             // Delete container metadata segment and attributes index segment corresponding to the container Id from the long term storage
-            SegmentsRecovery.deleteContainerMetadataSegments(storage, containerId);
+            ContainerRecoveryUtils.deleteMetadataAndAttributeSegments(storage, containerId);
             LOGGER.log(Level.FINE, "Container metadata segment and attributes index segment deleted for container Id = " +
                     containerId);
         }
 
         // List segments and recover them
         LOGGER.log(Level.INFO, "Recovering all segments...");
-        SegmentsRecovery.recoverAllSegments(storage, debugStreamSegmentContainerMap, executorService);
+        ContainerRecoveryUtils.recoverAllSegments(storage, debugStreamSegmentContainerMap, executorService);
         LOGGER.log(Level.INFO, "All segments recovered.");
 
         for (int containerId = 0; containerId < getServiceConfig().getContainerCount(); containerId++) {
