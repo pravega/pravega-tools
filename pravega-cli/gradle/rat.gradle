@@ -28,6 +28,9 @@ rat {
             '**/*.lock',
             '**/*.json',
             '**/config/*jks*',
+            '**/resources/*jks*',
+            '**/resources/*.crt',
+            '**/resources/*.key',
             'CODE_OF_CONDUCT.md'
     ]
 }

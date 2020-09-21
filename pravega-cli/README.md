@@ -56,13 +56,20 @@ You will se an output related to the default configuration parameters available 
 (you may want to change this file according to your setting):
 ```
 Pravega CLI.
-   
+
 Initial configuration:
-       pravegaservice.zkURL=localhost:2181
-       bookkeeper.bkLedgerPath=/pravega/pravega-cluster/bookkeeper/ledgers
-       pravegaservice.containerCount=4
-       cli.controllerRestUri=http://localhost:9091
-       pravegaservice.clusterName=pravega-cluster
+	cli.tlsEnabled=false
+	cli.controllerRestUri=localhost:9091
+	cli.authEnabled=false
+	bookkeeper.bkLedgerPath=/pravega/pravega/bookkeeper/ledgers
+	cli.security.tls.trustStore.location=./conf/client.truststore.jks
+	pravegaservice.zkURL=localhost:4000
+	pravegaservice.clusterName=pravega
+	cli.metadataBackend=segmentstore
+	cli.controllerGrpcUri=localhost:9090
+	cli.userName=admin
+	cli.password=1111_aaaa
+	pravegaservice.containerCount=4
 ```
 From that point onwards, you can check the available commands typing `help`:
 ``` 

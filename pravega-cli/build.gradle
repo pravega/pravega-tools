@@ -67,6 +67,7 @@ dependencies {
     compile group: 'javax.ws.rs', name: 'javax.ws.rs-api', version: javaxwsrsApiVersion
     compile group: 'com.googlecode.json-simple', name: 'json-simple', version: jsonSimpleVersion
     compile group: 'com.google.code.gson', name: 'gson', version: gsonVersion
+    testCompile group: 'io.pravega', name: 'pravega-standalone', version: pravegaVersion
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile group: 'org.apache.bookkeeper', name: 'bookkeeper-common', version: bookKeeperVersion, classifier: 'tests'
     testCompile group: 'org.apache.bookkeeper', name: 'bookkeeper-server', version: bookKeeperVersion, classifier: 'tests'
@@ -103,6 +104,7 @@ distributions {
             into('conf') {
                 from(project.file('src/main/resources/logback.xml'))
                 from(project.file('src/main/resources/config.properties'))
+                from(project.file('src/main/resources/client.truststore.jks'))
             }
         }
     }

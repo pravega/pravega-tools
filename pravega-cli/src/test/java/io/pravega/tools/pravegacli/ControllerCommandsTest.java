@@ -37,9 +37,15 @@ public class ControllerCommandsTest {
         SETUP_UTILS.startAllServices();
         STATE.set(new AdminCommandState());
         Properties pravegaProperties = new Properties();
-        pravegaProperties.setProperty("cli.controllerRestUri", SETUP_UTILS.getControllerRestUri().toString());
+
+        // The uri returned by SETUP_UTILS is in the form http://localhost:9091 (protocol + domain + port)
+        // but for the CLI we need to set the REST uri as localhost:9091 (domain + port). Because the protocol
+        // is decided based on whether security is enabled or not.
+        pravegaProperties.setProperty("cli.controllerRestUri", SETUP_UTILS.getControllerRestUri().toString().substring(7));
         pravegaProperties.setProperty("pravegaservice.zkURL", "localhost:2181");
         pravegaProperties.setProperty("pravegaservice.containerCount", "4");
+        pravegaProperties.setProperty("cli.authEnabled", "false");
+        pravegaProperties.setProperty("cli.tlsEnabled", "false");
         STATE.get().getConfigBuilder().include(pravegaProperties);
     }
 
@@ -72,5 +78,11 @@ public class ControllerCommandsTest {
     public void testDescribeScopeCommand() throws Exception {
         String commandResult = TestUtils.executeCommand("controller describe-scope _system", STATE.get());
         Assert.assertTrue(commandResult.contains("_system"));
+    }
+
+    @Test
+    public void testDescribeReaderGroupCommand() throws Exception {
+        String commandResult = TestUtils.executeCommand("controller describe-readergroup _system scaleGroup", STATE.get());
+        Assert.assertTrue(commandResult.contains("scaleGroup"));
     }
 }

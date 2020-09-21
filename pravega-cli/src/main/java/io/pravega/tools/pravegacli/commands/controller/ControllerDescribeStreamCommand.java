@@ -9,6 +9,7 @@
  */
 package io.pravega.tools.pravegacli.commands.controller;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.pravega.client.ClientConfig;
 import io.pravega.client.connection.impl.ConnectionPool;
 import io.pravega.client.connection.impl.ConnectionPoolImpl;
@@ -29,9 +30,7 @@ import io.pravega.controller.util.Config;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
 import io.pravega.tools.pravegacli.commands.utils.CLIControllerConfig;
 import java.net.URI;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -71,7 +70,12 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                 store = StreamStoreFactory.createZKStore(zkClient, executor);
             } else {
                 segmentHelper = instantiateSegmentHelper(zkClient);
-                GrpcAuthHelper authHelper = GrpcAuthHelper.getDisabledAuthHelper();
+                GrpcAuthHelper authHelper;
+                if (getCLIControllerConfig().isAuthEnabled()) {
+                    authHelper = new GrpcAuthHelper(true, "secret", 300);
+                } else {
+                    authHelper = GrpcAuthHelper.getDisabledAuthHelper();
+                }
                 store = StreamStoreFactory.createPravegaTablesStore(segmentHelper, authHelper, zkClient, executor);
             }
 
@@ -112,6 +116,7 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
             }
         } catch (Exception e) {
             System.err.println("Exception accessing the metadata store: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -121,7 +126,8 @@ public class ControllerDescribeStreamCommand extends ControllerCommand {
                 new ArgDescriptor("stream-name", "Name of the Stream to describe."));
     }
 
-    private SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
+    @VisibleForTesting
+    protected SegmentHelper instantiateSegmentHelper(CuratorFramework zkClient) {
         HostMonitorConfig hostMonitorConfig = HostMonitorConfigImpl.builder()
                                                                    .hostMonitorEnabled(true)
                                                                    .hostMonitorMinRebalanceInterval(Config.CLUSTER_MIN_REBALANCE_INTERVAL)
