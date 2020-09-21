@@ -12,15 +12,27 @@ package io.pravega.tools.pravegacli.commands.controller;
 import io.pravega.controller.server.rest.generated.api.JacksonJsonProvider;
 import io.pravega.tools.pravegacli.commands.Command;
 import io.pravega.tools.pravegacli.commands.CommandArgs;
+
+import javax.net.ssl.HostnameVerifier;
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Invocation;
 import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.Response;
+
+import io.pravega.tools.pravegacli.commands.utils.ControllerHostnameVerifier;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.glassfish.jersey.client.ClientConfig;
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
@@ -49,7 +61,35 @@ public abstract class ControllerCommand extends Command {
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.register(JacksonJsonProvider.class);
         clientConfig.property("sun.net.http.allowRestrictedHeaders", "true");
-        Client client = ClientBuilder.newClient(clientConfig);
+
+        Client client;
+
+        // If tls parameters are configured, set them in client
+        if (getCLIControllerConfig().isTlsEnabled()) {
+            KeyStore ks = null;
+            try {
+                ks = KeyStore.getInstance("JKS");
+                ks.load(new FileInputStream(new File(getCLIControllerConfig().getTruststore())), null);
+            } catch (KeyStoreException e) {
+                output("The keystore file is invalid, the keystore type is not supported: " + e.toString());
+            } catch (IOException e) {
+                output("The keystore file is invalid, check if the file exists: " + e.toString());
+            } catch (NoSuchAlgorithmException e) {
+                output("The keystore file is invalid, the keystore file might be in the wrong format: " + e.toString());
+            } catch (CertificateException e) {
+                output("The keystore file is invalid, check if the certificates are valid: " + e.toString());
+            }
+
+            HostnameVerifier controllerHostnameVerifier = new ControllerHostnameVerifier();
+            client = ClientBuilder.newBuilder()
+                    .withConfig(clientConfig)
+                    .trustStore(ks)
+                    .hostnameVerifier(controllerHostnameVerifier)
+                    .build();
+        } else {
+            client = ClientBuilder.newClient(clientConfig);
+        }
+
         // If authorization parameters are configured, set them in the client.
         if (getCLIControllerConfig().isAuthEnabled()) {
             HttpAuthenticationFeature auth = HttpAuthenticationFeature.basic(getCLIControllerConfig().getUserName(),
