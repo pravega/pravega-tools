@@ -179,8 +179,8 @@ public class DisasterRecoveryCommand extends Command implements AutoCloseable {
             this.dataLogFactory.initialize();
             LOGGER.log(Level.FINE, "BookKeeper Log factory initialized.");
         } catch (DurableDataLogException e) {
-            e.printStackTrace();
             LOGGER.log(Level.SEVERE, "Error initialising BookKeeper Log Factory.");
+            e.printStackTrace();
         }
         this.operationLogFactory = new DurableLogFactory(DEFAULT_DURABLE_LOG_CONFIG, dataLogFactory, executorService);
         this.cacheStorage = new DirectMemoryCache(Integer.MAX_VALUE);
