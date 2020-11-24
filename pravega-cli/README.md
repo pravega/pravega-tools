@@ -7,9 +7,11 @@ You may obtain a copy of the License at
 
     http://www.apache.org/licenses/LICENSE-2.0
 -->
-# Pravega CLI
+# Pravega CLI (DEPRECATED IN THIS REPOSITORY)
 
-Pravega CLI is a tool for inspecting and exploring Pravega deployments.
+Pravega CLI is a tool for inspecting and exploring Pravega deployments. 
+**DEPRECATION WARNING**: _The Pravega CLI has been migrated to the Pravega core repo and this
+codebase is stale and will be eventually removed. To use Pravega CLI, please refer to https://github.com/pravega/pravega_. 
 
 ## Prerequisites
 

@@ -10,8 +10,9 @@ charge of the correct operation, deployment and troubleshooting of a Pravega clu
 
 At the moment, this repository provides the following tools:
 
-- Pravega CLI (administration): Command Line Interface for administrators to inspect, troubleshoot and repair
-Pravega clusters.
+- Pravega CLI (_deprecated in this repository_): Command Line Interface for administrators to inspect, troubleshoot and repair
+Pravega clusters. **DEPRECATION WARNING**: _The Pravega CLI has been migrated to the Pravega core repo and this
+codebase is stale and will be eventually removed. To use Pravega CLI, please refer to https://github.com/pravega/pravega_. 
 
 - Pravega log collection scripts: Set of scripts to easily collect logs from all instances in a Pravega cluster.
 We provide two scripts: one that collects the logs from the pods themselves, and another one that assumes the
