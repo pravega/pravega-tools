@@ -1,4 +1,4 @@
-#/usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Pravega K8 based log collection tool
 #
@@ -31,7 +31,7 @@ if [[ $i == *"po/"* ]] || [[ $i == *"pod/"* ]]; then
             kubectl -n `echo $i | awk '{print $1}'` logs `echo $i | awk '{print $2}'` -p > $output_dir/log_`echo $i | awk 'gsub(/\//,"_") {print $2}'`_previous.log
         fi
 # Collect recent logs from pod
-        kubectl -n `echo $i | awk '{print $1}'` logs `echo $i | awk '{print $2}'` > $output_dir/log_`echo $i | awk 'gsub(/\//,"_") {print $2}'`_recent.log
+        kubectl -n `echo $i | awk '{print $1}'` logs `echo $i | awk '{print $2}'` --all-containers > $output_dir/log_`echo $i | awk 'gsub(/\//,"_") {print $2}'`_recent.log
 # Detect if the pod have older logs due to logroate and collect all logs from that pod
         log_count=$(kubectl -n `echo $i | awk '{print $1}'` exec -it `echo $i |  awk '-F'[/] '{print $2}'|awk '{print $1}'` -- ls -l /opt/pravega/logs 2>/dev/null | wc -l || true)
         if [ $log_count -ge 2 ]; then  

@@ -1,4 +1,4 @@
-#/usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Pravega K8 based log collection tool
 #
